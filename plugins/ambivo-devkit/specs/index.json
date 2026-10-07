@@ -1,6 +1,6 @@
 {
-  "docs_commit": "56acf20",
-  "built_at": "2026-10-04",
+  "docs_commit": "ca16e3c",
+  "built_at": "2026-10-07",
   "specs": [
     {
       "id": "esign",
@@ -12,7 +12,7 @@
       "id": "procurement",
       "title": "Procurement",
       "file": "ambivo-procurement.openapi.yaml",
-      "operations": 69
+      "operations": 112
     },
     {
       "id": "inventory",
@@ -24,7 +24,7 @@
       "id": "books",
       "title": "Books & Accounting",
       "file": "ambivo-books.openapi.yaml",
-      "operations": 267
+      "operations": 271
     },
     {
       "id": "crm",
@@ -60,7 +60,7 @@
       "id": "workflows",
       "title": "Workflows",
       "file": "ambivo-workflows.openapi.yaml",
-      "operations": 64
+      "operations": 65
     },
     {
       "id": "custom-domains",
@@ -72,7 +72,7 @@
       "id": "custom-objects",
       "title": "Custom Objects",
       "file": "ambivo-custom-objects.openapi.yaml",
-      "operations": 30
+      "operations": 31
     },
     {
       "id": "testing-data",
@@ -96,13 +96,13 @@
       "id": "security-qa",
       "title": "Questionnaires & KnowledgeBase",
       "file": "ambivo-security-qa.openapi.yaml",
-      "operations": 100
+      "operations": 101
     },
     {
       "id": "workforce",
       "title": "Workforce",
       "file": "ambivo-workforce.openapi.yaml",
-      "operations": 99
+      "operations": 125
     },
     {
       "id": "assetbase",
