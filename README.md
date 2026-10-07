@@ -76,7 +76,7 @@ Copyright (c) 2026 Ambivo, Inc. All rights reserved.
 
 The kit is not open source. You may use and change it to build apps that use Ambivo, and include the
 starter files in those apps for your organization and your clients. You may not redistribute the kit itself
-or use it to build a competing product. It comes with no warranty, and Ambivo's liability is limited. The
+or use it to build a competing product. It is provided as is, with no warranty. You use it at your own risk, and Ambivo accepts no liability for it. The
 full terms are in [LICENSE](LICENSE). Third-party parts keep their own licenses: see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
