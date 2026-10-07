@@ -125,12 +125,13 @@ HTTP 403 with an empty body. **Then the record:** a person may act on a record t
 The app never creates its objects while someone is using it. A separate install step does it, run once
 per client tenant by that tenant's admin:
 
-- `src/install/app-objects.json`: every object the app needs, in creation order, plus an `app_version`,
+- `src/install/app-objects.json`: the `app_key` (the prefix of every object id, sent as `hosting_apps`), every
+  object the app needs, in creation order, plus an `app_version`,
   and `core_links`: for each object, the fields that hold an Ambivo record's id and which record. The
   install step does not send it; Dev Studio's data model diagram reads it.
 
   ```json
-  { "app_version": "1.0.0",
+  { "app_key": "lab", "app_version": "1.0.0",
     "objects": [ ... ],
     "core_links": { "lab_project": { "customer_account_id": "account", "lead_userid": "user" },
                     "lab_trial": { "stock_txn_ids": "inventory_txn" } } }
@@ -154,7 +155,7 @@ per client tenant by that tenant's admin:
 
 ## Before you say it is done
 
-- Every object has the app prefix, `hosting_apps` and `tags`.
+- Every object has the app prefix, `hosting_apps` and `tags`. `npm run ambivo:check` refuses an install step without them.
 - Each link has a chosen `on_delete`.
 - `data_access_dict` lets the app's users read, and `default_access_dict` matches who should see records.
 - `install.mjs` was run against the sandbox tenant twice, and the second run changed nothing.

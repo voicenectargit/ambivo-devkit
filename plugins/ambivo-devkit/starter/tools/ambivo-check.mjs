@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
 // Check an Ambivo app against the rules its code depends on.
 //
-//   ambivo-check.mjs [project dir]     check every file under src/app; exit 1 on any error
+//   ambivo-check.mjs [project dir]     check src/app and src/install; exit 1 on any error
 //   ambivo-check.mjs --hook            Claude Code PostToolUse hook: check the file just written;
 //                                      exit 2 with the problems so the agent fixes them
 //
@@ -104,6 +104,59 @@ function checkFile(file) {
   return found;
 }
 
+// A standalone app's own data: src/install/app-objects.json and the install step that sends it.
+// hosting_apps is what marks an object as a standalone app's; schema_meta in a seeded app's format (key,
+// attributes) is what makes an object an app extension inside the CRM. An object is never both.
+const GENERATOR = /agent\/schema\/(?:generate|design-app)/;
+function checkInstall(root) {
+  const dir = join(root, 'src', 'install');
+  const out = [];
+  const add = (file, line, id, message) => out.push({ file, line, id, severity: 'error', message });
+  const objectsPath = join(dir, 'app-objects.json');
+  if (existsSync(objectsPath)) {
+    const text = readFileSync(objectsPath, 'utf8');
+    let doc;
+    try { doc = JSON.parse(text); } catch (e) {
+      add(objectsPath, 1, 'install-json', `app-objects.json is not valid JSON: ${e.message}`);
+      return out;
+    }
+    const key = doc.app_key;
+    if (typeof key !== 'string' || !/^[a-z][a-z0-9]{1,23}$/.test(key)) {
+      add(objectsPath, firstLine(text, /"app_key"/) || 1, 'install-app-key',
+        'Set "app_key" at the top of app-objects.json: 2 to 24 lowercase letters or digits. The install step sends it as hosting_apps on every object.');
+    }
+    for (const obj of Array.isArray(doc.objects) ? doc.objects : []) {
+      const id = String(obj?.collection_id ?? '');
+      const line = firstLine(text, new RegExp(`"collection_id"\\s*:\\s*"${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`)) || 1;
+      if (key && !id.startsWith(`${key}_`)) {
+        add(objectsPath, line, 'install-object-prefix', `${id || 'An object'} must start with "${key}_", the app key.`);
+      }
+      const apps = obj?.hosting_apps;
+      if (apps !== undefined && !(Array.isArray(apps) && apps.length === 1 && apps[0] === key)) {
+        add(objectsPath, line, 'install-hosting-apps', `${id}: hosting_apps must be ["${key}"], or left out so the install step adds it.`);
+      }
+      const meta = obj?.schema_meta;
+      if (meta && typeof meta === 'object' && ('key' in meta || 'attributes' in meta)) {
+        add(objectsPath, line, 'install-schema-meta',
+          `${id}: schema_meta holds a seeded app's object definition (key, attributes). That makes an app extension, not a standalone app's object. Leave those out.`);
+      }
+    }
+  }
+  const installPath = join(dir, 'install.mjs');
+  if (existsSync(installPath) && !/hosting_apps/.test(readFileSync(installPath, 'utf8'))) {
+    add(installPath, 1, 'install-sends-hosting-apps', 'install.mjs must send hosting_apps: [app_key] on every object it creates or updates.');
+  }
+  for (const f of existsSync(join(root, 'src')) ? walk(join(root, 'src')) : []) {
+    if (!/\.(m?js|ts)$/.test(f) || /\.spec\.ts$/.test(f) || f.includes(`${sep}ambivo${sep}`)) continue;
+    const t = readFileSync(f, 'utf8');
+    if (GENERATOR.test(t)) {
+      add(f, firstLine(t, GENERATOR), 'schema-generator',
+        "Don't call agent/schema/generate or design-app. They design app extensions for the CRM. A standalone app writes its own schema.");
+    }
+  }
+  return out;
+}
+
 function walk(dir, acc = []) {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name.startsWith('.')) continue;
@@ -143,9 +196,11 @@ if (process.argv[2] === '--hook') {
     const root = projectRoot(dirname(file));
     // Only app code: never the copied Ambivo files.
     if (!root) process.exit(0);
-    const own = resolve(file).startsWith(join(root, 'src', 'app')) || resolve(file) === join(root, 'src', 'styles.scss');
+    const inInstall = resolve(file).startsWith(join(root, 'src', 'install'));
+    const own = inInstall || resolve(file).startsWith(join(root, 'src', 'app')) || resolve(file) === join(root, 'src', 'styles.scss');
     if (!own) process.exit(0);
-    const errors = checkFile(resolve(file)).filter((p) => p.severity === 'error');
+    const errors = (inInstall ? checkInstall(root) : [...checkFile(resolve(file)), ...checkInstall(root).filter((p) => p.file === resolve(file))])
+      .filter((p) => p.severity === 'error');
     if (!errors.length) process.exit(0);
     console.error(`Ambivo check found problems in the file you just wrote:\n${report(errors, root)}`);
     process.exit(2);
@@ -158,7 +213,7 @@ if (process.argv[2] === '--hook') {
   }
   const files = walk(join(root, 'src', 'app'));
   if (existsSync(join(root, 'src', 'styles.scss'))) files.push(join(root, 'src', 'styles.scss'));
-  const problems = files.flatMap(checkFile);
+  const problems = [...files.flatMap(checkFile), ...checkInstall(root)];
   // Other UI libraries added as dependencies, even if not imported yet.
   const pkgPath = join(root, 'package.json');
   if (existsSync(pkgPath)) {
