@@ -65,7 +65,11 @@ Never use `/custom/module/*`: those older routes do not apply a custom object's 
 - Field names: letters, digits and `_`, not starting with `_id`. Types: `string`, `int`, `double`,
   `bool`, `date`, `objectId`, `object`, `array`.
 - Set `hosting_apps: ["<app key>"]` and `tags: ["<app key>"]` on every object the app creates, so the
-  app can find its own objects and nothing else.
+  app can find its own objects and nothing else. `hosting_apps` is also what marks the object as a standalone
+  app's object, not part of an Ambivo app such as the CRM.
+- Do not copy the output of `agent/schema/generate` into `schema_meta`, and never write the CRM's object format
+  there. `schema_meta` holds the definition of objects built *inside* the CRM. An object with `hosting_apps` is
+  never also a CRM object. `schema_meta` is yours to leave empty or to use for your own install notes.
 - Do not include the system fields (`userid`, `updated_by_userid`, `created_ts`, `updated_ts`,
   `access_dict`). The API adds them.
 
