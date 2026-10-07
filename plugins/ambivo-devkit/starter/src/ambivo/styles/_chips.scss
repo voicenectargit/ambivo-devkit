@@ -1,0 +1,25 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+.mat-mdc-chip {
+  --mat-chip-elevated-container-color: var(--color-bg-chip)!important;
+}
+// Fix chips within filled form field
+.mat-form-field-appearance-fill .mat-mdc-chip {
+  --mat-chip-elevated-container-color: var(--color-bg-chip-contrast)!important;
+}
+.mat-mdc-chip.cursor-pointer .mdc-evolution-chip__action {
+  cursor: pointer !important;
+}
+.mat-mdc-chip.text-truncate {
+  &,
+  .mdc-evolution-chip__cell,
+  .mat-mdc-chip-action {
+    overflow: hidden;
+  }
+  .mat-mdc-chip-action-label {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+}

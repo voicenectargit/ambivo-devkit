@@ -1,0 +1,9 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@mixin sticky-compatible-stepper {
+  .mat-stepper-horizontal.sticky-compatible {
+    .mat-horizontal-content-container,
+    .mat-horizontal-step-content {
+      overflow: clip;
+    }
+  }
+}

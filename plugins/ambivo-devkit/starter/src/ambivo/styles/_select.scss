@@ -1,0 +1,48 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+// Fix panel padding
+.mat-mdc-select-panel {
+  padding-block: 0 !important;
+  --mat-pseudo-checkbox-full-selected-icon-color: var(--color-primary);
+  --mat-pseudo-checkbox-minimal-selected-checkmark-color: var(--color-primary);
+}
+.mat-mdc-select-panel .select-header {
+  top: 0;
+  z-index: 999;
+  gap: 4px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  position: sticky;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--color-fg-divider);
+  background-color: var(--color-bg-card);
+  .select-search {
+    border-bottom: none;
+  }
+}
+.mat-mdc-select-panel .select-search {
+  top: 0;
+  z-index: 999;
+  display: block;
+  position: sticky;
+  padding-block: 4px;
+  border-bottom: 1px solid var(--color-fg-divider);
+  background-color: var(--color-bg-card);
+}
+.mat-mdc-select-panel .select-message {
+  color: var(--color-fg-muted);
+  text-align: center;
+  margin-block: 40px;
+}
+// Fix padding for multi line options
+.mat-mdc-option.mdc-list-item {
+  padding-block: 4px;
+}
+// Hidden select
+.select-hidden {
+  height: 0 !important;
+  width: 0 !important;
+  display: block;
+  overflow: hidden;
+  visibility: hidden;
+}

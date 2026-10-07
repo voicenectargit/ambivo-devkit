@@ -1,0 +1,29 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@import 'core/breakpoint';
+
+.card-row {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  gap: 4px;
+}
+.card-row-body {
+  width: 100%;
+  overflow: hidden;
+  @include breakpoint('gt-xs') {
+    display: flex;
+    overflow: hidden;
+    align-items: center;
+  }
+}
+.card-row-label {
+  flex: 1;
+  color: var(--color-fg-secondary-text);
+  @include breakpoint('xs') {
+    font-size: 12px;
+  }
+}
+.card-row-value {
+  font-size: 16px;
+  flex: 2;
+}

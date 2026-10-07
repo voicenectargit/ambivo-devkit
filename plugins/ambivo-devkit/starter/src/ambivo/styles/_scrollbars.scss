@@ -1,0 +1,18 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+body:not(.is-mobile) {
+  scrollbar-color: var(--scrollbar-fg) var(--scrollbar-bg);
+  scrollbar-width: thin;
+
+  ::-webkit-scrollbar {
+    width: var(--scrollbar-width);
+    height: var(--scrollbar-width);
+    background-color: var(--scrollbar-bg);
+  }
+  ::-webkit-scrollbar-track {
+    background-color: var(--scrollbar-bg);
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-fg);
+    border-radius: var(--scrollbar-width);
+  }
+}

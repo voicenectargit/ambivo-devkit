@@ -1,0 +1,491 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use '@angular/material' as mat;
+@use 'ambivo/styles/m3' as m3;
+@use 'ambivo/styles/utils';
+@use 'ambivo/styles/flex';
+@use 'ambivo/styles/inert';
+@use 'ambivo/styles/dense';
+@use 'ambivo/styles/icons';
+@use 'ambivo/styles/core/buttons' as btn;
+@use 'ambivo/styles/rich_text';
+@use 'ambivo/styles/m3/button_toggle';
+
+:root{
+  --color-success: #43a047;
+  --color-error: var(--mat-sys-error);
+}
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  font-size: 14px;
+  height: 100%;
+  margin: 0;
+}
+
+html {
+  color-scheme: light;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  &.dark-theme {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--mat-sys-surface-container);
+
+    &::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background-color: var(--mat-sys-surface);
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background-color: var(--mat-sys-surface-container-high);
+      border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: var(--mat-sys-surface-container-highest);
+    }
+  }
+
+  @include mat.elevation-classes();
+  @include m3.typography-hierarchy();
+  @include m3.am-layout();
+  @include mat.theme(
+      (
+        color: mat.$violet-palette,
+        typography: var(--am-font-family, Roboto),
+        density: -1,
+      )
+  );
+  @include mat.theme-overrides(
+      (
+        outline: var(--mat-sys-outline-variant),
+      )
+  );
+
+  @include m3.fallback();
+  @include m3.breadcrumbs();
+  @include m3.dialog();
+  @include m3.sticky-compatible-stepper();
+}
+
+a {
+  color: var(--mat-sys-primary);
+}
+
+.mat-mdc-form-field {
+  width: 100%;
+}
+
+.mat-mdc-form-field:has(.am-rich-editor) {
+  .mat-mdc-form-field-infix,
+  .mat-mdc-text-field-wrapper {
+    padding: 0;
+  }
+}
+
+.no-data-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 6px;
+  justify-content: center;
+  border: 1px dashed var(--mat-sys-outline);
+  color: var(--mat-sys-on-surface-variant);
+
+  &.large {
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+
+    p {
+      margin: 16px 0 8px;
+      font-weight: 500;
+    }
+
+    .mat-icon {
+      @include m3.iconSize(48);
+    }
+  }
+}
+
+.am-overlay-container {
+  background-color: var(--mat-sys-surface-container-high);
+  border-radius: 6px;
+  @include mat.elevation(2);
+}
+
+.text-truncate {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+
+:root {
+  /* Avatar overrides */
+  --avatar-bg-color: var(--mat-sys-surface-container-highest) !important;
+  --scrollbar-thumb-color: var(--mat-sys-surface-container-high);
+  --scrollbar-thumb-color-active: var(--mat-sys-surface-container-highest);
+
+  /* Card overrides */
+  //--mat-card-filled-container-color: var(--mat-sys-surface-container);
+}
+
+/* Scrollbar config */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-color-active);
+}
+
+::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+/* Hidden-scrollbar mode */
+.scrollbar-hidden:not(:is(:hover, :focus-within, :active))::-webkit-scrollbar-thumb {
+  --scrollbar-thumb-color: transparent;
+  --scrollbar-thumb-color-active: transparent;
+}
+
+/* Overlay Styles */
+.am-overlay-host-panel {
+  outline: none;
+  overflow-y: auto;
+  max-height: 100%;
+  color: var(--mat-sys-on-surface);
+  background: var(--mat-sys-surface-container);
+  @include mat.elevation(4);
+  @include mat.form-field-density(-3);
+  @include mat.form-field-overrides(
+      (
+        filled-container-shape: 0,
+      )
+  );
+}
+
+.surface {
+  background-color: var(--mat-sys-surface);
+}
+
+/* Dialog */
+html .am-dialog {
+  background-color: var(--mat-sys-surface);
+}
+
+/* Slide toggle */
+html.dark-theme {
+  @include mat.slide-toggle-overrides(
+      (
+        unselected-handle-color: var(--mat-sys-surface-container-low),
+      )
+  );
+}
+
+// Placeholder color
+:root {
+  --placeholder-color: color-mix(in srgb, var(--mat-sys-on-surface-variant) 60%, transparent);
+}
+
+@include mat.select-overrides(
+    (
+      placeholder-text-color: var(--placeholder-color),
+    )
+);
+@include mat.form-field-overrides(
+    (
+      filled-input-text-placeholder-color: var(--placeholder-color),
+    )
+);
+
+/* Attribute host */
+.attr-host {
+  all: unset;
+  display: flex;
+  padding: 8px;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+
+  &:not(:disabled):not(.readonly):not(.disabled) {
+    cursor: pointer;
+
+    &:focus,
+    &:hover {
+      background-color: var(--mat-sys-surface-container-high);
+    }
+  }
+}
+
+.text-secondary {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.text-disabled {
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.6;
+}
+
+// Fix chips overflow text
+.mdc-evolution-chip-set__chips {
+  max-width: 100% !important;
+}
+
+.mat-mdc-standard-chip .mdc-evolution-chip__cell--primary,
+.mat-mdc-standard-chip .mdc-evolution-chip__action--primary,
+.mat-mdc-standard-chip .mat-mdc-chip-action-label {
+  overflow: hidden !important;
+}
+
+// Select message
+.mat-mdc-select-panel .no-data-message,
+.mat-mdc-select-panel .select-message {
+  border: none;
+  padding-block: 24px;
+  text-align: center;
+}
+
+// Form fields
+.mat-mdc-form-field.plain-field,
+.plain-fields .mat-mdc-form-field {
+  width: 100%;
+
+  &:not(:hover):not(:focus-within):not(.mat-form-field-invalid) {
+    @include mat.form-field-overrides(
+        (
+          filled-active-indicator-color: var(--mat-sys-surface),
+          filled-container-color: var(--mat-sys-surface),
+          filled-caret-color: var(--mat-sys-surface),
+        )
+    );
+  }
+}
+
+// Hover/Focus state
+.hover-indicator {
+  cursor: pointer;
+  @include m3.state-layer();
+}
+
+.hover-indicator-high {
+  @include m3.state-layer(.16);
+}
+
+// Button label overflow fix
+.mdc-button .mdc-button__label {
+  overflow: hidden;
+}
+
+.mat-form-field-appearance-fill.rounded {
+  .mdc-text-field--filled {
+    border-bottom-right-radius: var(
+        --mat-form-field-filled-container-shape,
+        var(--mat-sys-corner-extra-small)
+    );
+    border-bottom-left-radius: var(
+        --mat-form-field-filled-container-shape,
+        var(--mat-sys-corner-extra-small)
+    );
+  }
+
+  @include mat.form-field-overrides(
+      (
+        filled-active-indicator-height: 0,
+        filled-focus-active-indicator-height: 0,
+        filled-active-indicator-color: transparent,
+        filled-focus-active-indicator-color: transparent,
+      )
+  );
+}
+
+.btn-sm {
+  @include btn.matIconButtonSize(28px, 20px);
+}
+
+.btn-xs {
+  @include btn.matIconButtonSize(24px, 14px);
+}
+
+// Select panel
+.mat-mdc-select-panel:has(.select-panel-header),
+.mat-mdc-select-panel:has(.select-search) {
+  padding: 0 !important;
+  position: relative;
+
+  .select-panel-header {
+    padding-inline: 6px;
+    display: flex;
+    align-items: center;
+    height: 48px;
+    border-bottom: 1px solid var(--mat-sys-outline);
+    background-color: var(--mat-sys-surface-container);
+    position: sticky !important;
+    z-index: 100;
+    top: 0;
+
+    @include m3.state-layer();
+
+    .am-search-input {
+      width: 100%;
+    }
+  }
+}
+
+.mat-mdc-select-panel .select-search {
+  top: 0;
+  z-index: 999;
+  display: block;
+  position: sticky;
+  padding-block: 4px;
+  border-bottom: 1px solid var(--mat-sys-outline);
+  background-color: var(--mat-sys-surface-container);
+}
+
+// Backdrop
+.cdk-overlay-dark-backdrop {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.dark-theme .cdk-overlay-dark-backdrop {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Color field */
+.color-field {
+  width: 270px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 6px;
+  gap: 12px;
+  border-radius: var(--layout-container-shape, 20px);
+  background-color: var(--mat-sys-surface-container-high);
+  margin-bottom: 24px;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--mat-sys-surface-container-highest);
+  }
+}
+
+// Mesh
+.dot-mesh {
+  --dot-size: 0.5px;
+  --dot-gap: 4px;
+  --dot-color: color-mix(in srgb, var(--mat-sys-outline) 50%, transparent);
+  background-image: radial-gradient(
+      circle,
+      var(--dot-color) var(--dot-size),
+      transparent calc(var(--dot-size) + 0.5px)
+  );
+  background-size: var(--dot-gap) var(--dot-gap);
+  background-position: 0 0;
+}
+
+// Line clamp
+.line-clamp-2 {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+// Hover/focus indication on mat table row
+.hoverable-row {
+  &:has([aria-expanded='true']),
+  &:focus-within .cdk-cell,
+  &:hover .cdk-cell {
+    background-color: light-dark(
+        color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent),
+        color-mix(in srgb, var(--mat-sys-on-surface) 16%, transparent)
+    );
+  }
+}
+
+// Fullscreen dialog
+.cdk-overlay-pane:has(.fullscreen) {
+  inset: 0;
+
+  .cdk-dialog-container {
+    overflow: hidden;
+    padding: 0;
+  }
+}
+
+// Overlay panel
+.am-overlay-panel {
+  display: block;
+  overflow: hidden;
+  position: relative;
+  border-radius: 6px;
+  outline: none !important;
+  color: var(--color-fg-text);
+  background-color: var(--color-bg-card);
+  @include mat.form-field-density(-2);
+  @include mat.elevation(3);
+
+  .mat-mdc-text-field-wrapper {
+    border-radius: 4px !important;
+  }
+}
+
+// Expression autocomplete (workflow condition node): widen the panel so token
+// paths aren't truncated, and stack each option as label over key (two lines).
+.expression-autocomplete-panel.mat-mdc-autocomplete-panel {
+  min-width: 280px;
+
+  .mat-mdc-option {
+    height: auto;
+    min-height: 44px;
+    align-items: flex-start;
+    padding-block: 6px;
+  }
+
+  .opt-label {
+    display: block;
+    line-height: 1.3;
+  }
+
+  .opt-key {
+    display: block;
+    font-size: 0.8em;
+    line-height: 1.2;
+    opacity: 0.6;
+  }
+}

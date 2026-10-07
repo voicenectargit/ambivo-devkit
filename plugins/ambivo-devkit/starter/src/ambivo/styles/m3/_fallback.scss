@@ -1,0 +1,116 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+/**
+ Backward compatibility
+ */
+@mixin fallback {
+  /* Background Colors */
+  --color-bg-card: var(--mat-sys-surface);
+  --color-bg-background: var(--mat-sys-surface);
+  --color-bg-surface: var(--mat-sys-surface-container-low);
+  --color-bg-surface-variant: var(--mat-sys-surface-variant);
+  --color-bg-hover: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+  --color-bg-focus: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent);
+  --color-bg-pressed: color-mix(in srgb, var(--mat-sys-on-surface) 16%, transparent);
+  --color-bg-disabled: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent);
+
+  /* Foreground / Text Colors */
+  --color-fg-primary: var(--mat-sys-on-surface);
+  --color-fg-secondary: var(--mat-sys-on-surface-variant);
+  --color-fg-disabled: color-mix(in srgb, var(--mat-sys-on-surface) 38%, transparent);
+  --color-fg-inverse: var(--mat-sys-inverse-on-surface);
+  --color-fg-divider: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent);
+  --color-fg-icon: var(--mat-sys-on-surface-variant);
+  --color-fg-text: var(--mat-sys-on-surface);
+  --color-fg-secondary-text: var(--mat-sys-on-surface-variant);
+
+  /* Border / Outline */
+  --color-border: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent);
+  --color-border-variant: var(--mat-sys-outline-variant);
+
+  /* State Layer */
+  --color-state-hover: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+  --color-state-focus: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent);
+  --color-state-pressed: color-mix(in srgb, var(--mat-sys-on-surface) 16%, transparent);
+  --color-state-disabled: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent);
+
+  /* Primary Theme Colors */
+  --color-primary: var(--mat-sys-primary);
+  --color-on-primary: var(--mat-sys-on-primary);
+  --color-primary-container: var(--mat-sys-primary-container);
+  --color-on-primary-container: var(--mat-sys-on-primary-container);
+  --color-primary-50: color-mix(in srgb, var(--mat-sys-primary) 12%, var(--mat-sys-background));
+  --color-primary-100: color-mix(in srgb, var(--mat-sys-primary) 24%, var(--mat-sys-background));
+  --color-primary-200: color-mix(in srgb, var(--mat-sys-primary) 36%, var(--mat-sys-background));
+  --color-primary-300: color-mix(in srgb, var(--mat-sys-primary) 48%, var(--mat-sys-background));
+  --color-primary-400: color-mix(in srgb, var(--mat-sys-primary) 60%, var(--mat-sys-background));
+  --color-primary-500: var(--mat-sys-primary); /* 500 is the base primary color */
+  --color-primary-600: color-mix(
+    in srgb,
+    var(--mat-sys-primary) 80%,
+    var(--mat-sys-neutral-variant20)
+  );
+  --color-primary-700: color-mix(in srgb, var(--mat-sys-primary) 70%, var(--mat-sys-neutral10));
+  --color-primary-800: color-mix(in srgb, var(--mat-sys-primary) 60%, var(--mat-sys-neutral10));
+  --color-primary-900: color-mix(in srgb, var(--mat-sys-primary) 50%, var(--mat-sys-neutral10));
+
+  /* Secondary Theme Colors */
+  --color-secondary: var(--mat-sys-secondary);
+  --color-on-secondary: var(--mat-sys-on-secondary);
+  --color-secondary-container: var(--mat-sys-secondary-container);
+  --color-on-secondary-container: var(--mat-sys-on-secondary-container);
+  --color-secondary-50: color-mix(in srgb, var(--mat-sys-secondary) 12%, var(--mat-sys-background));
+  --color-secondary-100: color-mix(
+    in srgb,
+    var(--mat-sys-secondary) 24%,
+    var(--mat-sys-background)
+  );
+  --color-secondary-200: color-mix(
+    in srgb,
+    var(--mat-sys-secondary) 36%,
+    var(--mat-sys-background)
+  );
+  --color-secondary-300: color-mix(
+    in srgb,
+    var(--mat-sys-secondary) 48%,
+    var(--mat-sys-background)
+  );
+  --color-secondary-400: color-mix(
+    in srgb,
+    var(--mat-sys-secondary) 60%,
+    var(--mat-sys-background)
+  );
+  --color-secondary-500: var(--mat-sys-secondary); /* 500 is the base secondary color */
+  --color-secondary-600: color-mix(
+    in srgb,
+    var(--mat-sys-secondary) 80%,
+    var(--mat-sys-neutral-variant20)
+  );
+  --color-secondary-700: color-mix(in srgb, var(--mat-sys-secondary) 70%, var(--mat-sys-neutral10));
+  --color-secondary-800: color-mix(in srgb, var(--mat-sys-secondary) 60%, var(--mat-sys-neutral10));
+  --color-secondary-900: color-mix(in srgb, var(--mat-sys-secondary) 50%, var(--mat-sys-neutral10));
+
+  /* Grey colors */
+  --color-grey-50: var(--mat-sys-surface-container-low);
+  --color-grey-100: var(--mat-sys-surface-container-high);
+  --color-grey-200: var(--mat-sys-surface-container-highest);
+
+  // Field
+  --field-height: 36px;
+  --field-padding: 4px;
+  --field-font-size: 16px;
+  --field-bg-color: transparent;
+  --field-fg-color: var(--color-fg-text);
+  --field-label-color: var(--color-fg-secondary-text);
+  --field-fill-bg-color: var(--color-grey-50);
+  --field-fill-fg-color: var(--color-fg-text);
+  --field-hovered-bg-color: var(--color-bg-hover);
+  --field-hovered-fg-color: var(--field-fg-color);
+  --field-focused-bg-color: var(--color-bg-form-field-focus);
+  --field-focused-fg-color: var(--color-fg-text);
+  --field-accent-color: var(--color-primary);
+  --field-placeholder-color: var(--mat-select-placeholder-text-color);
+  --field-border: none;
+  --field-radius: 4px;
+  --color-bg-form-field: var(--mat-sys-surface-container);
+  --color-bg-form-field-focus: var(--mat-sys-surface-container-high);
+}

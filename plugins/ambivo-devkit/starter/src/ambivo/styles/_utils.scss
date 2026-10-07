@@ -1,0 +1,357 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use 'sass:map';
+@import 'core/create_utils';
+@import 'core/breakpoint';
+
+$scales: (
+  0: 0,
+  4: 4px,
+  8: 8px,
+  12: 12px,
+  16: 16px,
+  20: 20px,
+  24: 24px,
+  28: 28px,
+  32: 32px,
+  36: 36px,
+  40: 40px,
+  44: 44px,
+  48: 48px,
+  52: 52px,
+  56: 56px,
+  60: 60px,
+);
+$utilities: (
+  'font-size': (
+    property: font-size,
+    class: fs,
+    values: (
+      10: 10px,
+      12: 12px,
+      14: 14px,
+      15: 15px,
+      16: 16px,
+      17: 17px,
+      18: 18px,
+      19: 19px,
+      20: 20px,
+    ),
+  ),
+  'flex': (
+    property: flex,
+    responsive: true,
+    class: fx,
+    values: 0 1 2 3 4 5,
+  ),
+  'flex direction': (
+    property: flex-direction,
+    responsive: true,
+    class: fx,
+    values: row column,
+  ),
+  'overflow': (
+    property: overflow,
+    class: overflow,
+    values: hidden scroll,
+  ),
+  'display': (
+    responsive: true,
+    property: display,
+    class: d,
+    values: inline block grid flex inline-flex none,
+  ),
+  'width': (
+    responsive: true,
+    property: width,
+    class: w,
+    values: (
+      25: 25%,
+      30: 30%,
+      50: 50%,
+      75: 75%,
+      100: 100%,
+      auto: auto,
+    ),
+  ),
+  'min width': (
+    responsive: true,
+    property: min-width,
+    class: mw,
+    values: (
+      25: 25%,
+      30: 30%,
+      50: 50%,
+      75: 75%,
+      100: 100%,
+      auto: auto,
+    ),
+  ),
+  'height': (
+    property: height,
+    class: h,
+    values: (
+      25: 25%,
+      50: 50%,
+      75: 75%,
+      100: 100%,
+      auto: auto,
+    ),
+  ),
+  'justify-content': (
+    responsive: true,
+    property: justify-content,
+    values: (
+      start: flex-start,
+      end: flex-end,
+      center: center,
+      between: space-between,
+      around: space-around,
+      evenly: space-evenly,
+    ),
+  ),
+  'align-items': (
+    responsive: true,
+    property: align-items,
+    values: (
+      start: flex-start,
+      end: flex-end,
+      center: center,
+      baseline: baseline,
+      stretch: stretch,
+    ),
+  ),
+  'align-content': (
+    responsive: true,
+    property: align-content,
+    values: (
+      start: flex-start,
+      end: flex-end,
+      center: center,
+      between: space-between,
+      around: space-around,
+      stretch: stretch,
+    ),
+  ),
+  'align-self': (
+    responsive: true,
+    property: align-self,
+    values: (
+      auto: auto,
+      start: flex-start,
+      end: flex-end,
+      center: center,
+      baseline: baseline,
+      stretch: stretch,
+    ),
+  ),
+  'margin': (
+    property: margin,
+    class: m,
+    values: map.merge(
+        $scales,
+        (
+          auto: auto,
+        )
+      ),
+  ),
+  'margin-x': (
+    property: margin-inline,
+    class: mx,
+    values: map-merge(
+        $scales,
+        (
+          auto: auto,
+        )
+      ),
+  ),
+  'margin-y': (
+    property: margin-block,
+    class: my,
+    values: map-merge(
+        $scales,
+        (
+          auto: auto,
+          60: 60px,
+          80: 80px,
+        )
+      ),
+  ),
+  'margin-top': (
+    property: margin-top,
+    class: mt,
+    values: map-merge(
+        $scales,
+        (
+          auto: auto,
+        )
+      ),
+  ),
+  'margin-right': (
+    property: margin-right,
+    class: mr,
+    values: map-merge(
+        $scales,
+        (
+          auto: auto,
+        )
+      ),
+  ),
+  'margin-bottom': (
+    property: margin-bottom,
+    class: mb,
+    values: map-merge(
+        $scales,
+        (
+          auto: auto,
+        )
+      ),
+  ),
+  'margin-left': (
+    property: margin-left,
+    class: ml,
+    values: map-merge(
+        $scales,
+        (
+          auto: auto,
+        )
+      ),
+  ),
+  'padding': (
+    property: padding,
+    class: p,
+    values: $scales,
+  ),
+  'padding-x': (
+    property: padding-inline,
+    class: px,
+    values: $scales,
+  ),
+  'padding-y': (
+    property: padding-block,
+    class: py,
+    values: $scales,
+  ),
+  'padding-top': (
+    property: padding-top,
+    class: pt,
+    values: $scales,
+  ),
+  'padding-right': (
+    property: padding-right,
+    class: pr,
+    values: $scales,
+  ),
+  'padding-bottom': (
+    property: padding-bottom,
+    class: pb,
+    values: $scales,
+  ),
+  'padding-left': (
+    property: padding-left,
+    class: pl,
+    values: $scales,
+  ),
+  'gap': (
+    resposnive: true,
+    property: gap,
+    class: gap,
+    values: $scales,
+  ),
+  'text-align': (
+    property: text-align,
+    class: text,
+    values: start end center,
+  ),
+  'text-decoration': (
+    property: text-decoration,
+    values: none underline line-through,
+  ),
+  'text-transform': (
+    property: text-transform,
+    class: text,
+    values: lowercase uppercase capitalize,
+  ),
+  'pointer-events': (
+    property: pointer-events,
+    class: pe,
+    values: none auto,
+  ),
+  'visibility': (
+    property: visibility,
+    values: (
+      visible: visible,
+      invisible: hidden,
+    ),
+  ),
+  'radius': (
+    property: border-radius,
+    class: radius,
+    values: $scales,
+  ),
+  'position': (
+    property: position,
+    class: position,
+    values: relative absolute,
+  ),
+  'flex-wrap': (
+    responsive: true,
+    property: flex-wrap,
+    class: fx,
+    values: wrap nowrap wrap-reverse,
+  ),
+  'cursor': (
+    property: cursor,
+    values: default pointer,
+  ),
+  'order': (
+    responsive: true,
+    property: order,
+    class: order,
+    values: 1 2 3,
+  ),
+  'z-index': (
+    property: z-index,
+    class: z,
+    values: 0 50 100 200 300 400 500,
+  ),
+);
+
+@each $key, $utility in $utilities {
+  @if type-of($utility) == 'map' {
+    @include create-utils($utility);
+  }
+}
+
+/**
+ * Responsive utility
+ */
+@each $bp-key, $bp-value in $helper-breakpoints {
+  @include breakpoint($bp-value) {
+    @each $key, $utility in $utilities {
+      @if type-of($utility) == 'map' and map-get($utility, responsive) {
+        @include create-utils($utility, $bp-key);
+      }
+    }
+  }
+}
+
+.fixed-top {
+  position: fixed !important;
+  z-index: 999;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+.border-top {
+  border-top: 1px solid var(--mat-sys-outline) !important;
+}
+.border-bottom {
+  border-bottom: 1px solid var(--mat-sys-outline) !important;
+}
+.border-left {
+  border-left: 1px solid var(--mat-sys-outline) !important;
+}
+.border-right {
+  border-right: 1px solid var(--mat-sys-outline) !important;
+}

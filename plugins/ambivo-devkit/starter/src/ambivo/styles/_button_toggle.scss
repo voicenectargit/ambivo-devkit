@@ -1,0 +1,16 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+/* Rounded button toggle */
+.mat-button-toggle-group.rounded,
+.mat-button-toggle-group.rounded .mat-button-toggle {
+  border: none !important;
+  border-radius: var(--mat-button-toggle-height);
+}
+
+/* High contrast button toggle */
+.mat-button-toggle-group.contrast {
+  background-color: var(--color-grey-900);
+  --mat-button-toggle-text-color: var(--color-grey-contrast);
+  --mat-button-toggle-background-color: var(--color-grey-900);
+  --mat-button-toggle-selected-state-text-color: var(--color-fg-text-contrast);
+  --mat-button-toggle-selected-state-background-color: var(--color-grey-contrast);
+}

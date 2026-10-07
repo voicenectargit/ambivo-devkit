@@ -1,0 +1,169 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use '@angular/material' as mat;
+
+@mixin dialog {
+  // Dialog progress
+  .dialog-progress,
+  .mat-dialog-progress {
+    position: absolute !important;
+    height: 6px !important;
+    z-index: 100;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+
+  // Hidden dialog
+  .hidden-dialog,
+  .dialog-hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .am-dialog {
+    opacity: 1;
+    display: block;
+    overflow: hidden;
+    border-radius: 12px;
+    outline: none !important;
+    position: relative !important;
+    color: var(--mat-sys-on-surface);
+    background-color: var(--mat-sys-surface-container);
+    animation: appear 120ms cubic-bezier(0, 0, 0.2, 1);
+    transition: opacity 120ms ease-in-out,
+    width 120ms ease-in-out,
+    height 120ms ease-in-out;
+
+    @include mat.elevation(8);
+    @media (max-width: 500px) {
+      width: 100% !important;
+      border-radius: 0 !important;
+    }
+  }
+
+  @keyframes appear {
+    0% {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  .am-dialog-header {
+    display: flex;
+    padding: 12px 20px 0 20px;
+    align-items: center;
+    gap: 4px;
+
+    &:has(.am-dialog-close) {
+      padding-right: 8px;
+
+      .am-dialog-title {
+        flex: 1;
+      }
+    }
+
+    &.am-dialog-header-align-start {
+      justify-content: flex-start;
+    }
+
+    &.am-dialog-header-align-center {
+      justify-content: center;
+    }
+
+    &.am-dialog-header-align-end {
+      justify-content: flex-end;
+    }
+  }
+  .am-dialog-title {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.3;
+    color: var(--mat-sys-on-surface);
+  }
+  .am-dialog-title--lg {
+    font-size: 34px;
+  }
+  .am-dialog-title--md {
+    font-size: 24px;
+  }
+  .am-dialog-header:has(.am-dialog-title--lg) {
+    padding-top: 20px;
+  }
+  .am-dialog-header:has(.am-dialog-title--md) {
+    padding-top: 20px;
+  }
+  .am-dialog-content {
+    display: block;
+    padding: 12px 20px;
+    overflow-y: auto;
+    max-height: 80vh;
+  }
+  .am-dialog-actions {
+    gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 12px 20px;
+
+    &.am-dialog-actions--align-end {
+      justify-content: flex-end;
+    }
+
+    &.am-dialog-actions--align-center {
+      justify-content: center;
+    }
+  }
+  .am-dialog-hint {
+    display: block;
+    padding: 8px 12px;
+    color: var(--mat-sys-on-surface-variant);
+    border: 1px solid var(--mat-sys-outline);
+    background: var(--color-grey-50);
+    border-radius: 6px;
+  }
+
+  // Remove outline from cdk-dialog-container
+  .cdk-dialog-container {
+    outline: none !important;
+  }
+
+  // Thick backdrop
+  .backdrop-thick {
+    background-color: rgba(0, 0, 0, 0.4);
+  }
+
+  // Fullscreen dialog
+  .cdk-overlay-pane.fullscreen {
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    width: 100vw !important;
+    height: 100vh !important;
+
+    .cdk-dialog-container:not(.mat-mdc-dialog-container) > *,
+    .mdc-dialog__container {
+      height: 100%;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+
+    .mat-mdc-dialog-surface {
+      border-radius: 0 !important;
+      box-shadow: none !important;
+
+      & > * {
+        box-shadow: none !important;
+        display: flex;
+        flex-direction: column;
+        max-height: 100%;
+        height: 100%;
+      }
+    }
+
+    .mat-mdc-dialog-content {
+      flex: 1;
+      max-height: unset;
+    }
+  }
+}

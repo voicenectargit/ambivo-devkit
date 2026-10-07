@@ -1,0 +1,173 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+.rich-text {
+  /* Font families */
+  --rc-font-family: 'Roboto', sans-serif;
+  --rc-heading-font-family: 'Roboto', sans-serif;
+  --rc-monospace-font-family: 'Roboto Mono', monospace;
+
+  /* Type scales */
+  --rc-base-font-size: 14px;
+  --rc-pre-font-size: 0.875em;
+  --rc-h1: 2em;
+  --rc-h2: 1.5em;
+  --rc-h3: 1.25em;
+  --rc-h4: 1em;
+
+  /* Font weights */
+  --rc-heading-font-weight: 700;
+
+  /* Line heights */
+  --rc-line-height: 1.6;
+  --rc-heading-line-height: 1.4;
+
+  /* Margins */
+  --rc-heading-margin-top: 0;
+  --rc-heading-margin-bottom: 0.3em;
+  --rc-paragraph-margin-top: 0;
+  --rc-paragraph-margin-bottom: 1em;
+  --rc-list-margin-top: 0;
+  --rc-list-margin-bottom: 1em;
+  --rc-list-padding-inline-start: 1em;
+  --rc-pre-margin-top: 0;
+  --rc-pre-margin-bottom: 0.8em;
+  --rc-pre-padding-block: 0.75em;
+  --rc-pre-padding-inline: 1em;
+  --rc-hr-margin-block: 2em;
+
+  /* Colors */
+  --rc-bg-code: #b2b7c25c;
+  --rc-fg-code: var(--color-fg-text-contrast);
+  --rc-fg-divider: var(--color-fg-divider);
+  --rc-fg-blockquote: var(--color-fg-divider);
+
+  /* Other */
+  --rc-pre-border-radius: 0.5em;
+}
+.rich-text {
+  font-family: var(--rc-font-family);
+  line-height: var(--rc-line-height);
+  font-size: var(--rc-base-font-size);
+  word-break: break-word;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--rc-heading-font-family);
+    font-weight: var(--rc-heading-font-weight);
+    line-height: var(--rc-heading-line-height);
+    margin-top: var(--rc-heading-margin-top);
+    margin-bottom: var(--rc-heading-margin-bottom);
+  }
+
+  p {
+    margin-top: var(--rc-paragraph-margin-top);
+    margin-bottom: var(--rc-paragraph-margin-bottom);
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  dl,
+  ol,
+  ul {
+    padding-inline-start: var(--rc-list-padding-inline-start);
+    margin-top: var(--rc-list-margin-top);
+    margin-bottom: var(--rc-list-margin-bottom);
+  }
+
+  li p:first-child {
+    margin-top: 0;
+  }
+  li p:last-child {
+    margin-bottom: 0;
+  }
+
+  pre,
+  code,
+  samp {
+    font-weight: 500;
+    font-family: var(--rc-monospace-font-family);
+    font-size: var(--rc-pre-font-size);
+  }
+
+  pre {
+    padding: var(--rc-pre-padding-block) var(--rc-pre-padding-inline);
+    margin-top: var(--rc-pre-margin-top);
+    margin-bottom: var(--rc-pre-margin-bottom);
+    border-radius: var(--rc-pre-border-radius);
+    background-color: var(--rc-bg-code);
+    color: var(--rc-fg-code);
+    overflow-x: auto;
+  }
+
+  code {
+    padding: 2px;
+    border-radius: 2px;
+    background-color: var(--rc-bg-code);
+    color: var(--rc-fg-code);
+  }
+
+  pre code {
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    color: inherit;
+  }
+
+  mark {
+    background-color: var(--rc-bg-mark);
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  blockquote {
+    padding-left: 1rem;
+    border-left: 2px solid var(--rc-fg-blockquote);
+  }
+
+  hr {
+    border: none;
+    margin: var(--rc-hr-margin-block) 0;
+    border-top: 2px solid var(--rc-fg-divider);
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  h1 {
+    font-size: var(--rc-h1);
+  }
+
+  h2 {
+    font-size: var(--rc-h2);
+  }
+
+  h3 {
+    font-size: var(--rc-h3);
+  }
+
+  h4 {
+    font-size: var(--rc-h4);
+  }
+
+  h5 {
+    font-size: var(--rc-h5);
+  }
+
+  h6 {
+    font-size: var(--rc-h6);
+  }
+
+  blockquote {
+    margin: 0 0 0 0.8ex;
+    border-left: 1px solid rgb(204, 204, 204);
+    padding-left: 1ex;
+  }
+}

@@ -1,0 +1,23 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use "sass:map";
+
+@function apply_palettes($theme, $foreground-palette, $background-palette) {
+  $background: map.merge(map.get($theme, "background"), $background-palette);
+  $foreground: map.merge(map.get($theme, "foreground"), $foreground-palette);
+  $color: map.get($theme, color);
+  $color: map.merge(
+      $color,
+      (
+        background: $background,
+        foreground: $foreground,
+      )
+  );
+  @return map.merge(
+      $theme,
+      (
+        color: $color,
+        background: $background,
+        foreground: $foreground,
+      )
+  );
+}

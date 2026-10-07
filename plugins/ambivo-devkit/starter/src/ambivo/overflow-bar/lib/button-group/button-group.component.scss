@@ -1,0 +1,61 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+.button-group-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+
+  &.align-right {
+    justify-content: flex-end;
+  }
+
+  // Density variations
+  /*
+  &.density-compact {
+    gap: 4px;
+
+    button:not(.icon-button) {
+      &:not(.mat-icon-button) {
+        padding: 6px 12px;
+        min-height: 32px;
+        font-size: 13px;
+      }
+    }
+  }
+
+  &.density-normal {
+    gap: 8px;
+
+    button:not(.icon-button) {
+      &:not(.mat-icon-button) {
+        padding: 8px 16px;
+        min-height: 40px;
+        font-size: 14px;
+      }
+    }
+  }
+
+  &.density-comfortable {
+    gap: 12px;
+
+    button:not(.icon-button) {
+      &:not(.mat-icon-button) {
+        padding: 12px 20px;
+        min-height: 48px;
+        font-size: 15px;
+      }
+    }
+  }
+
+ */
+}
+
+.button-label {
+  &.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+  }
+}

@@ -1,0 +1,128 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@import 'core/breakpoint';
+
+.page {
+  width: 100%;
+  padding: 0 24px;
+  @include breakpoint('lt-md') {
+    padding: 0 14px 40px 14px;
+  }
+  &.page-scrollable {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    max-width: 100%;
+    padding-inline: 0;
+    padding-bottom: 0;
+  }
+  .page-spacer {
+    padding-top: 24px;
+    @media (max-width: 599px) {
+      padding-top: 20px;
+    }
+  }
+  .page-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    gap: 12px;
+    .page-title-1,
+    .page-title-2 {
+      flex: 1;
+      margin-bottom: 0;
+    }
+  }
+  .page-header:has(.page-header-row) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .page-header-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .page-title-1,
+  .page-title-2 {
+    font-weight: 400;
+    line-height: 1.1;
+    margin-bottom: 36px;
+    margin-top: 0;
+  }
+  .page-title-1 {
+    font-size: 52px;
+    @include breakpoint('lt-md') {
+      font-size: 32px;
+    }
+  }
+  .page-title-2 {
+    font-size: 38px;
+    @include breakpoint('lt-md') {
+      font-size: 26px;
+    }
+  }
+  .page-subtitle {
+    width: 100%;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--color-fg-secondary-text);
+  }
+}
+.page-progress {
+  position: fixed !important;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+.page-wrapper {
+  max-width: 1300px;
+  margin: 0 auto;
+}
+.page-container-sm {
+  max-width: 680px;
+  min-width: 0;
+  margin: 0 auto;
+}
+.page-container-md {
+  max-width: 950px;
+  min-width: 0;
+  margin: 0 auto;
+}
+.page-container-lg {
+  max-width: 1180px;
+  min-width: 0;
+  margin: 0 auto;
+}
+.page-container-xl {
+  max-width: 1440px;
+  min-width: 0;
+  margin: 0 auto;
+}
+.page-container-xxl {
+  max-width: 2000px;
+  min-width: 0;
+  margin: 0 auto;
+}
+.sticky-header {
+  top: -1px;
+  gap: 8px;
+  z-index: 1000;
+  display: flex;
+  position: sticky;
+  padding-block: 4px;
+  align-items: center;
+  background-color: var(--color-bg-background);
+  &:not(.stuck) {
+    visibility: hidden;
+    overflow: hidden;
+    height: 0;
+  }
+}
+.page-fixed-actions {
+  position: fixed;
+  z-index: 9999;
+  right: 6px;
+  bottom: 6px;
+}

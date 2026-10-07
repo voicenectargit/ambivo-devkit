@@ -1,0 +1,11 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use 'core/buttons';
+
+.mat-datepicker-toggle {
+  &.btn-sm button {
+    @include buttons.matIconButtonSize(38px, 19px);
+  }
+  &.btn-xs button {
+    @include buttons.matIconButtonSize(24px, 16px);
+  }
+}

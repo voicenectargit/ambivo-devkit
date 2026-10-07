@@ -1,0 +1,38 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+$breakpoints: (
+  xs: "screen and (max-width: 599px)",
+  sm: "screen and (min-width: 600px) and (max-width: 959px)",
+  md: "screen and (min-width: 960px) and (max-width: 1279px)",
+  lg: "screen and (min-width: 1480px) and (max-width: 1819px)",
+  xl: "screen and (min-width: 1820px) and (max-width: 5000px)",
+  lt-sm: "screen and (max-width: 599px)",
+  lt-md: "screen and (max-width: 959px)",
+  lt-lg: "screen and (max-width: 1479px)",
+  lt-xl: "screen and (max-width: 1819px)",
+  gt-xs: "screen and (min-width: 600px)",
+  gt-sm: "screen and (min-width: 960px)",
+  gt-md: "screen and (min-width: 1480px)",
+  gt-lg: "screen and (min-width: 1680px)",
+  gt-xl: "screen and (min-width: 1820px)",
+) !default;
+
+// Re-map the breakpoints for the helper classes
+$helper-breakpoints: (
+  xs: "lt-sm",
+  sm: "gt-xs",
+  md: "gt-sm",
+  lg: "gt-md",
+  xl: "gt-lg",
+);
+
+@mixin breakpoint($name) {
+  $mediaQuery: map-get($breakpoints, $name);
+
+  @if ($mediaQuery == null) {
+    @content;
+  } @else {
+    @media #{$mediaQuery} {
+      @content;
+    }
+  }
+}

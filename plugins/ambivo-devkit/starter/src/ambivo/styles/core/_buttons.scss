@@ -1,0 +1,30 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@mixin matIconButtonSize($buttonSize, $iconSize) {
+  width: $buttonSize !important;
+  height: $buttonSize !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+
+  & > *[role='img'] {
+    width: $iconSize;
+    height: $iconSize;
+    font-size: $iconSize;
+
+    svg {
+      width: $iconSize;
+      height: $iconSize;
+    }
+  }
+
+  svg {
+    width: $iconSize;
+    height: $iconSize;
+  }
+
+  .mat-mdc-button-touch-target {
+    width: $buttonSize !important;
+    height: $buttonSize !important;
+  }
+}

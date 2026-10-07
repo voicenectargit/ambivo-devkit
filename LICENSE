@@ -1,0 +1,118 @@
+Ambivo Developer Kit License
+
+Copyright (c) 2026 Ambivo, Inc. All rights reserved.
+
+This license applies to the Ambivo Developer Kit (the "Software"): the files in
+this repository, including the ambivo-devkit plugin, its skills, scripts, hooks,
+the ambivo MCP server, the bundled API descriptions and the starter application.
+Third-party components keep their own licenses; see THIRD_PARTY_NOTICES.md.
+
+The Software is made available to you, not sold. Ambivo, Inc. ("Ambivo") keeps
+all right, title and interest in the Software, including all copyrights. By
+downloading, installing, copying or using the Software you accept this license.
+If you do not accept it, do not use the Software.
+
+1. License grant
+
+   Subject to this license, Ambivo grants you a worldwide, non-exclusive,
+   non-transferable, non-sublicensable, revocable, royalty-free license to:
+
+   (a) use, copy and modify the Software only to design, develop, test and
+       support applications that use Ambivo's products and services ("Your
+       Applications"); and
+
+   (b) include the files of the starter application (the "starter" folders),
+       with or without changes, in Your Applications, and distribute Your
+       Applications to your own organization and to your clients, in source or
+       compiled form, for use with Ambivo's products and services.
+
+2. Restrictions
+
+   You may not:
+
+   (a) distribute, sell, rent, lease or sublicense the Software itself, except
+       for starter files included in Your Applications under section 1(b);
+   (b) use the Software, or any part of it, to build or offer a product or
+       service that competes with Ambivo's products, services or developer
+       tools;
+   (c) remove, change or hide any copyright, trademark or license notice in
+       the Software;
+   (d) use the Software in breach of any law, or of Ambivo's Terms of Use; or
+   (e) use the Software to gain access to any Ambivo account, company or data
+       that you are not authorized to access.
+
+3. Your Applications
+
+   As between you and Ambivo, you own Your Applications, except for the parts
+   of the Software they contain, which stay Ambivo's and remain under this
+   license. You are solely responsible for Your Applications, for how you and
+   your clients use them, for the data they handle, for your agreements with
+   your clients, and for complying with the laws that apply to them.
+
+4. AI coding assistants
+
+   The Software gives instructions and tools to AI coding assistants that you
+   choose and pay for, such as Claude Code, Codex or Cursor. Ambivo does not
+   control those assistants or the code they write, and makes no promise about
+   that code. Review, test and secure all code before you or your clients rely
+   on it. Your use of an assistant is governed by your agreement with its
+   provider.
+
+5. Ambivo products and services
+
+   Using Ambivo's products, services and APIs, including any sandbox company
+   Ambivo provides, is governed by Ambivo's Terms of Use
+   (https://docs.ambivo.com/legal/terms-of-use) and any other agreement you
+   have with Ambivo. This license gives you no right to use them by itself.
+
+6. Trademarks
+
+   This license grants no right to use Ambivo's names, logos or trademarks,
+   except to say truthfully that Your Applications work with Ambivo.
+
+7. Feedback
+
+   If you give Ambivo suggestions or feedback about the Software, Ambivo may use
+   them without obligation to you.
+
+8. No warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY
+   KIND, EXPRESS, IMPLIED OR STATUTORY, INCLUDING ANY WARRANTY OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT,
+   ACCURACY, OR THAT THE SOFTWARE WILL BE ERROR-FREE, SECURE OR UNINTERRUPTED.
+   AMBIVO MAY CHANGE OR STOP PROVIDING THE SOFTWARE AT ANY TIME.
+
+9. Limitation of liability
+
+   TO THE FULLEST EXTENT PERMITTED BY LAW, IN NO EVENT WILL AMBIVO OR ITS
+   AFFILIATES, OFFICERS, EMPLOYEES OR SUPPLIERS BE LIABLE FOR ANY INDIRECT,
+   INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY OR PUNITIVE DAMAGES, OR FOR ANY
+   LOSS OF PROFITS, REVENUE, DATA, GOODWILL OR BUSINESS, ARISING OUT OF OR
+   RELATED TO THE SOFTWARE, YOUR APPLICATIONS OR THIS LICENSE, HOWEVER CAUSED
+   AND UNDER ANY THEORY OF LIABILITY, EVEN IF ADVISED OF THEIR POSSIBILITY.
+   AMBIVO'S TOTAL LIABILITY ARISING OUT OF OR RELATED TO THE SOFTWARE OR THIS
+   LICENSE WILL NOT EXCEED ONE HUNDRED U.S. DOLLARS (US$100).
+
+10. Indemnity
+
+   You will defend, indemnify and hold harmless Ambivo and its affiliates,
+   officers and employees from any claim, loss, liability or expense, including
+   reasonable legal fees, arising out of Your Applications, your clients' use
+   of them, or your breach of this license.
+
+11. Termination
+
+   This license ends automatically if you breach it. Ambivo may also end it at
+   any time by notice to you, including by publishing a new version of this
+   license. When it ends, stop using and distributing the Software. Sections 3
+   and 6 to 11, and any rights you already granted to your clients to use Your
+   Applications as delivered, survive.
+
+12. General
+
+   This is the entire agreement between you and Ambivo about the Software. If a
+   court finds part of it unenforceable, the rest stays in effect. Ambivo's
+   failure to enforce a part is not a waiver.
+
+Questions: dev-partner@ambivo.com

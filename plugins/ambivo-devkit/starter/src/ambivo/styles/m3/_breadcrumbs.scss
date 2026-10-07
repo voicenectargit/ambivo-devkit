@@ -1,0 +1,13 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@mixin breadcrumbs {
+  .breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font: var(--mat-sys-body-medium);
+    letter-spacing: var(--mat-sys-body-medium-tracking);
+    a {
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+}

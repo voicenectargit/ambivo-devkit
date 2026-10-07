@@ -1,0 +1,120 @@
+{
+  "docs_commit": "56acf20",
+  "built_at": "2026-10-04",
+  "specs": [
+    {
+      "id": "esign",
+      "title": "E-Sign & Contracts",
+      "file": "ambivo-esign.openapi.yaml",
+      "operations": 47
+    },
+    {
+      "id": "procurement",
+      "title": "Procurement",
+      "file": "ambivo-procurement.openapi.yaml",
+      "operations": 69
+    },
+    {
+      "id": "inventory",
+      "title": "Inventory",
+      "file": "ambivo-inventory.openapi.yaml",
+      "operations": 71
+    },
+    {
+      "id": "books",
+      "title": "Books & Accounting",
+      "file": "ambivo-books.openapi.yaml",
+      "operations": 267
+    },
+    {
+      "id": "crm",
+      "title": "CRM",
+      "file": "ambivo-crm.openapi.yaml",
+      "operations": 254
+    },
+    {
+      "id": "unified-model",
+      "title": "Unified Model Endpoint",
+      "file": "ambivo-unified-model.openapi.yaml",
+      "operations": 13
+    },
+    {
+      "id": "autonomous-agents",
+      "title": "Autonomous Agents",
+      "file": "ambivo-autonomous-agents.openapi.yaml",
+      "operations": 61
+    },
+    {
+      "id": "third-party-integrations",
+      "title": "Third-Party Integrations",
+      "file": "ambivo-third-party-integrations.openapi.yaml",
+      "operations": 23
+    },
+    {
+      "id": "automations",
+      "title": "Automations",
+      "file": "ambivo-automations.openapi.yaml",
+      "operations": 16
+    },
+    {
+      "id": "workflows",
+      "title": "Workflows",
+      "file": "ambivo-workflows.openapi.yaml",
+      "operations": 64
+    },
+    {
+      "id": "custom-domains",
+      "title": "Custom Domains",
+      "file": "ambivo-custom-domains.openapi.yaml",
+      "operations": 9
+    },
+    {
+      "id": "custom-objects",
+      "title": "Custom Objects",
+      "file": "ambivo-custom-objects.openapi.yaml",
+      "operations": 30
+    },
+    {
+      "id": "testing-data",
+      "title": "Testing Data",
+      "file": "ambivo-testing-data.openapi.yaml",
+      "operations": 2
+    },
+    {
+      "id": "agents-sdk",
+      "title": "Agents SDK",
+      "file": "ambivo-agents-sdk.openapi.yaml",
+      "operations": 63
+    },
+    {
+      "id": "agents-core",
+      "title": "Agents Core Infrastructure",
+      "file": "ambivo-agents-core.openapi.yaml",
+      "operations": 24
+    },
+    {
+      "id": "security-qa",
+      "title": "Questionnaires & KnowledgeBase",
+      "file": "ambivo-security-qa.openapi.yaml",
+      "operations": 100
+    },
+    {
+      "id": "workforce",
+      "title": "Workforce",
+      "file": "ambivo-workforce.openapi.yaml",
+      "operations": 99
+    },
+    {
+      "id": "assetbase",
+      "title": "AssetBase",
+      "file": "ambivo-assetbase.openapi.yaml",
+      "operations": 119
+    },
+    {
+      "id": "local-gateway",
+      "title": "Local Gateway",
+      "file": "ambivo-local-gateway.openapi.yaml",
+      "operations": 12
+    }
+  ]
+}

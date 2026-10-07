@@ -1,0 +1,298 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+// ============================================================================
+// Ambivo layout primitives — tokens + global attribute-selector styles.
+//
+// Co-located with the layout directives (@am/crm/ui layout). The directives set
+// data-am-* attributes; every atom rule lives here (Taiga-style) so container
+// queries and descendant rules work without per-directive stylesheets. Exposed
+// as a mixin (forwarded through m3) — include once per app, after the M3 theme:
+//
+//   @use 'libs/styles/src/lib/m3' as m3;
+//   @include m3.am-layout();
+//
+// Molecule components (am-header/toolbar/…) carry their own encapsulated styles;
+// only the atoms are global.
+// ============================================================================
+
+@mixin am-layout {
+  // Emit at the document root regardless of where the mixin is @included — apps
+  // include it inside `html { … }`, which would otherwise scope `:root` to
+  // `html :root` (matches nothing) and prefix every atom rule with `html`.
+  @at-root {
+    // --------------------------------------------------------------------------
+    // Tokens (--am-* scales). Build on Material M3: colors from --mat-sys-*,
+    // radius from --mat-sys-corner-*.
+    // --------------------------------------------------------------------------
+    :root {
+      // space (4px grid)
+      --am-space-3xs: 4px;
+      --am-space-2xs: 8px;
+      --am-space-xs: 12px;
+      --am-space-sm: 16px;
+      --am-space-md: 20px;
+      --am-space-lg: 24px;
+      --am-space-xl: 32px;
+      --am-space-2xl: 48px;
+
+      // radius (M3 corner tokens)
+      --am-radius-none: 0;
+      --am-radius-sm: var(--mat-sys-corner-small, 8px);
+      --am-radius-md: var(--mat-sys-corner-medium, 12px);
+      --am-radius-lg: var(--mat-sys-corner-large, 16px);
+      --am-radius-full: var(--mat-sys-corner-full, 9999px);
+
+      // measure (prose width)
+      --am-measure-narrow: 45ch;
+      --am-measure-default: 65ch;
+      --am-measure-wide: 80ch;
+
+      // container caps: TS UiBreakpoints (600/960/1280/1920) minus 2 gutters (48px)
+      --am-container-sm: 552px;
+      --am-container-md: 912px;
+      --am-container-lg: 1232px;
+      --am-container-xl: 1872px;
+
+      // z (the only z-indexes features may reference)
+      --am-z-sticky: 1;
+      --am-z-toolbar: 2;
+
+      // published-at-runtime default
+      --am-sticky-offset: 0px;
+    }
+
+    // Density hook: Material density <= -2 (applied per-subtree via .dense-N).
+    :where(.dense-2, .dense-3, .dense-4, .dense-5) {
+      --am-space-sm: 12px;
+      --am-space-md: 16px;
+      --am-space-lg: 20px;
+    }
+
+    // --------------------------------------------------------------------------
+    // amSurface — tone + shape + clip. NO padding (see amInset).
+    // --------------------------------------------------------------------------
+    [data-am-surface] {
+      box-sizing: border-box;
+      border-radius: var(--am-surface-radius, var(--am-radius-lg));
+      background: var(--am-surface-bg);
+    }
+    // clip (not hidden): no scroll container, keeps child sticky working.
+    // Guarded with :not() instead of overriding with `overflow: unset` on the
+    // same-host pairing: an override outranks the axis rules below (two attribute
+    // selectors beat one) and the shorthand would reset overflow-block/inline
+    // back to visible — the scroller would silently stop scrolling.
+    // Note the same-host pairing cannot corner-clip the scrollbar (an element
+    // can't clip its own scrollbar) — nest amScroll inside amSurface for that.
+    [data-am-surface]:not([data-am-scroll]) {
+      overflow: clip;
+    }
+
+    // amSurfaceFill — the surface adopts its parent's full height (page roots,
+    // drawer panels), so a child amScroll gets a bounded viewport and the
+    // surface's rounded corners clip the scrollbar. Opt-in: an unconditional
+    // block-size: 100% would stretch card surfaces inside bounded parents.
+    [data-am-surface-fill] {
+      block-size: 100%;
+      min-block-size: 0;
+    }
+    [data-am-surface='surface'] {
+      --am-surface-bg: var(--mat-sys-surface);
+    }
+    [data-am-surface='container-lowest'] {
+      --am-surface-bg: var(--mat-sys-surface-container-lowest);
+    }
+    [data-am-surface='container-low'] {
+      --am-surface-bg: var(--mat-sys-surface-container-low);
+    }
+    [data-am-surface='container'] {
+      --am-surface-bg: var(--mat-sys-surface-container);
+    }
+    [data-am-surface='container-high'] {
+      --am-surface-bg: var(--mat-sys-surface-container-high);
+    }
+    [data-am-surface='container-highest'] {
+      --am-surface-bg: var(--mat-sys-surface-container-highest);
+    }
+    // --------------------------------------------------------------------------
+    // amScroll — one scroll viewport. Fills its parent so there is a bounded box.
+    // --------------------------------------------------------------------------
+    [data-am-scroll] {
+      block-size: 100%;
+      min-block-size: 0; // allow shrinking inside grid/flex tracks
+    }
+    [data-am-scroll='block'] {
+      overflow-block: auto;
+      overflow-inline: clip;
+      scrollbar-gutter: stable;
+    }
+    [data-am-scroll='inline'] {
+      overflow-inline: auto;
+      overflow-block: clip;
+      overscroll-behavior-inline: contain;
+    }
+    [data-am-scroll='both'] {
+      overflow: auto;
+      overscroll-behavior-inline: contain;
+    }
+    [data-am-scroll] :focus-visible {
+      scroll-margin-block-start: calc(var(--am-sticky-offset, 0px) + var(--am-space-sm));
+    }
+
+    // --------------------------------------------------------------------------
+    // amInset — padding as an atom; logical properties only.
+    // --------------------------------------------------------------------------
+    @each $t in 3xs, 2xs, xs, sm, md, lg, xl, 2xl {
+      [data-am-inset='#{$t}'] {
+        padding: var(--am-space-#{$t});
+      }
+      [data-am-inset-block='#{$t}'] {
+        padding-block: var(--am-space-#{$t});
+      }
+      [data-am-inset-inline='#{$t}'] {
+        padding-inline: var(--am-space-#{$t});
+      }
+    }
+    [data-am-inset-inline='none'] {
+      padding-inline: 0;
+    }
+
+    // --------------------------------------------------------------------------
+    // amContainer — caps the content column, LEFT-aligned against the gutter.
+    // --------------------------------------------------------------------------
+    @each $t in sm, md, lg, xl {
+      [data-am-container='#{$t}'] {
+        max-inline-size: var(--am-container-#{$t});
+      }
+    }
+    [data-am-container='full'] {
+      max-inline-size: none;
+    }
+
+    // --------------------------------------------------------------------------
+    // amMeasure — prose width in ch.
+    // --------------------------------------------------------------------------
+    [data-am-measure='narrow'] {
+      max-inline-size: var(--am-measure-narrow);
+    }
+    [data-am-measure='default'] {
+      max-inline-size: var(--am-measure-default);
+    }
+    [data-am-measure='wide'] {
+      max-inline-size: var(--am-measure-wide);
+    }
+
+    // --------------------------------------------------------------------------
+    // amStack / amCluster — the only flow utilities.
+    // --------------------------------------------------------------------------
+    [data-am-stack] {
+      display: flex;
+      flex-direction: column;
+    }
+    [data-am-cluster] {
+      display: flex;
+      flex-wrap: wrap;
+    }
+    @each $t in 3xs, 2xs, xs, sm, md, lg, xl, 2xl {
+      [data-am-stack][data-am-gap='#{$t}'],
+      [data-am-cluster][data-am-gap='#{$t}'] {
+        gap: var(--am-space-#{$t});
+      }
+    }
+    [data-am-cluster][data-am-align='center'] {
+      align-items: center;
+    }
+    [data-am-cluster][data-am-align='start'] {
+      align-items: flex-start;
+    }
+    [data-am-cluster][data-am-align='end'] {
+      align-items: flex-end;
+    }
+    [data-am-cluster][data-am-align='baseline'] {
+      align-items: baseline;
+    }
+    [data-am-cluster][data-am-align='stretch'] {
+      align-items: stretch;
+    }
+    [data-am-cluster][data-am-justify='start'] {
+      justify-content: flex-start;
+    }
+    [data-am-cluster][data-am-justify='end'] {
+      justify-content: flex-end;
+    }
+    [data-am-cluster][data-am-justify='between'] {
+      justify-content: space-between;
+    }
+    [data-am-cluster][data-am-justify='center'] {
+      justify-content: center;
+    }
+
+    // Container-responsive collapse (row → column). Threshold is library policy.
+    @container (max-width: 360px) {
+      [data-am-cluster][data-am-collapse='sm'] {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+    @container (max-width: 560px) {
+      [data-am-cluster][data-am-collapse='md'] {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // amPanes — columns only; rows are the page's own concern.
+    // --------------------------------------------------------------------------
+    [data-am-panes] {
+      display: grid;
+      min-block-size: 0;
+      min-inline-size: 0;
+    }
+    [data-am-panes] > * {
+      min-block-size: 0;
+      min-inline-size: 0;
+      container-type: inline-size;
+      container-name: am-region;
+    }
+    [data-am-panes='config-preview'] {
+      grid-template-columns: minmax(320px, 2fr) minmax(0, 3fr);
+    }
+    [data-am-panes='rail-canvas-rail'] {
+      grid-template-columns: 280px minmax(0, 1fr) 320px;
+    }
+    @each $t in 3xs, 2xs, xs, sm, md, lg, xl, 2xl {
+      [data-am-panes][data-am-gap='#{$t}'] {
+        gap: var(--am-space-#{$t});
+      }
+    }
+    @container am-region (max-width: 720px) {
+      [data-am-panes='config-preview']:not([data-am-panes-stack='never']) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // amStickyTop — depth-1 sticky, escape-hatch form.
+    // --------------------------------------------------------------------------
+    [data-am-sticky-top] {
+      position: sticky;
+      inset-block-start: var(--am-sticky-offset, 0px);
+      background: var(--am-surface-bg, var(--mat-sys-surface));
+      z-index: var(--am-z-sticky);
+    }
+
+    // --------------------------------------------------------------------------
+    // Page plumbing — remove the boilerplate features would otherwise repeat.
+    // --------------------------------------------------------------------------
+
+    // A content column is a query container, so amClusterCollapse / amPanes inside
+    // react to the COLUMN width, not the viewport — no per-page container-type.
+    [data-am-container] {
+      container-type: inline-size;
+    }
+
+    // No router-outlet plumbing on purpose: routed pages own their height chain
+    // explicitly — `:host { display: block; block-size: 100% }` on the page,
+    // `amSurfaceFill` on a surface that wraps the page scroller. Structural
+    // selectors around outlets break with child routes and shell variations.
+  } // @at-root
+}

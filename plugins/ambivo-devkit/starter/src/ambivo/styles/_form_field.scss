@@ -1,0 +1,65 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use '@angular/material' as mat;
+
+body {
+  @include mat.form-field-density(-1);
+}
+
+// Full width form field
+.mat-mdc-form-field {
+  display: block;
+  width: 100%;
+}
+// Fix empty suffix
+.mat-mdc-form-field-icon-suffix {
+  min-width: 16px;
+}
+
+// Appearance fill markups
+/*
+.mat-form-field-appearance-fill {
+  .mdc-text-field--filled:not(.mdc-text-field--disabled) {
+    background-color: var(--color-bg-form-field) !important;
+  }
+  .mdc-line-ripple {
+    display: none;
+  }
+  .mat-mdc-text-field-wrapper {
+    border-radius: 10px !important;
+  }
+    -webkit-box-shadow: 0 0 0 30px var(--color-bg-form-field) inset !important;
+    -webkit-text-fill-color: var(--color-fg-text);
+  }
+  &.mat-focused .mat-mdc-form-field-focus-overlay {
+    opacity: 0.04 !important;
+  }
+
+  &.mat-form-field-invalid .mat-mdc-text-field-wrapper {
+    background-color: var(--color-warn-50) !important;
+  }
+
+  .mat-mdc-select {
+    padding-right: 8px;
+  }
+}
+ */
+
+// Field min width
+.responsive-field,
+.responsive-fields {
+  .mat-mdc-form-field-infix {
+    min-width: 80px !important;
+    width: 100% !important;
+  }
+}
+
+input {
+  caret-color: var(--color-fg-text) !important;
+}
+
+body.dark-theme {
+  input[type='date']::-webkit-calendar-picker-indicator,
+  input[type='datetime-local']::-webkit-calendar-picker-indicator {
+    filter: invert(100%);
+  }
+}

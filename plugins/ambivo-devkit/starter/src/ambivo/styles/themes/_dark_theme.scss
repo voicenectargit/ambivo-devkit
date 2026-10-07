@@ -1,0 +1,132 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use 'sass:color';
+@use 'sass:map';
+@use '@angular/material' as mat;
+@import '../core/theme_varialbes';
+@import '../core/apply_palettes';
+@import '../core/palete_valirables';
+
+$typography: mat.m2-define-typography-config();
+$primary: mat.m2-define-palette(mat.$m2-deep-purple-palette, A200, A100, A400);
+$accent: mat.m2-define-palette(mat.$m2-pink-palette);
+$warn: mat.m2-define-palette(mat.$m2-red-palette);
+
+$background: (
+  app-bar: #1f1f1f,
+  background: #1f1f1f,
+  card: #2f2f34,
+  dialog: #2f2f34,
+);
+
+$foreground: ();
+
+$dark-theme-base: mat.m2-define-dark-theme(
+  (
+    color: (
+      primary: $primary,
+      accent: $accent,
+      warn: $warn,
+    ),
+    typography: $typography,
+  )
+);
+
+$dark-theme: apply_palettes($dark-theme-base, $foreground, $background);
+
+html.dark-theme {
+  @include mat.all-component-colors($dark-theme);
+  @include theme-variables($dark-theme);
+  color-scheme: dark;
+  --color-success: #43a047;
+  --color-success-contrast: #fff;
+  --color-success-50: #e8f5e9;
+  --color-primary-50: #7c4dff12;
+  --color-accent-50: #e91e6312;
+  --color-warn-50: #f4433612;
+  --color-grey-50: #3b3b44;
+  --color-grey-100: #474752;
+  --color-grey-200: #535360;
+  --color-grey-300: #5f5f6d;
+  --color-fg-text-contrast: #fff;
+  --color-fg-muted: rgba(255, 255, 255, 0.7);
+  --color-fg-ghost: rgba(255, 255, 255, 0.7);
+  --color-bg-chip: #3b3b44;
+  --color-bg-chip-contrast: #68687c;
+  --color-bg-dropzone: rgba(255, 255, 255, 0.3);
+  --color-bg-highlight: #3b3b44;
+  --color-bg-form-field: #41414c;
+  --color-bg-form-field-focus: #56566a;
+
+  // Card
+  --mat-card-elevated-container-color: var(--color-bg-card);
+
+  // Paginator
+  .mat-mdc-paginator {
+    background-color: transparent;
+  }
+
+  // Toolbar
+  --mat-toolbar-container-background-color: var(--color-bg-background);
+
+  // Sidenav
+  --mat-sidenav-content-background-color: var(--color-bg-background);
+  --mat-sidenav-container-background-color: var(--color-bg-background);
+  --mat-sidenav-scrim-color: rgba(30, 30, 30, 0.6) !important;
+
+  // Stepper
+  --mat-stepper-container-color: var(--color-bg-background);
+
+  // Dialog
+  --mat-dialog-container-color: var(--color-bg-card);
+
+  // List
+  --mat-list-list-item-trailing-supporting-text-color: var(--color-fg-icon);
+
+  // Table
+  --table-row-even-bg: #26262a;
+
+  // Backdrop
+  --cdk-overlay-backdrop: rgba(0, 0, 0, 0.75);
+
+  // Skeleton
+  --am-skeleton-color: #3b3b44;
+
+  // Scrollbar
+  --scrollbar-fg: #525259;
+  --scrollbar-bg: #3b3b44;
+  --scrollbar-width: 12px;
+
+  // Other
+  --mat-select-panel-background-color: var(--color-bg-card);
+  --mat-menu-container-color: var(--color-bg-card);
+
+  ::-webkit-scrollbar {
+    width: var(--scrollbar-width);
+    background-color: var(--scrollbar-bg);
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: var(--scrollbar-bg);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-fg);
+  }
+
+  // Field
+  --field-height: 36px;
+  --field-padding: 4px;
+  --field-font-size: 16px;
+  --field-bg-color: transparent;
+  --field-fg-color: var(--color-fg-text);
+  --field-label-color: var(--color-fg-secondary-text);
+  --field-fill-bg-color: var(--color-grey-50);
+  --field-fill-fg-color: var(--color-fg-text);
+  --field-hovered-bg-color: var(--color-bg-hover);
+  --field-hovered-fg-color: var(--field-fg-color);
+  --field-focused-bg-color: var(--color-bg-form-field-focus);
+  --field-focused-fg-color: var(--color-fg-text);
+  --field-accent-color: var(--color-primary);
+  --field-placeholder-color: var(--mat-select-placeholder-text-color);
+  --field-radius: 4px;
+}

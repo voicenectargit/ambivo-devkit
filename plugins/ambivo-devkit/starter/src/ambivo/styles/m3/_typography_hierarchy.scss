@@ -1,0 +1,134 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@mixin typography-hierarchy {
+  // Display styles
+  /*
+  h1 {
+    font: var(--mat-sys-display-large);
+    letter-spacing: var(--mat-sys-display-large-tracking);
+    margin: 0 0 16px;
+  }
+
+  h2 {
+    font: var(--mat-sys-display-medium);
+    letter-spacing: var(--mat-sys-display-medium-tracking);
+    margin: 0 0 16px;
+  }
+
+  h3 {
+    font: var(--mat-sys-display-small);
+    letter-spacing: var(--mat-sys-display-small-tracking);
+    margin: 0 0 16px;
+  }
+   */
+
+  // Headline styles
+  /*
+  h4 {
+    font: var(--mat-sys-headline-large);
+    letter-spacing: var(--mat-sys-headline-large-tracking);
+    margin: 0 0 16px;
+  }
+
+  h5 {
+    font: var(--mat-sys-headline-medium);
+    letter-spacing: var(--mat-sys-headline-medium-tracking);
+    margin: 0 0 12px;
+  }
+
+  h6 {
+    font: var(--mat-sys-headline-small);
+    letter-spacing: var(--mat-sys-headline-small-tracking);
+    margin: 0 0 12px;
+  }
+   */
+
+  // Body styles
+  body {
+    font: var(--mat-sys-body-large);
+    letter-spacing: var(--mat-sys-body-large-tracking);
+    color: var(--mat-sys-on-background);
+    p {
+      margin: 0 0 12px;
+    }
+  }
+
+  // Additional body classes
+  .body-small {
+    font: var(--mat-sys-body-small);
+    letter-spacing: var(--mat-sys-body-small-tracking);
+  }
+
+  .body-medium {
+    font: var(--mat-sys-body-medium);
+    letter-spacing: var(--mat-sys-body-medium-tracking);
+  }
+
+  .body-large {
+    font: var(--mat-sys-body-large);
+    letter-spacing: var(--mat-sys-body-large-tracking);
+  }
+
+  // Additional display classes
+  .display-small {
+    font: var(--mat-sys-display-small);
+    letter-spacing: var(--mat-sys-display-small-tracking);
+  }
+
+  .display-medium {
+    font: var(--mat-sys-display-medium);
+    letter-spacing: var(--mat-sys-display-medium-tracking);
+  }
+
+  .display-large {
+    font: var(--mat-sys-display-large);
+    letter-spacing: var(--mat-sys-display-large-tracking);
+  }
+
+  // Additional headline classes
+  .headline-small {
+    font: var(--mat-sys-headline-small);
+    letter-spacing: var(--mat-sys-headline-small-tracking);
+  }
+
+  .headline-medium {
+    font: var(--mat-sys-headline-medium);
+    letter-spacing: var(--mat-sys-headline-medium-tracking);
+  }
+
+  .headline-large {
+    font: var(--mat-sys-headline-large);
+    letter-spacing: var(--mat-sys-headline-large-tracking);
+  }
+
+  // Additional label classes
+  .label-small {
+    font: var(--mat-sys-label-small);
+    letter-spacing: var(--mat-sys-label-small-tracking);
+  }
+
+  .label-medium {
+    font: var(--mat-sys-label-medium);
+    letter-spacing: var(--mat-sys-label-medium-tracking);
+  }
+
+  .label-large {
+    font: var(--mat-sys-label-large);
+    letter-spacing: var(--mat-sys-label-large-tracking);
+  }
+
+  // Additional title classes
+  .title-small {
+    font: var(--mat-sys-title-small);
+    letter-spacing: var(--mat-sys-title-small-tracking);
+  }
+
+  .title-medium {
+    font: var(--mat-sys-title-medium);
+    letter-spacing: var(--mat-sys-title-medium-tracking);
+  }
+
+  .title-large {
+    font: var(--mat-sys-title-large);
+    letter-spacing: var(--mat-sys-title-large-tracking);
+  }
+}

@@ -1,0 +1,9 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@mixin iconSize($size) {
+  font-size: #{($size) + 'px'} !important;
+  width: #{($size) + 'px'} !important;
+  height: #{($size) + 'px'} !important;
+  min-width: #{($size) + 'px'} !important;
+  min-height: #{($size) + 'px'} !important;
+  line-height: #{($size) + 'px'} !important;
+}

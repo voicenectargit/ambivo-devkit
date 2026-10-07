@@ -1,0 +1,87 @@
+<!-- Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE. -->
+<div
+  #container
+  class="button-group-container"
+  [class.density-compact]="density() === 'compact'"
+  [class.density-normal]="density() === 'normal'"
+  [class.density-comfortable]="density() === 'comfortable'"
+  [class.align-right]="align() === 'right'"
+  [class.icon-only]="iconOnly()"
+>
+  <!-- Visible buttons -->
+  @for (item of visibleItems(); track trackByItemId($index, item)) {
+    @if (item.iconButton) {
+      <button
+        type="button"
+        mat-icon-button
+        [disabled]="item.disabled"
+        [disabledInteractive]="item.disabled"
+        [matBadge]="item.badge === 'dot' ? '' : item.badge"
+        [matBadgeHidden]="!item.badge"
+        [matBadgeSize]="item.badge === 'dot' ? 'small' : 'medium'"
+        [matTooltip]="item.disabled ? item.disabledTooltip || '' : item.label || ''"
+        [matMenuTriggerFor]="item.disabled ? null : item.menu || null"
+        [amMeasureWidth]="item.id"
+        (amWidthChange)="onItemWidth($event)"
+        (click)="onItemClick(item, $event)"
+      >
+        <mat-icon>{{ item.icon }}</mat-icon>
+      </button>
+    } @else {
+      <button
+        type="button"
+        [matButton]="item.appearance || appearance()"
+        [class.icon-button]="iconOnly()"
+        [disabled]="item.disabled"
+        [disabledInteractive]="item.disabled"
+        [matBadge]="item.badge === 'dot' ? '' : item.badge"
+        [matBadgeHidden]="!item.badge"
+        [matBadgeSize]="item.badge === 'dot' ? 'small' : 'medium'"
+        [matTooltip]="item.disabled ? item.disabledTooltip || '' : ''"
+        [matMenuTriggerFor]="item.disabled ? null : item.menu || null"
+        [amMeasureWidth]="item.id"
+        (amWidthChange)="onItemWidth($event)"
+        (click)="onItemClick(item, $event)"
+      >
+        @if (item.icon) {
+          <mat-icon>{{ item.icon }}</mat-icon>
+        }
+        @if (showLabel() && item.label) {
+          <span class="button-label" [class.truncate]="item.truncate">{{ item.label }}</span>
+        }
+      </button>
+    }
+  }
+
+  <!-- More menu for overflow buttons -->
+  @if (hasOverflow()) {
+    <button
+      type="button"
+      class="icon-button"
+      mat-icon-button
+      [matMenuTriggerFor]="moreMenu"
+      [amMeasureWidth]="'__more__'"
+      (amWidthChange)="onItemWidth($event)"
+    >
+      <mat-icon>more_horiz</mat-icon>
+    </button>
+
+    <mat-menu #moreMenu="matMenu">
+      @for (item of overflowItems(); track trackByItemId($index, item)) {
+        <div [matTooltip]="item.disabledTooltip || ''" [matTooltipDisabled]="!item.disabled">
+          <button
+            mat-menu-item
+            [disabled]="item.disabled"
+            [matMenuTriggerFor]="item.menu || null"
+            (click)="onItemClick(item)"
+          >
+            @if (item.icon) {
+              <mat-icon>{{ item.icon }}</mat-icon>
+            }
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
+      }
+    </mat-menu>
+  }
+</div>

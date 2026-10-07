@@ -1,0 +1,203 @@
+<!-- Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE. -->
+<ng-content></ng-content>
+
+<div
+  class="overflow-bar"
+  [class.tabs-appearance]="appearance() === 'tabs'"
+  [class.buttons-appearance]="appearance() === 'buttons'"
+  [class.icon-buttons-appearance]="appearance() === 'icon-buttons'"
+  [class.align-left]="align() === 'left'"
+  [class.align-right]="align() === 'right'"
+  #container
+>
+  <div class="items-container" [attr.role]="appearance() === 'tabs' ? 'tablist' : null">
+    @for (item of visibleItems(); track trackByItemId($index, item); let index = $index) {
+      @switch (appearance()) {
+        @case ('buttons') {
+          <button
+            type="button"
+            [matButton]="item.highlight ? 'filled' : buttonAppearance()"
+            class="bar-item button-item"
+            routerLinkActive="active"
+            [class.active]="computedActiveId() === item.id"
+            [disabledInteractive]="item.disabled"
+            [class.disabled]="item.disabled"
+            [routerLink]="item.routerLink"
+            [matTooltip]="item.disabledTooltip"
+            [matTooltipDisabled]="!item.disabled"
+            [matMenuTriggerFor]="item.menu || null"
+            [amMeasureWidth]="item.id"
+            (amWidthChange)="onItemWidth($event)"
+            [attr.aria-current]="computedActiveId() === item.id ? 'page' : null"
+            (click)="onItemClick(item, $event)"
+          >
+            @if (item.icon) {
+              <mat-icon>{{ item.icon }}</mat-icon>
+            }
+            <span class="label" [class.truncate]="item.truncate">{{ item.label }}</span>
+            @if (item.badge) {
+              <span
+                class="badge"
+                [class.badge-dot]="item.badge === 'dot'"
+                [matBadge]="item.badge !== 'dot' ? item.badge : ''"
+                [matBadgeHidden]="!item.badge"
+                matBadgeSize="small"
+              ></span>
+            }
+          </button>
+        }
+        @case ('icon-buttons') {
+          <button
+            type="button"
+            mat-icon-button
+            [color]="item.highlight ? 'primary' : undefined"
+            [matTooltip]="item.disabledTooltip || item.label"
+            [routerLink]="item.routerLink"
+            [matMenuTriggerFor]="item.menu || null"
+            class="bar-item icon-button-item"
+            routerLinkActive="active"
+            [class.active]="computedActiveId() === item.id"
+            [disabledInteractive]="item.disabled"
+            [class.disabled]="item.disabled"
+            [amMeasureWidth]="item.id"
+            (amWidthChange)="onItemWidth($event)"
+            [attr.aria-current]="computedActiveId() === item.id ? 'page' : null"
+            (click)="onItemClick(item, $event)"
+          >
+            @if (item.icon) {
+              <mat-icon>{{ item.icon }}</mat-icon>
+            }
+            @if (item.badge) {
+              <span
+                class="badge"
+                [class.badge-dot]="item.badge === 'dot'"
+                [matBadge]="item.badge !== 'dot' ? item.badge : ''"
+                [matBadgeHidden]="!item.badge"
+                matBadgeSize="small"
+              ></span>
+            }
+          </button>
+        }
+        @case ('tabs') {
+          <button
+            type="button"
+            class="bar-item tab-item"
+            routerLinkActive="active-link"
+            [routerLink]="item.routerLink"
+            [matMenuTriggerFor]="item.menu || null"
+            [class.active]="computedActiveId() === item.id"
+            [disabled]="item.disabled"
+            [class.disabled]="item.disabled"
+            [matTooltip]="item.disabledTooltip"
+            [amMeasureWidth]="item.id"
+            (amWidthChange)="onItemWidth($event)"
+            [attr.role]="'tab'"
+            [attr.aria-selected]="computedActiveId() === item.id"
+            [attr.aria-current]="computedActiveId() === item.id ? 'page' : null"
+            (click)="onItemClick(item, $event)"
+          >
+            @if (item.icon) {
+              <mat-icon>{{ item.icon }}</mat-icon>
+            }
+            <span class="label" [class.truncate]="item.truncate">{{ item.label }}</span>
+            @if (item.badge) {
+              <span
+                class="badge"
+                [class.badge-dot]="item.badge === 'dot'"
+                [matBadge]="item.badge !== 'dot' ? item.badge : ''"
+                [matBadgeHidden]="!item.badge"
+                matBadgeSize="small"
+              ></span>
+            }
+          </button>
+        }
+      }
+    }
+
+    <!-- More button -->
+    @if (hasOverflow()) {
+      @switch (appearance()) {
+        @case ('buttons') {
+          <button
+            type="button"
+            mat-icon-button
+            [matTooltip]="moreLabel()"
+            class="more-button bar-item icon-button-item"
+            [matMenuTriggerFor]="overflowMenu"
+            [attr.aria-haspopup]="'menu'"
+            [attr.aria-expanded]="false"
+            [amMeasureWidth]="'__more__'"
+            (amWidthChange)="onItemWidth($event)"
+            #moreButton
+          >
+            <mat-icon>more_horiz</mat-icon>
+          </button>
+        }
+        @case ('icon-buttons') {
+          <button
+            type="button"
+            mat-icon-button
+            [matTooltip]="moreLabel()"
+            class="more-button bar-item icon-button-item"
+            [matMenuTriggerFor]="overflowMenu"
+            [attr.aria-haspopup]="'menu'"
+            [attr.aria-expanded]="false"
+            [amMeasureWidth]="'__more__'"
+            (amWidthChange)="onItemWidth($event)"
+            #moreButton
+          >
+            <mat-icon>more_horiz</mat-icon>
+          </button>
+        }
+        @default {
+          <button
+            type="button"
+            class="more-button bar-item"
+            [class.tab-item]="appearance() === 'tabs'"
+            [matMenuTriggerFor]="overflowMenu"
+            [attr.aria-haspopup]="'menu'"
+            [attr.aria-expanded]="false"
+            [amMeasureWidth]="'__more__'"
+            (amWidthChange)="onItemWidth($event)"
+            #moreButton
+          >
+            <span class="label">{{ moreLabel() }}</span>
+            <mat-icon>arrow_drop_down</mat-icon>
+          </button>
+        }
+      }
+    }
+  </div>
+
+  <mat-menu #overflowMenu="matMenu" [xPosition]="menuAlignment() === 'start' ? 'before' : 'after'">
+    @for (item of overflowItems(); track trackByItemId($index, item)) {
+      <div [matTooltipDisabled]="!item.disabled" [matTooltip]="item.disabledTooltip">
+        <button
+          mat-menu-item
+          type="button"
+          [disabled]="item.disabled"
+          [class.active-menu-item]="computedActiveId() === item.id"
+          [attr.aria-checked]="appearance() === 'tabs' && computedActiveId() === item.id"
+          [matMenuTriggerFor]="item.menu || null"
+          (click)="onItemClick(item, $event)"
+        >
+          @if (item.icon) {
+            <mat-icon>{{ item.icon }}</mat-icon>
+          }
+          <span>{{ item.label }}</span>
+          @if (computedActiveId() === item.id && appearance() === 'tabs') {
+            <mat-icon class="check-icon">check</mat-icon>
+          }
+          @if (item.badge && item.badge !== 'dot') {
+            <span class="menu-badge">{{ item.badge }}</span>
+          }
+        </button>
+      </div>
+    }
+  </mat-menu>
+
+  <!-- Ink bar for tabs -->
+  @if (appearance() === 'tabs') {
+    <div class="ink-bar" [class.visible]="computedActiveId()"></div>
+  }
+</div>

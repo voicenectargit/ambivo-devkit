@@ -1,0 +1,65 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+/* Pill button toggle — track container with a fully-rounded selected pill */
+.mat-button-toggle-group.pill {
+  --am-pill-track-bg: var(--mat-sys-surface-container-high);
+  --am-pill-track-padding: 3px;
+  --am-pill-selected-bg: var(--mat-sys-primary);
+  --am-pill-selected-fg: var(--mat-sys-on-primary);
+  --am-pill-unselected-fg: var(--mat-sys-on-surface-variant);
+
+  border: none !important;
+  border-radius: var(--mat-button-toggle-height);
+  background-color: var(--am-pill-track-bg);
+  padding: var(--am-pill-track-padding);
+
+  .mat-button-toggle {
+    border: none !important;
+    border-radius: var(--mat-button-toggle-height);
+    background-color: transparent;
+    color: var(--am-pill-unselected-fg);
+    transition: background-color 180ms ease, color 180ms ease;
+
+    .mat-button-toggle-button {
+      border-radius: inherit;
+      background-color: transparent;
+    }
+
+    .mat-button-toggle-label-content {
+      color: inherit;
+    }
+
+    &.mat-button-toggle-checked {
+      background-color: var(--am-pill-selected-bg);
+      color: var(--am-pill-selected-fg);
+
+      .mat-button-toggle-button {
+        background-color: var(--am-pill-selected-bg);
+      }
+
+      .mat-button-toggle-label-content {
+        color: var(--am-pill-selected-fg);
+        font-weight: 500;
+      }
+    }
+  }
+}
+
+.mat-button-toggle-checked {
+  .mat-button-toggle-button:has(.mat-button-toggle-checkbox-wrapper) {
+    padding-left: 20px !important;
+  }
+
+  .mat-button-toggle-checkbox-wrapper {
+    width: 14px !important;
+    height: 20px !important;
+  }
+
+  .mat-pseudo-checkbox {
+    width: 12px;
+    height: 12px;
+
+    &::after {
+      width: usnet !important;
+    }
+  }
+}

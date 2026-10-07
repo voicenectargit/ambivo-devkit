@@ -1,0 +1,15 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+.calendar-highlighted .mat-calendar-body-cell-content {
+  background-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+  box-shadow: 0 0 4px 0 var(--color-primary);
+  opacity: 0.9;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
+}
+.mat-calendar-body-selected {
+  box-shadow: none;
+  background-color: var(--color-primary) !important;
+}

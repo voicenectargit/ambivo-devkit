@@ -1,0 +1,5 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+// The `am-layout()` mixin (tokens + atom styles) lives with the layout
+// directives it styles, in @am/crm/ui. Forwarded here so apps keep including it
+// the M3 way: `@use '…/m3' as m3; @include m3.am-layout();`.
+@forward '../../layout/styles/am-layout';

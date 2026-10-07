@@ -1,0 +1,12 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use 'sass:map';
+$matHues: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, A100, A200, A400, A700;
+@mixin palette-variables($name, $palette, $shades: true) {
+  --color-#{$name}: #{map-get($palette, default)};
+  --color-#{$name}-contrast: #{map-get($palette, default-contrast)};
+  @if ($shades) {
+    @each $hue in $matHues {
+      --color-#{$name}-#{$hue}: #{map-get($palette, $hue)};
+    }
+  }
+}

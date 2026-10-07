@@ -1,0 +1,32 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use "sass:map";
+
+@mixin create-utils($utility, $modifier: null) {
+  $values: map.get($utility, values);
+  $properties: map.get($utility, property);
+
+  // Use custom class if present
+  $class: if(map.has-key($utility, class), map.get($utility, class), nth($properties, 1));
+  $class: if($class == null, "", $class);
+
+  // If the values are a list or string, convert it into a map
+  @if type-of($values) == "string" or type-of(nth($values, 1)) != "list" {
+    $values: zip($values, $values);
+  }
+
+  @if $modifier {
+    $class: "#{$class}-#{$modifier}";
+  }
+
+  @if type-of($properties) == "string" {
+    $properties: append((), $properties);
+  }
+
+  @each $key, $val in $values {
+    .#{$class}-#{$key} {
+      @each $prop in $properties {
+        #{$prop}: $val !important;
+      }
+    }
+  }
+}

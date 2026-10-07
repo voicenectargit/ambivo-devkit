@@ -1,0 +1,108 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use 'core/buttons';
+
+// Round button
+.mdc-button.btn-rounded {
+  border-radius: var(
+    --mat-button-outlined-container-height,
+    var(
+      --mat-button-filled-container-height,
+      var(--mat-button-text-container-height, var(--mat-button-protected-container-height))
+    )
+  );
+}
+
+// Large button
+.mdc-button.btn-lg {
+  height: 44px !important;
+}
+
+// Small button
+.mat-mdc-icon-button.btn-sm {
+  @include buttons.matIconButtonSize(38px, 19px);
+}
+
+// Extra small button
+.mat-mdc-icon-button.btn-xs {
+  @include buttons.matIconButtonSize(24px, 16px);
+}
+
+// Wide button
+.mdc-button.btn-wide {
+  padding-inline: 32px !important;
+}
+
+// Pending button
+.mdc-button.btn-pending {
+  position: relative;
+  .mdc-button__label {
+    opacity: 0.5;
+  }
+  .mat-mdc-progress-spinner {
+    position: absolute;
+  }
+}
+
+// Disable button focus
+.no-ripple .mat-mdc-button-persistent-ripple {
+  display: none !important;
+}
+
+// Pure btn
+.btn-pure {
+  all: unset;
+}
+
+// Buttons group
+.btn-group {
+  .mdc-button:not(:last-child) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: 1px solid var(--color-fg-divider);
+  }
+  .mdc-button:not(:first-child) {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+}
+.btn-reverse {
+  flex-direction: row-reverse;
+  & > .mat-icon {
+    margin-right: -4px !important;
+    margin-left: 8px !important;
+  }
+}
+
+// Light button
+.btn-light {
+  font-weight: 400 !important;
+  justify-content: flex-start !important;
+  letter-spacing: unset !important;
+}
+.btn-overflow-hidden {
+  .mdc-button__label {
+    overflow: hidden;
+  }
+  .mat-icon {
+    min-width: fit-content;
+  }
+}
+
+// Success button
+.mat-mdc-outlined-button.btn-success {
+  --mat-button-outlined-label-text-color: var(--color-success) !important;
+  --mat-button-outlined-outline-color: var(--color-success) !important;
+}
+
+// Select button
+button:has(.mat-mdc-select) {
+  position: relative;
+}
+button .mat-mdc-select {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+}

@@ -1,0 +1,8 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+.am-inert--target {
+  transition: filter 200ms cubic-bezier(0.2, 0.6, 0.35, 1);
+}
+.am-inert {
+  pointer-events: none;
+  filter: opacity(0.5);
+}

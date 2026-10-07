@@ -1,0 +1,27 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use 'sass:map';
+@import 'palete_valirables';
+
+$matHues: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, A100, A200, A400, A700;
+@mixin theme-variables($theme, $shades: true) {
+  // Primary
+  @include palette-variables('primary', map-get($theme, primary), $shades);
+
+  // Accent
+  @include palette-variables('accent', map-get($theme, accent), $shades);
+
+  // Warn
+  @include palette-variables('warn', map-get($theme, warn), $shades);
+
+  // Background
+  $background: map-get($theme, background);
+  @each $name, $color in $background {
+    --color-bg-#{$name}: #{$color};
+  }
+
+  // Foreground
+  $foreground: map-get($theme, foreground);
+  @each $name, $color in $foreground {
+    --color-fg-#{$name}: #{$color};
+  }
+}

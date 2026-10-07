@@ -1,0 +1,320 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+/* Final layout */
+.overflow-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow: hidden; /* prevents partial peeking */
+  align-items: center;
+  position: relative;
+  min-height: 48px;
+}
+
+/* Hidden measurement container */
+.measure-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap; /* Allow wrapping to detect overflow */
+  align-items: center;
+  visibility: hidden; /* Hide but keep layout */
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Measurement items match actual item styling */
+.measure-item,
+.measure-more-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+/* Apply tab-specific styling during measurement */
+.tabs-appearance .measure-item,
+.tabs-appearance .measure-more-button {
+  padding: 12px 16px;
+}
+
+/* No gap for tabs */
+.tabs-appearance .measure-container {
+  gap: 0;
+}
+
+/* Gap for buttons and icon-buttons */
+.overflow-bar:not(.tabs-appearance) .measure-container {
+  gap: 8px;
+}
+
+.items-container {
+  display: flex;
+  overflow: hidden;
+  flex-wrap: nowrap;
+  align-items: center;
+  flex: 1;
+}
+
+/* Alignment variations */
+.align-left .items-container {
+  justify-content: flex-start;
+}
+
+.align-right .items-container {
+  justify-content: flex-end;
+}
+
+/* Gap for buttons and icon-buttons, not tabs */
+.overflow-bar:not(.tabs-appearance) .items-container {
+  gap: 8px;
+}
+
+/* Items and More must never shrink - only for tabs */
+.tab-item,
+.tabs-appearance .more-button {
+  flex: 0 0 auto;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+/* Tab item styles */
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: none;
+  font: var(--mat-sys-label-large);
+  color: var(--mat-sys-on-surface);
+  border-radius: var(--mat-sys-corner-full);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  min-height: 40px;
+}
+
+/* Tab appearance */
+.tabs-appearance {
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.tab-item {
+  border-bottom: 2px solid transparent;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  color: var(--mat-sys-on-surface-variant);
+  position: relative;
+  /* Remove conflicting properties - inherited from common styles */
+}
+
+.tab-item:hover:not(.disabled) {
+  background: var(--mat-sys-surface-container-low);
+  color: var(--mat-sys-on-surface);
+}
+
+.tab-item:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: -2px;
+}
+
+.tab-item.active-link,
+.tab-item.active {
+  color: var(--mat-sys-primary) !important;
+  border-bottom-color: var(--mat-sys-primary);
+}
+
+.tab-item.disabled {
+  color: var(--mat-sys-on-surface-disabled);
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+/* More button inherits from .more-button class above */
+
+.tabs-appearance .more-button mat-icon {
+  margin-left: 4px;
+}
+
+/* Ink bar for tabs */
+.ink-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--mat-sys-primary);
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.ink-bar.visible {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* Badge styles */
+.badge {
+  position: relative;
+}
+
+.badge-dot::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 6px;
+  height: 6px;
+  background: var(--mat-sys-error);
+  border-radius: 50%;
+}
+
+/* Menu styles */
+.active-menu-item {
+  color: var(--mat-sys-primary);
+}
+
+.active-menu-item .check-icon {
+  margin-left: auto;
+  color: var(--mat-sys-primary);
+}
+
+.menu-badge {
+  margin-left: auto;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  padding: 2px 6px;
+  border-radius: var(--mat-sys-corner-full);
+  font-size: 12px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* Icons - only customize for tabs */
+.tab-item mat-icon,
+.tabs-appearance .more-button mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* Label */
+.label {
+  flex: 1;
+  text-align: left;
+}
+
+/* Hidden measurer */
+.measurer {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* RTL support */
+[dir='rtl'] .items-container {
+  direction: rtl;
+}
+
+[dir='rtl'] .tabs-appearance .more-button {
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+[dir='rtl'] .tabs-appearance .more-button mat-icon {
+  margin-left: 0;
+  margin-right: 4px;
+}
+
+[dir='rtl'] .ink-bar {
+  transform-origin: right;
+}
+
+/* Focus management */
+.overflow-bar:focus-within .tab-item:focus {
+  z-index: 1;
+}
+
+/* Responsive behavior */
+@media (max-width: 600px) {
+  .tab-item {
+    padding: 8px 12px;
+    gap: 4px;
+  }
+
+  .tab-item .label {
+    display: none;
+  }
+
+  .tabs-appearance .more-button .label {
+    display: none;
+  }
+}
+
+/* Label styling */
+.label {
+  white-space: nowrap;
+}
+
+/* Truncate option */
+.label.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+/* Tab labels should not truncate by default */
+.tab-item .label:not(.truncate) {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: nowrap;
+  max-width: none;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .tab-item.active {
+    border-bottom-width: 3px;
+  }
+
+  .ink-bar {
+    height: 3px;
+  }
+}
+.hidden {
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+}
+.mat-mdc-icon-button {
+  color: var(--mat-sys-on-secondary-container);
+  background-color: var(--mat-sys-secondary-container);
+
+  &.disabled {
+    /* dimmed text/icon from on-secondary-container */
+    color: color-mix(in srgb, var(--mat-sys-on-secondary-container) 44%, var(--mat-sys-surface));
+
+    /* lighter secondary-container background */
+    background-color: color-mix(
+      in srgb,
+      var(--mat-sys-secondary-container) 32%,
+      var(--mat-sys-surface)
+    );
+  }
+}
+a,
+button {
+  min-width: fit-content;
+}

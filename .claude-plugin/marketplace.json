@@ -1,0 +1,12 @@
+{
+  "name": "ambivo",
+  "owner": { "name": "Ambivo", "email": "dev-partner@ambivo.com" },
+  "metadata": { "description": "Tools for building apps on the Ambivo API" },
+  "plugins": [
+    {
+      "name": "ambivo-devkit",
+      "source": "./plugins/ambivo-devkit",
+      "description": "Build Angular apps on the Ambivo API that sign in with Ambivo and follow Ambivo's design and coding standards."
+    }
+  ]
+}

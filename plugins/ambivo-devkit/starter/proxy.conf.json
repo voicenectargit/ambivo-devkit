@@ -1,0 +1,10 @@
+{
+  "/api": {
+    "target": "https://ingress.ambivo.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/api": "" },
+    "headers": { "Origin": "https://apps.ambivo.com" },
+    "logLevel": "warn"
+  }
+}

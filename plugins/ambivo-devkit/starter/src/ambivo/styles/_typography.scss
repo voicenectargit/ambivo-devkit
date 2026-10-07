@@ -1,0 +1,118 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use 'core/_breakpoint.scss' as utils;
+
+a {
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--color-primary);
+}
+a:visited {
+  color: var(--color-primary);
+}
+a:focus,
+a:hover {
+  outline: none;
+  text-decoration: underline;
+}
+.text-small {
+  font-size: 12px !important;
+}
+.text-truncate {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.text-disabled {
+  color: var(--color-fg-disabled) !important;
+}
+.text-muted {
+  color: var(--color-fg-muted) !important;
+}
+.text-ghost {
+  color: var(--color-fg-ghost) !important;
+}
+.text-secondary {
+  color: var(--color-fg-secondary-text) !important;
+}
+.text-bold {
+  font-weight: bold !important;
+}
+.text-light {
+  font-weight: 300 !important;
+}
+.fw-400,
+.text-regular {
+  font-weight: 400 !important;
+}
+.fw-500,
+.text-medium {
+  font-weight: 500 !important;
+}
+fw-600,
+.text-strong {
+  font-weight: 600 !important;
+}
+.text-italic {
+  font-style: italic !important;
+}
+.text-normal {
+  font-weight: 400;
+  letter-spacing: normal;
+}
+.line-clamp-2 {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.line-clamp-3 {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.text-nowrap {
+  white-space: nowrap;
+}
+.text-formatted {
+  white-space: pre-line;
+}
+
+/**
+ * Scale headers
+ **/
+.mat-headline-1,
+.mat-headline-2,
+.mat-headline-3,
+.mat-headline-4,
+.mat-headline-5 {
+  line-height: 1.2 !important;
+  margin-bottom: 0.8em !important;
+}
+
+@include utils.breakpoint('lt-md') {
+  .mat-headline-1 {
+    font-size: 48px !important;
+  }
+  .mat-headline-2 {
+    font-size: 42px !important;
+  }
+  .mat-headline-3 {
+    font-size: 36px !important;
+  }
+}
+
+hgroup {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    margin-bottom: 0 !important;
+  }
+}
+.text-decoration-none {
+  text-decoration: none !important;
+}

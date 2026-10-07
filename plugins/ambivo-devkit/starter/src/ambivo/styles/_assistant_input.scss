@@ -1,0 +1,13 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+*:has(> .assistant-input) {
+  position: relative;
+}
+.assistant-input--helper {
+  white-space: pre-line;
+  visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}

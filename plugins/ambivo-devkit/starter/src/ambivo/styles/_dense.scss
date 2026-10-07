@@ -1,0 +1,8 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@use '@angular/material' as mat;
+
+@each $dense in 0, 1, 2, 3, 4, 5 {
+  .dense-#{$dense} {
+    @include mat.all-component-densities($dense * -1);
+  }
+}

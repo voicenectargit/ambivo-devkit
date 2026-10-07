@@ -1,0 +1,61 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+.fx-row {
+  display: flex !important;
+  align-items: flex-start;
+  flex-direction: row;
+}
+.fx-row-reverse {
+  display: flex !important;
+  flex-direction: row-reverse;
+}
+.fx-row-center {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+}
+.fx-row-stretch {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch;
+}
+.fx-row-start {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start;
+}
+.fx-row-end {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-end;
+}
+.fx-column {
+  display: flex !important;
+  flex-direction: column !important;
+}
+.fx-column-start {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+}
+.fx-column-center {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center;
+}
+.fx-align-center {
+  align-items: center;
+}
+.fx-align-start {
+  align-items: flex-start;
+}
+.fx-align-end {
+  align-items: end;
+}
+.fit-content {
+  min-width: fit-content !important;
+}
+.fx-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

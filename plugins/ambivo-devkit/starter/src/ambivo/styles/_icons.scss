@@ -1,0 +1,11 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+@for $size from 2 through 40 {
+  .mat-icon.s-#{$size * 2} {
+    font-size: #{($size * 2) + "px"} !important;
+    width: #{($size * 2) + "px"} !important;
+    height: #{($size * 2) + "px"} !important;
+    min-width: #{($size * 2) + "px"} !important;
+    min-height: #{($size * 2) + "px"} !important;
+    line-height: #{($size * 2) + "px"} !important;
+  }
+}

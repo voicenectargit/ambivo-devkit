@@ -1,0 +1,25 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+// Mixin for hover/focus state layer
+@mixin state-layer($opacity: var(--mat-sys-hover-state-layer-opacity)) {
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: var(--mat-sys-on-surface);
+    opacity: 0;
+    transition: opacity 0.1s;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  &:focus::before,
+  &:hover::before,
+  &:focus-within::before {
+    opacity: $opacity;
+  }
+  &:focus {
+    outline: none;
+  }
+}

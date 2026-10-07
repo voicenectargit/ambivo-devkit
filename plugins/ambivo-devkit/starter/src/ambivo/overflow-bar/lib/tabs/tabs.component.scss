@@ -1,0 +1,181 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+.tabs-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  overflow: hidden;
+
+  &.align-right {
+    justify-content: flex-end;
+  }
+
+  // Density variations
+  &.density-compact {
+    min-height: 40px;
+    gap: 2px;
+
+    .tab {
+      padding: 8px 12px;
+      min-height: 40px;
+      font-size: 13px;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+    }
+  }
+
+  &.density-normal {
+    min-height: 48px;
+    gap: 4px;
+
+    .tab {
+      padding: 12px 16px;
+      min-height: 48px;
+      font-size: 14px;
+    }
+  }
+
+  &.density-comfortable {
+    min-height: 56px;
+    gap: 8px;
+
+    .tab {
+      padding: 16px 20px;
+      min-height: 56px;
+      font-size: 15px;
+
+      mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+    }
+  }
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  min-height: 48px;
+  border: none;
+  background: transparent;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-large);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+  border-radius: 0;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover:not(.disabled):not(.active) {
+    background-color: var(--mat-sys-surface-container-highest);
+    color: var(--mat-sys-on-surface);
+  }
+
+  &.active {
+    color: var(--mat-sys-primary);
+
+    .tab-indicator {
+      opacity: 1;
+      transform: scaleX(1);
+    }
+
+    mat-icon {
+      color: var(--mat-sys-primary);
+    }
+  }
+
+  &.disabled {
+    color: var(--mat-sys-on-surface);
+    opacity: 0.38;
+    cursor: default;
+    pointer-events: none;
+  }
+}
+
+.tab-label {
+  &.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+}
+
+.tab-color {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: var(--mat-sys-primary);
+  opacity: 0;
+  transform: scaleX(0);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.more-button {
+  mat-icon {
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+// Error styles
+.tab-error-icon,
+.tab-error {
+  color: var(--mat-sys-error) !important;
+}
+
+.tab-indicator.tab-error {
+  background-color: var(--mat-sys-error) !important;
+}
+
+// Close button styles
+.tab-close {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--mat-sys-on-surface-variant);
+  transition: background-color 0.2s ease;
+  margin-left: 4px;
+
+  &:hover {
+    background-color: var(--mat-sys-surface-container-highest);
+    color: var(--mat-sys-on-surface);
+  }
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}

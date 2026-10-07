@@ -1,0 +1,8 @@
+{
+  "name": "ambivo-devkit",
+  "version": "0.1.0",
+  "description": "Build Angular apps on the Ambivo API that sign in with Ambivo and follow Ambivo's design and coding standards.",
+  "author": { "name": "Ambivo", "email": "dev-partner@ambivo.com" },
+  "homepage": "https://apidocs.ambivo.com",
+  "keywords": ["ambivo", "angular", "api"]
+}

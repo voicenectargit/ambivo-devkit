@@ -1,0 +1,50 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+// Print-region utility.
+//
+// A component that renders a `.am-print-region` section gets `window.print()`
+// to output ONLY that section — no app shell, no sidebars, no tabs. The region
+// is expected to be `display: none` on screen (the component's own style);
+// these rules take over for print.
+//
+// Mechanics: everything OFF the region's ancestor path is display:none'd, and
+// the path itself is flattened (static, auto-height, visible overflow). Both
+// matter — the region typically sits inside positioned, scroll-clipped panels,
+// and merely hiding siblings would leave it offset to the panel's box and
+// clipped to one page. Flattened, it flows as a plain document and paginates.
+@media print {
+  body:has(.am-print-region) {
+    height: auto !important;
+    overflow: visible !important;
+
+    // Everything that is not the region, not inside it, and not an ancestor
+    // of it disappears from layout entirely.
+    *:not(:has(.am-print-region)):not(.am-print-region):not(.am-print-region *) {
+      display: none !important;
+    }
+
+    // The ancestor chain stays only to keep the region in the DOM — strip any
+    // sizing, positioning, scrolling or transforms it carries.
+    :has(.am-print-region) {
+      display: block !important;
+      position: static !important;
+      overflow: visible !important;
+      width: auto !important;
+      height: auto !important;
+      max-height: none !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      transform: none !important;
+      background: none !important;
+    }
+  }
+
+  .am-print-region {
+    display: block !important;
+    // Paper is white regardless of the app theme; don't inherit dark-theme
+    // foreground variables.
+    color: #111;
+    background: #fff;
+  }
+}
