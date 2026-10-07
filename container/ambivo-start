@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+#
+# Gets the Ambivo dev container ready, then starts Claude Code in /work.
+#
+#   ambivo-start            set up, sign in to the sandbox if needed, then start Claude Code
+#   ambivo-start login      sign in to the sandbox again
+#   ambivo-start <command>  set up, then run the command (for example: ambivo-start bash)
+#
+# With no terminal (docker run -d, or a dev container in VS Code or Cursor) it sets up and then waits.
+set -euo pipefail
+
+MARKET=/opt/ambivo-devkit
+CONFIG=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
+WANT=$(node -p "require('$MARKET/plugins/ambivo-devkit/.claude-plugin/plugin.json').version")
+
+# 1. The plugin, at this image's version. A volume made by an older image keeps the older copy.
+plugin_dir() { ls -d "$CONFIG"/plugins/cache/ambivo/ambivo-devkit/"$WANT" 2>/dev/null || true; }
+if [ -z "$(plugin_dir)" ]; then
+  echo "Installing the Ambivo plugin $WANT..."
+  claude plugin marketplace add "$MARKET" >/dev/null 2>&1 || claude plugin marketplace update ambivo >/dev/null
+  claude plugin install ambivo-devkit@ambivo >/dev/null 2>&1 || claude plugin update ambivo-devkit@ambivo >/dev/null
+fi
+MCP="$(plugin_dir)/mcp/ambivo-mcp.mjs"
+[ -f "$MCP" ] || { echo "The Ambivo plugin is not installed. Write to dev-partner@ambivo.com." >&2; exit 1; }
+
+# 2. Tell Claude it runs in a container, unless the developer replaced that file with their own.
+if [ ! -f "$CONFIG/CLAUDE.md" ] || head -1 "$CONFIG/CLAUDE.md" | grep -q 'ambivo-devkit container'; then
+  # install, not cp: the source is read-only, and cp keeps that mode, so the next start could not
+  # overwrite its own copy.
+  install -m 0644 "$MARKET/container/CLAUDE.md" "$CONFIG/CLAUDE.md"
+fi
+
+# 3. The Ambivo sandbox sign-in. It lasts about a day.
+signed_in() {
+  [ -n "${AMBIVO_TOKEN:-}" ] && return 0
+  node -e '
+    const f = require("path").join(process.env.XDG_CONFIG_HOME || require("os").homedir() + "/.config", "ambivo-devkit", "session.json");
+    try { const s = JSON.parse(require("fs").readFileSync(f, "utf8")); process.exit(s.token && s.expiresAt > Date.now() / 1000 + 600 ? 0 : 1); }
+    catch { process.exit(1); }'
+}
+sign_in() {
+  echo "Sign in to your Ambivo sandbox. Use the sandbox email and password Ambivo sent you."
+  node "$MCP" login
+}
+
+if [ "${1:-}" = "login" ]; then sign_in; exit; fi
+if [ $# -gt 0 ]; then exec "$@"; fi
+
+if [ ! -t 0 ]; then
+  echo "Ambivo dev container is ready. Open a terminal in it and run: ambivo-start"
+  exec sleep infinity
+fi
+
+signed_in || sign_in
+cat <<EOF
+
+Ready. Your apps are saved in /work, the folder you started from.
+  Start an app:   /ambivo-new-app a stock count app for warehouse staff
+  See the app:    http://localhost:4200, after Claude runs npm start
+  Sign in again:  ambivo-start login
+
+EOF
+exec claude

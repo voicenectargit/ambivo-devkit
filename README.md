@@ -59,6 +59,36 @@ browser? Use Dev Studio instead: [ambivo.com/documentation/guides/dev-studio](ht
 
 The app's `README.md` explains how to set it up in the company it is for, and how to put it online.
 
+## Or use the Docker image
+
+The image has Node, Claude Code, Chromium and this plugin ready. You need only Docker. Run it from the
+folder you keep your apps in:
+
+```sh
+docker run -it --rm -p 127.0.0.1:4200:4200 \
+  -v ambivo-devkit-home:/home/node/.claude -v "$PWD":/work sgosain/ambivo-devkit
+```
+
+On Windows PowerShell, use `${PWD}` in place of `"$PWD"`.
+
+The first time, it asks for your sandbox email and password, then starts Claude Code. Sign in to Claude
+when it asks. The `ambivo-devkit-home` volume keeps both sign-ins, so the next start goes straight to
+Claude Code. Your apps are saved in the folder you started from. When Claude starts the app, open
+http://localhost:4200. Is port 4200 already taken on your computer? Use `-p 127.0.0.1:4300:4200` and open
+port 4300 instead.
+
+| You want to | Do this |
+| --- | --- |
+| Sign in to your sandbox again | Run `ambivo-start login` in the container |
+| A shell in place of Claude Code | add `bash` to the end of the `docker run` command |
+
+**VS Code or Cursor:** copy the `.devcontainer` folder into your apps folder, open that folder, and pick
+"Reopen in Container". Then open a terminal and run `ambivo-start`.
+
+**Build the image yourself:** clone this repository, then run
+`docker build -f container/Dockerfile -t ambivo-devkit .` and use `ambivo-devkit` in place of
+`sgosain/ambivo-devkit`.
+
 ## Cursor, Codex and other assistants
 
 Copy the `plugins/ambivo-devkit/starter` folder into a new folder, open it in your assistant, and point it at `AGENTS.md`. It asks

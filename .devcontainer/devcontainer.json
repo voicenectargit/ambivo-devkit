@@ -1,0 +1,14 @@
+// Copy this .devcontainer folder into the folder you keep your apps in, open that folder in VS Code or
+// Cursor, and pick "Reopen in Container". Then open a terminal and run: ambivo-start
+// To use an image you built yourself, change "image" to its name (see container/Dockerfile).
+{
+  "name": "Ambivo dev kit",
+  "image": "sgosain/ambivo-devkit:latest",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/work,type=bind",
+  "workspaceFolder": "/work",
+  "mounts": ["source=ambivo-devkit-home,target=/home/node/.claude,type=volume"],
+  "remoteUser": "node",
+  "overrideCommand": false,
+  "forwardPorts": [4200],
+  "portsAttributes": { "4200": { "label": "Your app", "onAutoForward": "notify" } }
+}
