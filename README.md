@@ -7,6 +7,18 @@ the start.
 It is for Ambivo development partners. To become one, write to dev-partner@ambivo.com. Prefer to build in a
 browser? Use Dev Studio instead: [ambivo.com/documentation/guides/dev-studio](https://www.ambivo.com/documentation/guides/dev-studio).
 
+## Two kinds of Ambivo app
+
+| | App extension | Standalone app |
+| --- | --- | --- |
+| What it is | New record types and fields inside an Ambivo app, such as the CRM | An app of its own, with its own screens and web address |
+| Who makes it | The client's admin, in the CRM: **Settings > Objects > Create** | You, with this kit or in Dev Studio |
+| Where it runs | Inside the CRM. Nothing to host | On a web host you choose |
+| Its data | Custom objects defined by the CRM (`schema_meta`) | Custom objects marked with your app's key (`hosting_apps`) |
+
+This kit builds **standalone apps only**. To extend the CRM, use the CRM's Object Studio. An object is never both:
+`hosting_apps` alone says it belongs to a standalone app.
+
 ## What is in it
 
 | Folder | What it is |
