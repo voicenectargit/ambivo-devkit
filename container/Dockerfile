@@ -37,10 +37,10 @@ ENV CLAUDE_CONFIG_DIR=/home/node/.claude \
     AMBIVO_DEV_CONTAINER=1
 
 # The node user (uid 1000) owns files written to /work, which is a folder on your computer.
+# ambivo-start installs the plugin from /opt/ambivo-devkit on the first start, with no network. Not at
+# build time: Claude Code crashes (exit 139) under the emulation a cross-platform build uses.
 USER node
-RUN mkdir -p /home/node/.claude \
- && claude plugin marketplace add /opt/ambivo-devkit \
- && claude plugin install ambivo-devkit@ambivo
+RUN mkdir -p /home/node/.claude
 
 WORKDIR /work
 EXPOSE 4200
