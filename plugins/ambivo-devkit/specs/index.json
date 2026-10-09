@@ -1,6 +1,6 @@
 {
-  "docs_commit": "f415afa",
-  "built_at": "2026-10-07",
+  "docs_commit": "427ff2a",
+  "built_at": "2026-10-09",
   "specs": [
     {
       "id": "esign",
@@ -30,7 +30,7 @@
       "id": "crm",
       "title": "CRM",
       "file": "ambivo-crm.openapi.yaml",
-      "operations": 254
+      "operations": 267
     },
     {
       "id": "unified-model",

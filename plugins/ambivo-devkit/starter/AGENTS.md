@@ -8,7 +8,7 @@ Without the plugin:
   https://apidocs.ambivo.com/openapi/<spec id> (YAML). Spec ids: https://apidocs.ambivo.com/api/specs
 - Where a step runs `ambivo-check.mjs`, run `npm run ambivo:check`.
 - To look at a screen, run `npm run ambivo:screenshot -- /route` (needs Chrome or Chromium).
-- Specs as of ambivo-api-docs f415afa.
+- Specs as of ambivo-api-docs 427ff2a.
 
 ---
 

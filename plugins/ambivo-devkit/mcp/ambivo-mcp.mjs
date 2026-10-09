@@ -43885,7 +43885,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 var DOCS = process.env.AMBIVO_DOCS_URL || "https://apidocs.ambivo.com";
 var CACHE = join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "ambivo-devkit", "specs");
-var BUNDLED = join(dirname(fileURLToPath(import.meta.url)), "..", "specs");
+var HERE_DIR = dirname(fileURLToPath(import.meta.url));
+var BUNDLED_DIRS = [join(HERE_DIR, "..", "specs"), join(HERE_DIR, "..", "..", "plugins", "ambivo-devkit", "specs")];
 var TTL_MS = 24 * 3600 * 1e3;
 var METHODS = ["get", "post", "put", "patch", "delete"];
 var memo2 = /* @__PURE__ */ new Map();
@@ -43898,8 +43899,8 @@ async function fetchText(url2) {
   return res.text();
 }
 function bundled(file2) {
-  const p = join(BUNDLED, file2);
-  return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null;
+  const p = BUNDLED_DIRS.map((d) => join(d, file2)).find((x) => existsSync(x));
+  return p ? JSON.parse(readFileSync(p, "utf8")) : null;
 }
 async function listSpecs() {
   if (memo2.has("index")) return memo2.get("index");
@@ -43961,8 +43962,15 @@ async function findOperations(query, only, limit = 15) {
   const words = String(query).toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) throw new Error("Give one or more words to search for.");
   const hits = [];
+  const unavailable = [];
   for (const id of await specIds(only)) {
-    const doc = await loadSpec(id);
+    let doc;
+    try {
+      doc = await loadSpec(id);
+    } catch (err) {
+      unavailable.push({ spec: id, why: err.message.split("\n")[0] });
+      continue;
+    }
     for (const { path, method, op, item } of operations(doc)) {
       const head = `${method} ${path}`.toLowerCase();
       const text = `${op.summary ?? ""} ${op.operationId ?? ""} ${(op.tags ?? []).join(" ")} ${op.description ?? ""}`.toLowerCase();
@@ -43991,7 +43999,11 @@ async function findOperations(query, only, limit = 15) {
     }
   }
   hits.sort((a, b) => b.score - a.score);
-  return { total: hits.length, results: hits.slice(0, limit).map(({ score, ...h }) => h) };
+  return {
+    total: hits.length,
+    results: hits.slice(0, limit).map(({ score, ...h }) => h),
+    ...unavailable.length ? { unavailable } : {}
+  };
 }
 function resolveRefs(node2, doc, depth = 0, seen = /* @__PURE__ */ new Set()) {
   if (Array.isArray(node2)) return node2.map((n) => resolveRefs(n, doc, depth, seen));
@@ -44061,6 +44073,14 @@ var SignInError = class extends Error {
 };
 var textOf = (v) => typeof v === "string" ? v : typeof v === "number" ? String(v) : null;
 var withSlash = (u) => String(u).endsWith("/") ? String(u) : `${u}/`;
+function jwtTenant(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(String(token).split(".")[1], "base64url").toString("utf8"));
+    return payload.tenant_id ? String(payload.tenant_id) : void 0;
+  } catch {
+    return void 0;
+  }
+}
 function jwtExpiry(token) {
   try {
     const payload = JSON.parse(Buffer.from(String(token).split(".")[1], "base64url").toString("utf8"));
@@ -44144,7 +44164,10 @@ function toSession(res, { apiUrl, email: email3 }) {
     tenantName: textOf(t.company_name) || textOf(t.name) || "",
     connectionId: textOf(user.client_connection_id) || "",
     expiresAt: jwtExpiry(token) ?? Math.floor(Date.now() / 1e3) + 24 * 3600,
-    sandbox: sandboxOf(user)
+    sandbox: sandboxOf(user),
+    // An admin of this company: listed in its admin_ids, or flagged by the API. Only an admin may
+    // install an app's custom objects there (Dev Studio's Deploy checks this before installing).
+    isTenantAdmin: user.is_tenant_admin === true || Array.isArray(t.admin_ids) && t.admin_ids.map(String).includes(textOf(user.id) || "")
   };
 }
 function toChallenge(res) {
@@ -45338,8 +45361,9 @@ function buildServer() {
       name: [u.first_name, u.last_name].filter(Boolean).join(" "),
       email: u.email,
       userid: u.userid,
-      tenant_id: u.tenant_id ?? s?.tenantId,
-      // user/data does not always carry it; the login saved it
+      // user/data does not carry it. A saved login stored it; a token passed in
+      // AMBIVO_TOKEN (Dev Studio) carries it as a claim.
+      tenant_id: u.tenant_id ?? s?.tenantId ?? jwtTenant(s?.token),
       is_tenant_admin: !!u.is_tenant_admin,
       module_access: u.module_access,
       session: { source: s?.source, expires_at: s?.expiresAt ? new Date(s.expiresAt * 1e3).toISOString() : void 0 }
