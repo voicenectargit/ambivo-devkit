@@ -43958,10 +43958,45 @@ async function specIds(only) {
   }
   return specs.map((s) => s.id);
 }
+var FILLER = /* @__PURE__ */ new Set([
+  "a",
+  "an",
+  "the",
+  "to",
+  "of",
+  "for",
+  "in",
+  "on",
+  "at",
+  "my",
+  "me",
+  "i",
+  "we",
+  "our",
+  "do",
+  "does",
+  "how",
+  "where",
+  "what",
+  "which",
+  "can",
+  "is",
+  "are",
+  "show",
+  "find",
+  "get",
+  "api",
+  "ambivo",
+  "endpoint",
+  "operation",
+  "route",
+  "call"
+]);
+var stem = (w) => w.replace(/(ing|ed|es|s)$/, "").replace(/e$/, "");
 async function findOperations(query, only, limit = 15) {
-  const words = String(query).toLowerCase().split(/\s+/).filter(Boolean);
+  const words = [...new Set(String(query).toLowerCase().split(/[^a-z0-9_]+/).filter((w) => w && !FILLER.has(w)).map(stem).filter(Boolean))];
   if (!words.length) throw new Error("Give one or more words to search for.");
-  const hits = [];
+  const cands = [];
   const unavailable = [];
   for (const id of await specIds(only)) {
     let doc;
@@ -43972,36 +44007,50 @@ async function findOperations(query, only, limit = 15) {
       continue;
     }
     for (const { path, method, op, item } of operations(doc)) {
-      const head = `${method} ${path}`.toLowerCase();
-      const text = `${op.summary ?? ""} ${op.operationId ?? ""} ${(op.tags ?? []).join(" ")} ${op.description ?? ""}`.toLowerCase();
-      let score = 0;
-      for (const w of words) {
-        if (head.includes(w)) score += 3;
-        else if (text.includes(w)) score += 1;
-        else {
-          score = -1;
-          break;
-        }
-      }
-      if (score > 0) {
-        const deprecated = isDeprecated(op);
-        const host = (op.servers ?? item.servers)?.[0]?.url || void 0;
-        hits.push({
-          score: deprecated ? score - 100 : score,
-          spec: id,
-          method,
-          path,
-          summary: op.summary ?? "",
-          deprecated,
-          ...host && !host.includes("ingress.ambivo.com") ? { server: host } : {}
-        });
-      }
+      cands.push({
+        id,
+        path,
+        method,
+        op,
+        item,
+        head: `${method} ${path}`.toLowerCase(),
+        name: `${op.summary ?? ""} ${op.operationId ?? ""} ${(op.tags ?? []).join(" ")}`.toLowerCase(),
+        desc: String(op.description ?? "").toLowerCase()
+      });
     }
   }
+  const re = Object.fromEntries(words.map((w) => [w, new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}`)]));
+  const has = (text, w) => re[w].test(text);
+  const n = cands.length || 1;
+  const weight = Object.fromEntries(words.map((w) => {
+    const df = cands.filter((c) => has(c.head, w) || has(c.name, w) || has(c.desc, w)).length;
+    return [w, df ? Math.log(1 + n / df) : 0];
+  }));
+  const hits = [];
+  for (const c of cands) {
+    let score = 0;
+    for (const w of words) score += has(c.head, w) ? 3 * weight[w] : has(c.name, w) ? 2 * weight[w] : has(c.desc, w) ? 0.5 * weight[w] : 0;
+    if (score <= 0) continue;
+    const deprecated = isDeprecated(c.op);
+    const host = (c.op.servers ?? c.item.servers)?.[0]?.url || void 0;
+    hits.push({
+      score,
+      spec: c.id,
+      method: c.method,
+      path: c.path,
+      summary: c.op.summary ?? "",
+      deprecated,
+      ...host && !host.includes("ingress.ambivo.com") ? { server: host } : {}
+    });
+  }
   hits.sort((a, b) => b.score - a.score);
+  const current = hits.filter((h) => !h.deprecated);
+  const best = current[0]?.score ?? 0;
+  const retired = hits.filter((h) => h.deprecated && h.score >= best / 2).slice(0, 3);
+  const shown = [...current.slice(0, Math.max(0, limit - retired.length)), ...retired];
   return {
     total: hits.length,
-    results: hits.slice(0, limit).map(({ score, ...h }) => h),
+    results: shown.map(({ score, ...h }) => h),
     ...unavailable.length ? { unavailable } : {}
   };
 }
