@@ -5,8 +5,10 @@ looks like Ambivo's own apps. Start every partner app from here.
 
 - Angular and Material 20.1.2, TypeScript 5.8.3: the same versions as ambivo-nx.
 - Ambivo theme, fonts (Roboto, Material Symbols) and `am*` layout atoms, copied from ambivo-nx `dev`.
-- Sign-in: email and password, then a code by email when the account uses two-step verification.
-  SMS codes are not offered in phase 1.
+- Sign-in with an Ambivo account, three ways:
+  - email and password, then a code by email when the account uses two-step verification;
+  - a code alone, sent by email or text (on by default);
+  - Google or Microsoft (off by default; see below). They sign in existing accounts only.
 
 ## Run it
 
@@ -30,6 +32,19 @@ At boot the app reads `runtime-config/<host name>.json`:
 Without `tenantId`, anyone with an Ambivo account can sign in, and each person sees only their own
 company's data. Add `"tenantId": "<id>"` to limit one address to one company: sign-in then refuses
 users from any other tenant. Serve one file per host name.
+
+### Code, Google and Microsoft sign-in
+
+```json
+{ "apiUrl": "https://ingress.ambivo.com/", "appName": "Stock Room",
+  "signInOptions": { "code": true, "google": true, "microsoft": true } }
+```
+
+Google and Microsoft send the person back to `/sign-in/return` on this app. The API does that only
+when the person's company has turned it on for the app's address. A company admin does it once: sign
+in to the app with a password or a code, and press **Turn on** in the "Google and Microsoft sign-in"
+card on the home page (`POST /user/tenant/app_origin`). Keep that card when you replace the home page.
+Each address counts on its own: `https://stock.example.com` and `http://localhost:4200` are two.
 
 ## Folders
 

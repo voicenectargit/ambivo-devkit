@@ -38,6 +38,13 @@ export type SignInStep =
   | { kind: 'set-up-email'; enrollmentToken: string; email?: string }
   | { kind: 'email-codes-only' };
 
+/** Where a sign-in with a code (no password) stands. */
+export type CodeSignInStep =
+  | { kind: 'code-sent'; challengeId: string; channel: MfaChannel; destination: string }
+  | { kind: 'pick-company'; companies: { tenantId: string; name: string }[] };
+
+export type SignInProvider = 'Google' | 'Microsoft';
+
 export function mapUser(data: any): AuthUser {
   const first = data?.first_name ?? '';
   const last = data?.last_name ?? '';

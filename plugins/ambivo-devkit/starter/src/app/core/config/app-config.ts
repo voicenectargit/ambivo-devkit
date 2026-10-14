@@ -20,6 +20,16 @@ export interface AppConfig {
   appName: string;
   /** Optional logo for the sign-in page. */
   logoUrl?: string;
+  /**
+   * Ways to sign in besides email and password. Leave it out for the default:
+   * a code by email or text on, Google and Microsoft off.
+   *
+   * Google and Microsoft also need a company admin to turn them on for this
+   * app's address once (the button on the home page, or
+   * `POST /user/tenant/app_origin`). Until then the sign-in comes back with
+   * "Google and Microsoft sign-in is off for this app".
+   */
+  signInOptions?: { code?: boolean; google?: boolean; microsoft?: boolean };
 }
 
 export const APP_CONFIG = new InjectionToken<AppConfig>('APP_CONFIG');

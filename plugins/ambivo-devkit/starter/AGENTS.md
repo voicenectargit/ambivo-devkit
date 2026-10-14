@@ -8,7 +8,7 @@ Without the plugin:
   https://apidocs.ambivo.com/openapi/<spec id> (YAML). Spec ids: https://apidocs.ambivo.com/api/specs
 - Where a step runs `ambivo-check.mjs`, run `npm run ambivo:check`.
 - To look at a screen, run `npm run ambivo:screenshot -- /route` (needs Chrome or Chromium).
-- Specs as of ambivo-api-docs e30a8d6.
+- Specs as of ambivo-api-docs 501538d.
 
 ---
 
@@ -180,10 +180,17 @@ Every JSON response carries `result`:
 
 ### Sign-in and tokens
 
-- The starter signs people in (`user/login`, then a code by email when needed). Do not write another sign-in.
+- The starter signs people in. Do not write another sign-in. Its ways in: `user/login` (then a code by
+  email when needed), a code alone (`admin/sms/verifications`, by email or text), and Google or
+  Microsoft (`user/register/Google|Microsoft` with `app_return_url`, back at `/sign-in/return`).
+  Which ones show is `signInOptions` in runtime config.
+- Google and Microsoft return to the app only when the person's company registered the app's
+  address (`POST /user/tenant/app_origin`, company admins; the home page card does it). Otherwise
+  the return page says sign-in is off for this app. They never create an account.
 - The token is a bearer JWT, added by the starter's interceptor. It lasts 24 hours.
 - **Keep the token in memory only.** Never put it in localStorage, sessionStorage or a cookie.
-- **Never send `is_mobile: true`.** The API trusts it as sent and gives a 180-day token.
+- **Never send `is_mobile: true`.** The API trusts it as sent and gives a 180-day token. Code
+  sign-in must send `is_mobile: false`: left out, it also gives the 180-day token.
 - Every call runs as the signed-in person, inside their tenant. The API filters by tenant itself.
   Never send a `tenant_id` to "choose" a tenant on a data call.
 - A 401 means the session ended. The starter sends the person back to sign in.

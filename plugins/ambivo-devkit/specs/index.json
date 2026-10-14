@@ -1,6 +1,6 @@
 {
-  "docs_commit": "e30a8d6",
-  "built_at": "2026-10-09",
+  "docs_commit": "501538d",
+  "built_at": "2026-10-14",
   "specs": [
     {
       "id": "esign",
@@ -24,25 +24,25 @@
       "id": "books",
       "title": "Books & Accounting",
       "file": "ambivo-books.openapi.yaml",
-      "operations": 271
+      "operations": 272
     },
     {
       "id": "crm",
       "title": "CRM",
       "file": "ambivo-crm.openapi.yaml",
-      "operations": 267
+      "operations": 281
     },
     {
       "id": "unified-model",
       "title": "Unified Model Endpoint",
       "file": "ambivo-unified-model.openapi.yaml",
-      "operations": 13
+      "operations": 14
     },
     {
       "id": "autonomous-agents",
       "title": "Autonomous Agents",
       "file": "ambivo-autonomous-agents.openapi.yaml",
-      "operations": 61
+      "operations": 62
     },
     {
       "id": "third-party-integrations",

@@ -11,6 +11,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { indicate } from '@am/shared/utils/rxjs';
 import { AuthService } from '../core/auth/auth.service';
+import { SignInProvider } from '../core/auth/auth.types';
+import { APP_CONFIG } from '../core/config/app-config';
 import { errorText, goToStep, safeNext } from './sign-in-step';
 
 @Component({
@@ -55,6 +57,15 @@ import { errorText, goToStep, safeNext } from './sign-in-step';
 
       <div class="actions">
         <button mat-flat-button type="submit" [disabled]="busy()" i18n>Sign in</button>
+        @if (options.code) {
+          <a mat-stroked-button routerLink="/sign-in/with-code" [queryParams]="{ next }" i18n>Email or text me a code</a>
+        }
+        @if (options.google) {
+          <button mat-stroked-button type="button" [disabled]="busy()" (click)="provider('Google')" i18n>Sign in with Google</button>
+        }
+        @if (options.microsoft) {
+          <button mat-stroked-button type="button" [disabled]="busy()" (click)="provider('Microsoft')" i18n>Sign in with Microsoft</button>
+        }
         <a mat-button routerLink="/reset-password" i18n>Forgot password?</a>
       </div>
     </form>
@@ -67,7 +78,11 @@ export class SignInPage {
   private destroyRef = inject(DestroyRef);
   private auth = inject(AuthService);
   private router = inject(Router);
-  private next = safeNext(inject(ActivatedRoute).snapshot.queryParamMap.get('next'));
+  protected next = safeNext(inject(ActivatedRoute).snapshot.queryParamMap.get('next'));
+  /** Code sign-in is on unless the config turns it off; Google and Microsoft are off unless turned on. */
+  protected options = (({ code = true, google = false, microsoft = false }) => ({ code, google, microsoft }))(
+    inject(APP_CONFIG).signInOptions ?? {},
+  );
 
   protected busy = signal(false);
   protected error = signal('');
@@ -80,6 +95,14 @@ export class SignInPage {
     password: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     remember: new FormControl(true, { nonNullable: true }),
   });
+
+  protected provider(provider: SignInProvider): void {
+    this.error.set('');
+    this.auth
+      .startProviderSignIn(provider, this.next)
+      .pipe(indicate(this.busy), takeUntilDestroyed(this.destroyRef))
+      .subscribe({ error: (err) => this.error.set(errorText(err)) });
+  }
 
   protected submit(): void {
     if (this.form.invalid) {
