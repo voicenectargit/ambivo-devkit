@@ -1,5 +1,5 @@
 {
-  "docs_commit": "501538d",
+  "docs_commit": "33693e2",
   "built_at": "2026-10-14",
   "specs": [
     {
@@ -102,7 +102,7 @@
       "id": "workforce",
       "title": "Workforce",
       "file": "ambivo-workforce.openapi.yaml",
-      "operations": 125
+      "operations": 127
     },
     {
       "id": "assetbase",

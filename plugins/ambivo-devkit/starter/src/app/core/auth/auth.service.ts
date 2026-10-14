@@ -124,7 +124,7 @@ export class AuthService {
       );
   }
 
-  /** Check a sign-in code. Asks for the ordinary web session (`is_mobile: false`). */
+  /** Check a sign-in code. Asks for the ordinary web session (`web_session: true`). */
   verifySignInCode(challengeId: string, code: string): Observable<SignInStep> {
     const trust = this.readStored(AuthService.CODE_TRUST_KEY);
     return this.api
@@ -134,8 +134,9 @@ export class AuthService {
           action: 'verify_code',
           challenge_id: challengeId,
           code: code.trim(),
-          // ⭐ Always false, as on user/login. Left out, the API gives a 180-day mobile session.
-          is_mobile: false,
+          // ⭐ Asks for the ordinary web session. Without it a code sign-in gets the long
+          // mobile session (the API ignores is_mobile on this route).
+          web_session: true,
           device_id: navigator.userAgent,
           os: navigator.platform,
           ...(trust ? { device_trust: trust } : {}),

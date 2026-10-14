@@ -8,7 +8,7 @@ Without the plugin:
   https://apidocs.ambivo.com/openapi/<spec id> (YAML). Spec ids: https://apidocs.ambivo.com/api/specs
 - Where a step runs `ambivo-check.mjs`, run `npm run ambivo:check`.
 - To look at a screen, run `npm run ambivo:screenshot -- /route` (needs Chrome or Chromium).
-- Specs as of ambivo-api-docs 501538d.
+- Specs as of ambivo-api-docs 33693e2.
 
 ---
 
@@ -190,7 +190,8 @@ Every JSON response carries `result`:
 - The token is a bearer JWT, added by the starter's interceptor. It lasts 24 hours.
 - **Keep the token in memory only.** Never put it in localStorage, sessionStorage or a cookie.
 - **Never send `is_mobile: true`.** The API trusts it as sent and gives a 180-day token. Code
-  sign-in must send `is_mobile: false`: left out, it also gives the 180-day token.
+  sign-in (`admin/sms/verifications`) ignores `is_mobile`: it must send `web_session: true`, or it
+  gets the 180-day token.
 - Every call runs as the signed-in person, inside their tenant. The API filters by tenant itself.
   Never send a `tenant_id` to "choose" a tenant on a data call.
 - A 401 means the session ended. The starter sends the person back to sign in.
