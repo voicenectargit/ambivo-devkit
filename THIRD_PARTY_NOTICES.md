@@ -7,7 +7,7 @@ The Ambivo MCP server (`plugins/ambivo-devkit/mcp/ambivo-mcp.mjs`) is a single b
 The image `sgosain/ambivo-devkit` also contains:
 
 - **Node.js**, from the `node:22-bookworm-slim` base image. License: MIT. https://github.com/nodejs/node/blob/main/LICENSE
-- **Claude Code** (`@anthropic-ai/claude-code`), (c) Anthropic PBC. It is installed unmodified and used under Anthropic's Commercial Terms or Consumer Terms. You sign in with your own Anthropic account or key. https://code.claude.com/docs/en/legal-and-compliance
+- **Claude Code** (`@anthropic-ai/claude-code`), (c) Anthropic PBC, is not part of the image. On the first start the container downloads it from npm. Your use of it is under Anthropic's terms, with your own Anthropic account or key. https://code.claude.com/docs/en/legal-and-compliance
 - **Debian bookworm packages**, unmodified: git, zip, unzip, ca-certificates, procps, less, poppler-utils, chromium, fonts-liberation and tini, with the packages they need. Their licenses are in `/usr/share/doc/<package>/copyright` in the image. Source is at https://sources.debian.org and https://snapshot.debian.org.
 
 ## @modelcontextprotocol/sdk 1.32.0

@@ -103,6 +103,12 @@
   .amb span { word-break: break-all; }
   button.danger { background: var(--error); }
   .banner { margin: 16px; padding: 10px 14px; border-radius: 10px; background: #fff3cd; }
+  .setup { margin: 0 16px 12px; padding: 10px 12px; border-radius: 10px; background: #fff3cd; color: #5c4400; font-size: 13px; }
+  .setup.ok { background: transparent; color: var(--muted); padding: 0 0 0 0; }
+  .setup ul { margin: 6px 0; padding-left: 18px; }
+  .setup li { margin: 4px 0; }
+  .setup li > div { margin-top: 2px; }
+  .setup code { display: block; margin-top: 4px; padding: 4px 6px; border-radius: 6px; background: rgba(0,0,0,.06); word-break: break-all; font-size: 12px; }
   .trial { margin: 0 16px 12px; padding: 10px 12px; border-radius: 10px; background: #fff3cd; color: #5c4400; }
   .me { padding: 12px 16px; border-top: 1px solid var(--line); color: var(--muted); display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
   .me button { padding: 6px 0; }
@@ -134,6 +140,7 @@
   <h1>Dev Studio</h1>
   <div style="padding: 0 16px 12px"><button id="newBtn" style="width:100%">New app</button></div>
   <p class="tip trial" id="localTip"><strong>Hosted Dev Studio is a trial, for demos.</strong> We may remove it at any time. Build your apps with Docker on your own computer, in the editor you prefer: <a href="https://code.visualstudio.com/download" target="_blank" rel="noopener">VS Code</a> or <a href="https://www.jetbrains.com/webstorm/download/" target="_blank" rel="noopener">WebStorm</a>. <a href="https://www.ambivo.com/documentation/guides/dev-studio#docker" target="_blank" rel="noopener">How to start with Docker</a></p>
+  <div class="setup" id="setup" hidden></div>
   <ul id="list"></ul>
   <div class="me" id="me" hidden>
     <span id="meName"></span>
@@ -1490,6 +1497,48 @@ function showMe() {
     $('#localTip').hidden = true;
   }
   showAmbivo();
+  showSetup(me.setup);
+}
+
+// ---- the dev container's status (Dev Studio on the maker's computer) ------------------------------
+// What is ready and what to do. While a full check runs, the page asks again every 3 seconds.
+let setupPoll = null;
+function showSetup(s) {
+  const box = $('#setup');
+  if (!s) { box.hidden = true; return; }
+  box.hidden = false;
+  const blocked = !!(s.auth && !s.ready);
+  $('#newBtn').disabled = blocked;
+  box.className = 'setup' + (s.auth && s.ready ? ' ok' : '');
+  box.replaceChildren();
+  const line = (text) => { const p = document.createElement('div'); p.textContent = text; box.append(p); };
+  const todo = (s.checks || []).filter((c) => !c.ok);
+  if (s.auth && s.ready) {
+    line('Status: ready to build apps.');
+  } else if (blocked) {
+    line('Status: not ready yet. Fix these, then click Check again.');
+  } else {
+    line(s.checking ? 'Checking your Claude sign-in…' : 'Status: not checked yet.');
+  }
+  if (todo.length) {
+    const ul = document.createElement('ul');
+    for (const c of todo) {
+      const li = document.createElement('li');
+      li.textContent = c.required ? c.text : `${c.text} (recommended)`;
+      if (c.fix) { const d = document.createElement('div'); d.textContent = c.fix; li.append(d); }
+      if (c.command) { const code = document.createElement('code'); code.textContent = c.command; li.append(code); }
+      ul.append(li);
+    }
+    box.append(ul);
+  }
+  if (!s.checking) {
+    const b = document.createElement('button');
+    b.className = 'text'; b.type = 'button'; b.textContent = 'Check again';
+    b.onclick = async () => { b.disabled = true; b.textContent = 'Checking…'; showSetup(await api('/api/status', { method: 'POST' })); };
+    box.append(b);
+  }
+  clearTimeout(setupPoll);
+  if (s.checking) setupPoll = setTimeout(async () => { try { showSetup(await api('/api/status')); } catch { /* next load */ } }, 3000);
 }
 
 $('#accessBtn').onclick = () => showAccess();

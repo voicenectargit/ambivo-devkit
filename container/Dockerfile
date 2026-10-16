@@ -21,8 +21,9 @@ RUN apt-get update \
       chromium fonts-liberation tini \
  && rm -rf /var/lib/apt/lists/*
 
+# Claude Code is not in the image. ambivo-start downloads this version from npm on the first start, into
+# the ambivo-devkit-home volume, so each maker gets it from Anthropic, under Anthropic's terms.
 ARG CLAUDE_CODE_VERSION=2.1.288
-RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} && npm cache clean --force
 
 # The plugin marketplace, read-only: Claude Code installs the plugin from this folder, with no network.
 COPY .claude-plugin /opt/ambivo-devkit/.claude-plugin
@@ -32,16 +33,20 @@ COPY container/CLAUDE.md /opt/ambivo-devkit/container/CLAUDE.md
 # brackets let a build from the private repo go on without them (publish_image.sh checks they are there).
 COPY container/NOTICE LICENS[E] THIRD_PARTY_NOTICES.m[d] /opt/ambivo-devkit/legal/
 COPY container/ambivo-start /usr/local/bin/ambivo-start
+COPY container/ambivo-checks.mjs /usr/local/bin/ambivo-checks.mjs
 # Dev Studio, the browser page in front of Claude Code. Node built-ins only: nothing to install.
 COPY devstudio/web/package.json devstudio/web/*.mjs /opt/ambivo-devstudio/
 COPY devstudio/web/drivers /opt/ambivo-devstudio/drivers
 COPY devstudio/web/public /opt/ambivo-devstudio/public
-RUN chmod 0755 /usr/local/bin/ambivo-start && chmod -R a-w /opt/ambivo-devkit /opt/ambivo-devstudio \
+RUN chmod 0755 /usr/local/bin/ambivo-start /usr/local/bin/ambivo-checks.mjs && chmod -R a-w /opt/ambivo-devkit /opt/ambivo-devstudio \
  && mkdir -p /work && chown node:node /work
 
 # Everything that must survive a new container lives in one folder, so one volume keeps it: Claude Code's
 # sign-in and sessions (CLAUDE_CONFIG_DIR), the plugin, and the Ambivo sandbox sign-in (XDG_CONFIG_HOME).
 ENV CLAUDE_CONFIG_DIR=/home/node/.claude \
+    CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION} \
+    CLAUDE_CODE_PREFIX=/home/node/.claude/claude-code \
+    PATH=/home/node/.claude/claude-code/bin:$PATH \
     XDG_CONFIG_HOME=/home/node/.claude/config \
     CHROMIUM=/usr/bin/chromium \
     DISABLE_AUTOUPDATER=1 \
@@ -52,6 +57,7 @@ ENV CLAUDE_CONFIG_DIR=/home/node/.claude \
     DEVSTUDIO_HOST=0.0.0.0 \
     DEVSTUDIO_DATA=/home/node/.claude/devstudio \
     DEVSTUDIO_PLUGIN=/opt/ambivo-devkit/plugins/ambivo-devkit \
+    DEVSTUDIO_CHECKS=/usr/local/bin/ambivo-checks.mjs \
     # Dev Studio shows this to the maker, who runs it on their own computer: it signs in through the shared volume.
     DEVSTUDIO_LOGIN_COMMAND="docker run -it --rm -v ambivo-devkit-home:/home/node/.claude sgosain/ambivo-devkit login"
 

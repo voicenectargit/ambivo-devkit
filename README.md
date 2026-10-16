@@ -36,7 +36,8 @@ This kit builds **standalone apps only**. To extend the CRM, use the CRM's Objec
 
 ## Start with the Docker image
 
-The image has Node, Claude Code, Chromium, this plugin and Dev Studio ready. You need only
+The image has Node, Chromium, this plugin and Dev Studio ready. On the first start it downloads Claude Code
+from Anthropic, which takes under a minute. You need only
 [Docker Desktop](https://www.docker.com/products/docker-desktop/), your sandbox email and password, and a
 Claude plan or an Anthropic API key. You pay Anthropic for what Claude uses. Your apps are saved in the folder
 you start it from.
@@ -57,6 +58,15 @@ To sign in to the sandbox again, run this in a terminal on your computer:
 ```sh
 docker run -it --rm -v ambivo-devkit-home:/home/node/.claude sgosain/ambivo-devkit login
 ```
+
+**Check that it is ready.** This lists what works and what to fix, including whether Anthropic accepts
+your Claude sign-in or key:
+
+```sh
+docker run --rm -v ambivo-devkit-home:/home/node/.claude -v "$PWD":/work sgosain/ambivo-devkit status
+```
+
+Dev Studio shows the same list on the left, and starts no app until the Claude sign-in works.
 
 On Windows PowerShell, use `-v "${PWD}:/work"` in place of `-v "$PWD":/work`, and type each command on one line.
 

@@ -8,7 +8,7 @@ Copyright (c) 2026 Ambivo, Inc.
   /opt/ambivo-devkit/plugins/ambivo-devkit/starter/LICENSE-AMBIVO-STARTER.txt.
 - Open source packages bundled into the MCP server, and the other parts of this image, are listed in
   THIRD_PARTY_NOTICES.md, in this folder.
-- Claude Code (@anthropic-ai/claude-code) is (c) Anthropic PBC. It is installed unmodified and used
-  under Anthropic's Commercial Terms or Consumer Terms. You sign in with your own Anthropic account or
-  key.
+- Claude Code (@anthropic-ai/claude-code) is (c) Anthropic PBC and is not part of this image. On the
+  first start the container downloads it from npm for you. Your use of it is under Anthropic's terms,
+  with your own Anthropic account or key.
 - The Debian packages in this image keep their licences in /usr/share/doc/<package>/copyright.

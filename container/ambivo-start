@@ -6,6 +6,8 @@
 #   ambivo-start            set up, sign in to the sandbox if needed, then start Claude Code
 #   ambivo-start studio     set up, then start Dev Studio on http://localhost:4300
 #   ambivo-start login      sign in to the sandbox again
+#   ambivo-start status     what is ready and what to do: Claude Code, the plugin, the Claude sign-in
+#                           (tried for real), the sandbox sign-in
 #   ambivo-start <command>  set up, then run the command (for example: ambivo-start bash)
 #
 # With no terminal (docker run -d, or a dev container in VS Code, Cursor or a JetBrains IDE) it sets up
@@ -16,15 +18,32 @@ MARKET=/opt/ambivo-devkit
 CONFIG=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 WANT=$(node -p "require('$MARKET/plugins/ambivo-devkit/.claude-plugin/plugin.json').version")
 
+# 0. Claude Code, from npm, on the first start and when this image wants another version. It is not in
+# the image: each maker downloads it from Anthropic, under Anthropic's terms. It goes into the volume, so
+# the next start skips this. The lock keeps two containers on one volume from installing at once.
+CLAUDE_PREFIX=${CLAUDE_CODE_PREFIX:-$CONFIG/claude-code}
+have_claude() { [ "$(claude --version 2>/dev/null | awk '{print $1}')" = "${CLAUDE_CODE_VERSION:?}" ]; }
+if ! have_claude; then
+  mkdir -p "$CLAUDE_PREFIX"
+  (
+    flock 9
+    if ! have_claude; then
+      echo "Downloading Claude Code $CLAUDE_CODE_VERSION from Anthropic. This happens on the first start only."
+      npm install -g --prefix "$CLAUDE_PREFIX" --no-audit --no-fund --no-update-notifier --loglevel=error \
+          "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" >/dev/null \
+        || { echo "Could not download Claude Code. Check your internet connection, then start the container again." >&2; exit 1; }
+    fi
+  ) 9>"$CLAUDE_PREFIX.lock" || true   # Dev Studio still starts, and its checks say what is missing
+fi
+
 # 1. The plugin, at this image's version. A volume made by an older image keeps the older copy.
 plugin_dir() { ls -d "$CONFIG"/plugins/cache/ambivo/ambivo-devkit/"$WANT" 2>/dev/null || true; }
-if [ -z "$(plugin_dir)" ]; then
+if [ -z "$(plugin_dir)" ] && have_claude; then
   echo "Installing the Ambivo plugin $WANT..."
   claude plugin marketplace add "$MARKET" >/dev/null 2>&1 || claude plugin marketplace update ambivo >/dev/null
   claude plugin install ambivo-devkit@ambivo >/dev/null 2>&1 || claude plugin update ambivo-devkit@ambivo >/dev/null
 fi
 MCP="$(plugin_dir)/mcp/ambivo-mcp.mjs"
-[ -f "$MCP" ] || { echo "The Ambivo plugin is not installed. Write to dev-partner@ambivo.com." >&2; exit 1; }
 
 # 2. Tell Claude it runs in a container, unless the developer replaced that file with their own.
 if [ ! -f "$CONFIG/CLAUDE.md" ] || head -1 "$CONFIG/CLAUDE.md" | grep -q 'ambivo-devkit container'; then
@@ -32,6 +51,12 @@ if [ ! -f "$CONFIG/CLAUDE.md" ] || head -1 "$CONFIG/CLAUDE.md" | grep -q 'ambivo
   # overwrite its own copy.
   install -m 0644 "$MARKET/container/CLAUDE.md" "$CONFIG/CLAUDE.md"
 fi
+
+# The checks: saved for Dev Studio, and anything that needs fixing printed here.
+node /usr/local/bin/ambivo-checks.mjs --write || true
+if [ "${1:-}" = "status" ]; then exec node /usr/local/bin/ambivo-checks.mjs --auth; fi
+# Claude Code and the plugin are needed from here on, except by Dev Studio, which shows what is missing.
+ready_to_run() { have_claude && [ -f "$MCP" ]; }
 
 # 3. The Ambivo sandbox sign-in. It lasts about a day.
 signed_in() {
@@ -58,13 +83,17 @@ studio() {
   exec node /opt/ambivo-devstudio/server.mjs
 }
 
-if [ "${1:-}" = "login" ]; then sign_in; exit; fi
+if [ "${1:-}" = "login" ]; then
+  [ -f "$MCP" ] || { echo "The Ambivo plugin is not installed yet. Start the container again." >&2; exit 1; }
+  sign_in; exit
+fi
 if [ "${1:-}" = "studio" ]; then studio; fi
 if [ $# -gt 0 ]; then exec "$@"; fi
 
 # No terminal: an IDE's dev container or docker run -d. Dev Studio is the way in.
 if [ ! -t 0 ]; then studio; fi
 
+ready_to_run || { echo "Not ready yet: run ambivo-start status to see what to do." >&2; exit 1; }
 signed_in || sign_in
 cat <<EOF
 

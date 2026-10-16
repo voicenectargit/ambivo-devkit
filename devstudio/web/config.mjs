@@ -72,6 +72,8 @@ export function loadConfig(env = process.env) {
     plugin: env.DEVSTUDIO_PLUGIN || '/opt/ambivo-devkit',
     // What the page tells a laptop user to run to sign in to their Ambivo sandbox. Default: the plugin's own CLI.
     loginCommand: env.DEVSTUDIO_LOGIN_COMMAND || '',
+    // The dev container's checks (container/ambivo-checks.mjs). Set in the image only; Dev Studio shows them.
+    checks: env.DEVSTUDIO_CHECKS || '',
     // A project container idle this long is saved and stopped; 0 turns it off. The local driver has no
     // containers, and its preview is used without Dev Studio seeing it, so it is always off there.
     idleMinutes: String(env.DEVSTUDIO_DRIVER || '').trim().toLowerCase() === 'local' ? 0

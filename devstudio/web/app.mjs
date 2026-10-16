@@ -3,6 +3,7 @@
 // createApp() builds the request handler from its parts (settings, container driver, key store,
 // GitHub client), so tests can swap any of them for a fake. server.mjs wires the real ones.
 import { readFileSync, mkdirSync, existsSync, writeFileSync } from 'node:fs';
+import { execFile } from 'node:child_process';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -266,6 +267,30 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
   const PLUGIN = config.plugin || DEFAULT_PLUGIN;
   // Local driver: the maker's own Claude Code sign-in in the container stands in for a saved Claude key.
   const ownLogin = () => driver.kind === 'local' && claudeSignedInHere();
+
+  // ---- the dev container's checks (local driver, in the image only) ------------------------------
+  // What ambivo-start saved at start, then the full check (the Claude sign-in tried for real) in the
+  // background, and again on "Check again". Until a full check passes, no new app or message runs.
+  let setup = null;
+  let setupRun = null;
+  if (driver.kind === 'local' && config.checks) {
+    try { setup = JSON.parse(readFileSync(join(config.data, 'startup.json'), 'utf8')); } catch { /* not saved yet */ }
+  }
+  function checkSetup() {
+    if (driver.kind !== 'local' || !config.checks) return Promise.resolve(null);
+    setupRun ??= new Promise((resolve) => {
+      execFile(process.execPath, [config.checks, '--auth', '--json'], { timeout: 150_000, maxBuffer: 1 << 20 }, (err, stdout) => {
+        try { setup = JSON.parse(stdout); } catch { log(`checks: ${err?.message || 'no answer'}`); }
+        setupRun = null;
+        resolve(setup);
+      });
+    });
+    return setupRun;
+  }
+  checkSetup();
+  /** Refuse work only on a full check that failed: a check still running, or none at all, refuses nothing. */
+  const notReady = () => (setup?.auth && !setup.ready
+    ? 'Dev Studio is not ready yet. See Status on the left, fix what it lists, then click Check again.' : null);
   mkdirSync(config.data, { recursive: true });
 
   // Project records are saved (no secrets). Claude keys are in the key store, per user.
@@ -1268,9 +1293,16 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
           mode: serverMode ? 'server' : 'laptop', login: serverMode ? user.login : null, admin: serverMode && isAdmin(user),
           local: driver.kind === 'local', projectsRoot: driver.kind === 'local' ? driver.root : undefined,
           claudeSignedIn: ownLogin(),
+          ...(driver.kind === 'local' && config.checks ? { setup: { ...(setup || {}), checking: !!setupRun } } : {}),
           keyed: await keys.has(user.id), openaiKeyed: await openai.has(user.id), canPush: !!(serverMode && github), installUrl: github?.installUrl || null,
           ...(serverMode && ambivoSessions ? { ambivo: await ambivoStatus(user.id) } : {}),
         });
+      }
+      if (url.pathname === '/api/status') {
+        if (driver.kind !== 'local' || !config.checks) return json(res, 404, { error: 'Not found' });
+        if (req.method === 'POST') await checkSetup();
+        else if (req.method !== 'GET') return json(res, 405, { error: 'Not allowed' });
+        return json(res, 200, { ...(setup || {}), checking: !!setupRun });
       }
       if (url.pathname === '/api/access' || url.pathname.startsWith('/api/access/')) {
         // Dev Studio admins only (DEVSTUDIO_ADMINS); to anyone else the page does not exist.
@@ -1362,6 +1394,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         if (!name || (!description && !brief)) return json(res, 400, { error: 'Give the app a name and describe what it should do.' });
         const assistant = body.assistant === 'codex' ? 'codex' : 'claude';
         if (assistant === 'codex' && driver.kind === 'local') return json(res, 400, { error: 'Codex works in the hosted Dev Studio only. Choose Claude Code.' });
+        if (notReady()) return json(res, 409, { error: notReady(), notReady: true });
         const provider = assistant === 'codex' ? 'openai' : 'claude';
         if (keyFrom(provider, body)) {
           const problem = await saveKey(user, provider, keyFrom(provider, body));
@@ -1573,6 +1606,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         return json(res, 200, { ok: true });
       }
       if (sub === 'messages' && req.method === 'POST') {
+        if (notReady()) return json(res, 409, { error: notReady(), notReady: true });
         // Ask for the key BEFORE taking the message, so nothing is lost and nothing half-runs.
         if (!(await keyed(p))) return json(res, 428, { error: `Enter your ${keyName(p)} to continue.`, needKey: true, provider: providerOf(p) });
         // A phased app talks inside the phase in progress. Between phases there is no conversation to continue.
