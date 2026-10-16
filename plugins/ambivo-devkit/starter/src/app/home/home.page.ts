@@ -6,6 +6,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { InsetDirective, StackDirective, SurfaceDirective } from '@am/crm/ui/layout';
 import { APP_CONFIG } from '../core/config/app-config';
 import { AuthService } from '../core/auth/auth.service';
+import { indicate } from '@am/shared/utils/rxjs';
 import { errorText } from '../sign-in/sign-in-step';
 
 /** The first page after sign-in. Replace it with the app's own screens. */
@@ -78,20 +79,13 @@ export class HomePage implements OnInit {
   }
 
   protected turnOn(): void {
-    this.busy.set(true);
     this.error.set('');
     this.auth
       .allowProviderSignInHere()
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(indicate(this.busy), takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => {
-          this.busy.set(false);
-          this.providerState.set('on');
-        },
-        error: (err) => {
-          this.busy.set(false);
-          this.error.set(errorText(err));
-        },
+        next: () => this.providerState.set('on'),
+        error: (err) => this.error.set(errorText(err)),
       });
   }
 }
