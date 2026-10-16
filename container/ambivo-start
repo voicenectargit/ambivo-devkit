@@ -43,7 +43,8 @@ signed_in() {
 }
 sign_in() {
   echo "Sign in to your Ambivo sandbox. Use the sandbox email and password Ambivo sent you."
-  node "$MCP" login
+  # A failed sign-in does not stop the container: Claude can still write code, it just cannot read Ambivo.
+  node "$MCP" login || echo "Carrying on without the sandbox. To sign in later, run the sign-in command from the README."
 }
 
 studio() {

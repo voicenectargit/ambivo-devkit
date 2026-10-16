@@ -1,0 +1,230 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
+@use 'sass:list';
+@use 'sass:map';
+
+// Material's size tokens on --am-px, so buttons, fields, lists and the rest
+// follow the root font size like everything else (Phase M, first pass).
+//
+// The numbers are what the apps emit today at their default density
+// (mat.theme(density: -1) plus the form-field and component density mixins in
+// _app.scss), read from the running crm2 on 2026-10-16. Same numbers, relative
+// unit: nothing moves at the 14px root.
+//
+// Not covered: sizes Material hard-codes in its component CSS (not tokens), the
+// .dense-N levels (switched off while this is debugged, see _globals.scss), and
+// density mixins scoped to a component or an overlay panel.
+
+$am-material-sizes: (
+  checkbox-state-layer-size: 36,
+  chip-container-height: 28,
+  expansion-header-collapsed-state-height: 44,
+  expansion-header-expanded-state-height: 60,
+  button-filled-container-height: 36,
+  button-outlined-container-height: 36,
+  button-protected-container-height: 36,
+  button-text-container-height: 36,
+  button-tonal-container-height: 36,
+  form-field-container-height: 52,
+  form-field-container-vertical-padding: 14,
+  form-field-filled-with-label-container-padding-top: 22,
+  form-field-filled-with-label-container-padding-bottom: 6,
+  icon-button-state-layer-size: 36,
+  list-list-item-leading-icon-start-space: 12,
+  list-list-item-leading-icon-end-space: 12,
+  list-list-item-one-line-container-height: 44,
+  list-list-item-two-line-container-height: 60,
+  list-list-item-three-line-container-height: 84,
+  paginator-container-size: 52,
+  paginator-form-field-container-height: 40,
+  paginator-form-field-container-vertical-padding: 8,
+  radio-state-layer-size: 36,
+  tab-container-height: 44,
+  button-toggle-height: 40,
+  stepper-header-height: 72,
+  table-header-container-height: 52,
+  table-footer-container-height: 48,
+  table-row-item-container-height: 48,
+  toolbar-standard-height: 60,
+  toolbar-mobile-height: 52,
+  tree-node-min-height: 44,
+  // shape (corner-full stays 9999px)
+  sys-corner-extra-large: 28,
+  sys-corner-large: 16,
+  sys-corner-medium: 12,
+  sys-corner-small: 8,
+  sys-corner-extra-small: 4,
+);
+
+// Material's built-in sizes: the px fallbacks in its component styles
+// (var(--mat-x, 24px)) for tokens the theme never sets, extracted from
+// @angular/material's fesm2022 bundles on 2026-10-16. Set here so they follow
+// --am-px too. Hairlines (outline, border, divider and indicator widths) stay px.
+$am-material-defaults: (
+  badge-container-overlap-offset: -12,
+  badge-container-size: 16,
+  badge-large-size-container-overlap-offset: -12,
+  badge-large-size-container-size: 16,
+  badge-large-size-line-height: 16,
+  badge-line-height: 16,
+  badge-small-size-container-overlap-offset: -6,
+  badge-small-size-container-size: 6,
+  badge-small-size-line-height: 6,
+  bottom-sheet-container-shape: 28,
+  button-filled-horizontal-padding: 24,
+  button-filled-icon-offset: -8,
+  button-filled-icon-spacing: 8,
+  button-outlined-horizontal-padding: 24,
+  button-outlined-icon-offset: -8,
+  button-outlined-icon-spacing: 8,
+  button-protected-horizontal-padding: 24,
+  button-protected-icon-offset: -8,
+  button-protected-icon-spacing: 8,
+  button-text-horizontal-padding: 12,
+  button-text-icon-offset: -4,
+  button-text-icon-spacing: 8,
+  button-text-with-icon-horizontal-padding: 16,
+  button-tonal-horizontal-padding: 24,
+  button-tonal-icon-offset: -8,
+  button-tonal-icon-spacing: 8,
+  chip-container-shape-radius: 8,
+  chip-with-avatar-avatar-shape-radius: 24,
+  chip-with-avatar-avatar-size: 24,
+  chip-with-icon-icon-size: 18,
+  dialog-container-max-width: 560,
+  dialog-container-min-width: 280,
+  expansion-container-shape: 12,
+  fab-extended-container-height: 56,
+  focus-indicator-border-radius: 4,
+  icon-button-icon-size: 24,
+  list-list-item-leading-avatar-size: 40,
+  list-list-item-leading-icon-size: 24,
+  list-list-item-trailing-icon-size: 24,
+  menu-divider-bottom-spacing: 8,
+  menu-divider-top-spacing: 8,
+  menu-item-icon-size: 24,
+  menu-item-leading-spacing: 12,
+  menu-item-spacing: 12,
+  menu-item-trailing-spacing: 12,
+  menu-item-with-icon-leading-spacing: 12,
+  menu-item-with-icon-trailing-spacing: 12,
+  progress-bar-track-height: 4,
+  progress-spinner-active-indicator-width: 4,
+  sidenav-container-width: 360,
+  slide-toggle-pressed-handle-size: 28,
+  slide-toggle-selected-handle-size: 24,
+  slide-toggle-selected-icon-size: 16,
+  slide-toggle-state-layer-size: 40,
+  slide-toggle-track-height: 32,
+  slide-toggle-track-width: 52,
+  slide-toggle-unselected-handle-size: 16,
+  slide-toggle-unselected-icon-size: 16,
+  slide-toggle-with-icon-handle-size: 24,
+  slider-active-track-height: 4,
+  slider-handle-height: 20,
+  slider-handle-width: 20,
+  slider-inactive-track-height: 4,
+  slider-value-indicator-width: 28,
+);
+
+// Material's type scale at its nominal sizes (the M3 spec, = Figma's type
+// styles), on --am-px. Material emits these in rem for a 16px root; the apps'
+// root is 14px, so body-medium rendered 12.25px instead of 14. Here every level
+// is its Figma size at the default scale and follows the root like the rest.
+// (size, line-height, tracking) in px.
+$am-material-type-scale: (
+  display-large: (
+    57,
+    64,
+    -0.25,
+  ),
+  display-medium: (
+    45,
+    52,
+    0,
+  ),
+  display-small: (
+    36,
+    44,
+    0,
+  ),
+  headline-large: (
+    32,
+    40,
+    0,
+  ),
+  headline-medium: (
+    28,
+    36,
+    0,
+  ),
+  headline-small: (
+    24,
+    32,
+    0,
+  ),
+  title-large: (
+    22,
+    28,
+    0,
+  ),
+  title-medium: (
+    16,
+    24,
+    0.15,
+  ),
+  title-small: (
+    14,
+    20,
+    0.1,
+  ),
+  body-large: (
+    16,
+    24,
+    0.5,
+  ),
+  body-medium: (
+    14,
+    20,
+    0.25,
+  ),
+  body-small: (
+    12,
+    16,
+    0.4,
+  ),
+  label-large: (
+    14,
+    20,
+    0.1,
+  ),
+  label-medium: (
+    12,
+    16,
+    0.5,
+  ),
+  label-small: (
+    11,
+    16,
+    0.5,
+  ),
+);
+
+// Include on html, after the theme and the density mixins.
+@mixin material-sizes {
+  @each $token, $px in map.merge($am-material-defaults, $am-material-sizes) {
+    --mat-#{$token}: calc(#{$px} * var(--am-px, 1px));
+  }
+  @each $level, $type in $am-material-type-scale {
+    $size: list.nth($type, 1);
+    $line: list.nth($type, 2);
+    $track: list.nth($type, 3);
+    --mat-sys-#{$level}-size: calc(#{$size} * var(--am-px, 1px));
+    --mat-sys-#{$level}-line-height: calc(#{$line} * var(--am-px, 1px));
+    --mat-sys-#{$level}-tracking: calc(#{$track} * var(--am-px, 1px));
+    // The shorthand is a literal in Material's theme: rebuilt from the parts.
+    --mat-sys-#{$level}: var(--mat-sys-#{$level}-weight)
+      var(--mat-sys-#{$level}-size) /
+      var(--mat-sys-#{$level}-line-height)
+      var(--mat-sys-#{$level}-font);
+  }
+}

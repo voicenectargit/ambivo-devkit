@@ -44386,21 +44386,38 @@ function opt(args, name) {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : void 0;
 }
+var NOT_A_PARTNER = "To become a development partner and get a sandbox company, write to dev-partner@ambivo.com.";
+function signedInLines(s, hours) {
+  const lines = [`Signed in as ${s.email}. The session lasts about ${hours} hours. Saved to ${SESSION_FILE}`];
+  if (!s.sandbox) {
+    lines.push("This company is not a partner sandbox. Claude can read it and build apps for it, but it cannot add sample records here.");
+    lines.push(NOT_A_PARTNER);
+  }
+  return lines;
+}
 async function login(args) {
   const apiUrl = opt(args, "api") || process.env.AMBIVO_API_URL || DEFAULT_API;
   const tenantId = opt(args, "tenant");
   const email3 = opt(args, "email") || await ask("Ambivo email: ");
   const password = await ask("Password: ", { secret: true });
-  let step = await startSignIn({ apiUrl, email: email3, password, tenantId, deviceId: "ambivo-devkit-mcp", os: process.platform });
-  if (step.challenge) {
-    const where = step.challenge.destination ? ` sent to ${step.challenge.destination}` : "";
-    const code = await ask(`Enter the 6-digit code${where}: `);
-    step = await finishSignIn({ apiUrl, challenge: step.challenge, code, email: email3 });
+  let step;
+  try {
+    step = await startSignIn({ apiUrl, email: email3, password, tenantId, deviceId: "ambivo-devkit-mcp", os: process.platform });
+    if (step.challenge) {
+      const where = step.challenge.destination ? ` sent to ${step.challenge.destination}` : "";
+      const code = await ask(`Enter the 6-digit code${where}: `);
+      step = await finishSignIn({ apiUrl, challenge: step.challenge, code, email: email3 });
+    }
+  } catch (err) {
+    console.error(`Sign-in failed: ${err.message}`);
+    console.error(`No Ambivo account yet? ${NOT_A_PARTNER}`);
+    process.exitCode = 1;
+    return;
   }
   const s = step.session;
   saveSession({ token: s.token, apiUrl, email: s.email, tenantId: s.tenantId || tenantId, expiresAt: s.expiresAt });
   const hours = Math.max(0, Math.round((s.expiresAt - Date.now() / 1e3) / 3600));
-  console.log(`Signed in as ${s.email}. The session lasts about ${hours} hours. Saved to ${SESSION_FILE}`);
+  for (const line of signedInLines(s, hours)) console.log(line);
 }
 function logout() {
   clearSession();

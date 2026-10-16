@@ -14,7 +14,68 @@
 // only the atoms are global.
 // ============================================================================
 
-@mixin am-layout {
+@use '../../scss/container' as c;
+
+@use 'sass:list';
+@use 'px' as *;
+
+$am-space-tokens: 3xs, 2xs, xs, sm, md, lg, xl, 2xl;
+// Multiples of --am-unit (4px): Figma's space/1…12.
+$am-space-steps: 1, 2, 3, 4, 5, 6, 8, 12;
+$am-edges: sm, md, lg, xl;
+
+// Every variable an atom reads. Each is registered `inherits: false`, the base
+// one and one per key, so a nested atom never picks up its parent's values.
+$am-atom-vars: gap, align, justify, wrap, pad-bs, pad-be, pad-is, pad-ie, grid-min;
+
+// The value of an atom variable at a key, mobile first: the key's own
+// variable, else the next narrower key's, down to the base and the fallback.
+// am-v(gap, md, 0) → var(--am-gap-md, var(--am-gap-sm, var(--am-gap, 0)))
+@function am-v($name, $bp, $fallback) {
+  $result: var(--am-#{$name}, #{$fallback});
+  @if $bp != xs {
+    @each $k in $am-edges {
+      @if list.index($am-edges, $k) <= list.index($am-edges, $bp) {
+        $result: var(--am-#{$name}-#{$k}, #{$result});
+      }
+    }
+  }
+  @return $result;
+}
+
+// Emits the block once for the base (xs) and once per key inside its container
+// query, smallest first, so a wider key wins by source order at equal
+// specificity. One rule per property and key; the directives only write
+// attributes (plain values) or variables (responsive values).
+@mixin am-responsive {
+  @content (xs);
+  @each $bp in $am-edges {
+    @include c.container-up($bp) {
+      @content ($bp);
+    }
+  }
+}
+
+// The CSS length of a spacing value on an attribute: a multiple, a letter or none.
+@mixin am-space-values {
+  @each $n in $am-space-steps {
+    @content ('#{$n}', calc(#{$n} * var(--am-unit)));
+  }
+  @each $t in $am-space-tokens {
+    @content ($t, var(--am-space-#{$t}));
+  }
+  @content (none, 0px);
+}
+
+// $dense: whether .dense-2…5 step the space scale down (on by default).
+// $px: the length of one design pixel. 1px by default; an app whose root font
+// size is set passes a rem fraction, so every --am-px size follows the root.
+// $root-px: the root font size breakpoints are measured against (14 = the
+// apps' 14px root, so they scale with it); null keeps them px, for an app whose
+// sizes stay px (a 16px root, $px: 1px).
+@mixin am-layout($px: 1px, $dense: true, $root-px: 14) {
+  $outer-root-px: c.$am-root-px;
+  c.$am-root-px: $root-px;
   // Emit at the document root regardless of where the mixin is @included — apps
   // include it inside `html { … }`, which would otherwise scope `:root` to
   // `html :root` (matches nothing) and prefix every atom rule with `html`.
@@ -23,23 +84,61 @@
     // Tokens (--am-* scales). Build on Material M3: colors from --mat-sys-*,
     // radius from --mat-sys-corner-*.
     // --------------------------------------------------------------------------
+    @each $name in $am-atom-vars {
+      @each $suffix in '', '-sm', '-md', '-lg', '-xl' {
+        @property --am-#{$name}#{$suffix} {
+          syntax: '*';
+          inherits: false;
+        }
+      }
+    }
+
     :root {
+      // size: one px, and the 4px spacing unit the atoms compute with. A root
+      // setting changes --am-px later (Phase S); nothing else needs to.
+      --am-px: #{$px};
+      --am-unit: calc(4 * var(--am-px));
+
       // space (4px grid)
-      --am-space-3xs: 4px;
-      --am-space-2xs: 8px;
-      --am-space-xs: 12px;
-      --am-space-sm: 16px;
-      --am-space-md: 20px;
-      --am-space-lg: 24px;
-      --am-space-xl: 32px;
-      --am-space-2xl: 48px;
+      --am-space-3xs: #{px(4)};
+      --am-space-2xs: #{px(8)};
+      --am-space-xs: #{px(12)};
+      --am-space-sm: #{px(16)};
+      --am-space-md: #{px(20)};
+      --am-space-lg: #{px(24)};
+      --am-space-xl: #{px(32)};
+      --am-space-2xl: #{px(48)};
 
       // radius (M3 corner tokens)
       --am-radius-none: 0;
-      --am-radius-sm: var(--mat-sys-corner-small, 8px);
-      --am-radius-md: var(--mat-sys-corner-medium, 12px);
-      --am-radius-lg: var(--mat-sys-corner-large, 16px);
-      --am-radius-full: var(--mat-sys-corner-full, 9999px);
+      --am-radius-sm: var(--mat-sys-corner-small, #{px(8)});
+      --am-radius-md: var(--mat-sys-corner-medium, #{px(12)});
+      --am-radius-lg: var(--mat-sys-corner-large, #{px(16)});
+      --am-radius-full: var(--mat-sys-corner-full, #{px(9999)});
+
+      // tone (status colours). fg = dot, bar, icon; bg = tint; border = outline.
+      // success/warning use light-dark(): M3 has no such roles, and the apps
+      // set color-scheme, so one pair serves both themes.
+      --am-tone-neutral-fg: var(--mat-sys-on-surface-variant);
+      --am-tone-neutral-bg: var(--mat-sys-surface-container-high);
+      --am-tone-neutral-border: var(--mat-sys-outline-variant);
+      --am-tone-primary-fg: var(--mat-sys-primary);
+      --am-tone-primary-bg: var(--mat-sys-primary-container);
+      --am-tone-primary-border: var(--mat-sys-primary);
+      --am-tone-success-fg: light-dark(#2e7d32, #81c995);
+      --am-tone-success-bg: light-dark(#e6f4ea, #1e3a26);
+      --am-tone-success-border: light-dark(#81c995, #2e7d32);
+      --am-tone-warning-fg: light-dark(#a15c00, #fdb863);
+      --am-tone-warning-bg: light-dark(#fef3e2, #3d2a12);
+      --am-tone-warning-border: light-dark(#fdb863, #a15c00);
+      --am-tone-error-fg: var(--mat-sys-error);
+      --am-tone-error-bg: var(--mat-sys-error-container);
+      --am-tone-error-border: var(--mat-sys-error);
+
+      // tile (smallest amGrid tile width)
+      --am-tile-sm: #{px(200)};
+      --am-tile-md: #{px(280)};
+      --am-tile-lg: #{px(360)};
 
       // measure (prose width)
       --am-measure-narrow: 45ch;
@@ -47,24 +146,48 @@
       --am-measure-wide: 80ch;
 
       // container caps: TS UiBreakpoints (600/960/1280/1920) minus 2 gutters (48px)
-      --am-container-sm: 552px;
-      --am-container-md: 912px;
-      --am-container-lg: 1232px;
-      --am-container-xl: 1872px;
+      --am-container-sm: #{px(552)};
+      --am-container-md: #{px(912)};
+      --am-container-lg: #{px(1232)};
+      --am-container-xl: #{px(1872)};
 
       // z (the only z-indexes features may reference)
       --am-z-sticky: 1;
+      // a sticky bar in a both-ways scroller: above the table's sticky cells
+      --am-z-bar: 100;
+
+      // the height of that bar; what sticks after it sits below it
+      --am-sticky-bar: #{px(48)};
       --am-z-toolbar: 2;
 
       // published-at-runtime default
       --am-sticky-offset: 0px;
+
+      // app chrome (am-app-layout) — overridable per app / white-label. Values
+      // follow the Figma App shell (Ambivo UI › Templates); mini rail and
+      // drawer are code-only until the library has them.
+      --am-chrome-toolbar-height: #{px(56)};
+      // 240, wider than Figma's 200: long labels ("Sales Performance") fit, and
+      // at a 12px root the nav is still 206px.
+      --am-chrome-nav-width: #{px(240)};
+      // Twice the full nav's icon centre (nav inset + item inset + half a 20px
+      // icon), so the menu button, the mini rail and the full nav share one
+      // icon axis: x = 30 at default spacing.
+      --am-chrome-nav-width-mini: calc(2 * (var(--am-space-2xs) + var(--am-space-xs)) + #{px(20)});
+      --am-chrome-nav-item-height: #{px(40)};
+      --am-chrome-rail-width: #{px(48)};
+      --am-chrome-rail-item-size: #{px(32)};
+      --am-chrome-search-width: #{px(460)};
+      --am-chrome-drawer-width: #{px(400)};
     }
 
     // Density hook: Material density <= -2 (applied per-subtree via .dense-N).
-    :where(.dense-2, .dense-3, .dense-4, .dense-5) {
-      --am-space-sm: 12px;
-      --am-space-md: 16px;
-      --am-space-lg: 20px;
+    @if $dense {
+      :where(.dense-2, .dense-3, .dense-4, .dense-5) {
+        --am-space-sm: #{px(12)};
+        --am-space-md: #{px(16)};
+        --am-space-lg: #{px(20)};
+      }
     }
 
     // --------------------------------------------------------------------------
@@ -93,6 +216,11 @@
     [data-am-surface-fill] {
       block-size: 100%;
       min-block-size: 0;
+      // A fill surface (page root, drawer panel) is a query container, so the
+      // atoms inside follow ITS width. Only fill surfaces: inline-size
+      // containment gives an element no intrinsic width, so a card surface
+      // that shrinks to its content would collapse to nothing.
+      container-type: inline-size;
     }
     [data-am-surface='surface'] {
       --am-surface-bg: var(--mat-sys-surface);
@@ -133,6 +261,12 @@
       overflow: auto;
       overscroll-behavior-inline: contain;
     }
+    [data-am-scroll][data-am-scroll-gutter='both-edges'] {
+      scrollbar-gutter: stable both-edges;
+    }
+    [data-am-scroll][data-am-scroll-gutter='auto'] {
+      scrollbar-gutter: auto;
+    }
     [data-am-scroll] :focus-visible {
       scroll-margin-block-start: calc(var(--am-sticky-offset, 0px) + var(--am-space-sm));
     }
@@ -140,19 +274,51 @@
     // --------------------------------------------------------------------------
     // amInset — padding as an atom; logical properties only.
     // --------------------------------------------------------------------------
-    @each $t in 3xs, 2xs, xs, sm, md, lg, xl, 2xl {
-      [data-am-inset='#{$t}'] {
-        padding: var(--am-space-#{$t});
-      }
-      [data-am-inset-block='#{$t}'] {
-        padding-block: var(--am-space-#{$t});
-      }
-      [data-am-inset-inline='#{$t}'] {
-        padding-inline: var(--am-space-#{$t});
+    // A plain value sets the side variables through its attribute: the whole
+    // box first, then an axis, then a side, so the narrower one wins by order.
+    // A responsive value writes the same variables per key (the directive
+    // resolves the inputs). Only the axes asked for get padding.
+    @include am-space-values using ($v, $css) {
+      [data-am-inset='#{$v}'] {
+        --am-pad-bs: #{$css};
+        --am-pad-be: #{$css};
+        --am-pad-is: #{$css};
+        --am-pad-ie: #{$css};
       }
     }
-    [data-am-inset-inline='none'] {
-      padding-inline: 0;
+    @include am-space-values using ($v, $css) {
+      [data-am-inset-block='#{$v}'] {
+        --am-pad-bs: #{$css};
+        --am-pad-be: #{$css};
+      }
+      [data-am-inset-inline='#{$v}'] {
+        --am-pad-is: #{$css};
+        --am-pad-ie: #{$css};
+      }
+    }
+    @include am-space-values using ($v, $css) {
+      [data-am-inset-block-start='#{$v}'] {
+        --am-pad-bs: #{$css};
+      }
+      [data-am-inset-block-end='#{$v}'] {
+        --am-pad-be: #{$css};
+      }
+      [data-am-inset-inline-start='#{$v}'] {
+        --am-pad-is: #{$css};
+      }
+      [data-am-inset-inline-end='#{$v}'] {
+        --am-pad-ie: #{$css};
+      }
+    }
+    @include am-responsive using ($bp) {
+      [data-am-pad='both'],
+      [data-am-pad='block'] {
+        padding-block: am-v(pad-bs, $bp, 0px) am-v(pad-be, $bp, 0px);
+      }
+      [data-am-pad='both'],
+      [data-am-pad='inline'] {
+        padding-inline: am-v(pad-is, $bp, 0px) am-v(pad-ie, $bp, 0px);
+      }
     }
 
     // --------------------------------------------------------------------------
@@ -191,48 +357,142 @@
       display: flex;
       flex-wrap: wrap;
     }
-    @each $t in 3xs, 2xs, xs, sm, md, lg, xl, 2xl {
-      [data-am-stack][data-am-gap='#{$t}'],
-      [data-am-cluster][data-am-gap='#{$t}'] {
-        gap: var(--am-space-#{$t});
+
+    // Plain values: the attribute sets the base variable. Gap is shared by
+    // every atom that has one (stack, cluster, grid, panes).
+    @include am-space-values using ($v, $css) {
+      [data-am-gap='#{$v}'] {
+        --am-gap: #{$css};
       }
     }
-    [data-am-cluster][data-am-align='center'] {
-      align-items: center;
+    @each $v,
+      $css
+        in (
+          center: center,
+          start: flex-start,
+          end: flex-end,
+          baseline: baseline,
+          stretch: stretch
+        )
+    {
+      [data-am-align='#{$v}'] {
+        --am-align: #{$css};
+      }
     }
-    [data-am-cluster][data-am-align='start'] {
-      align-items: flex-start;
+    @each $v, $css in (start: flex-start, end: flex-end, between: space-between, center: center) {
+      [data-am-justify='#{$v}'] {
+        --am-justify: #{$css};
+      }
     }
-    [data-am-cluster][data-am-align='end'] {
-      align-items: flex-end;
+    [data-am-wrap='nowrap'] {
+      --am-wrap: nowrap;
     }
-    [data-am-cluster][data-am-align='baseline'] {
-      align-items: baseline;
-    }
-    [data-am-cluster][data-am-align='stretch'] {
-      align-items: stretch;
-    }
-    [data-am-cluster][data-am-justify='start'] {
-      justify-content: flex-start;
-    }
-    [data-am-cluster][data-am-justify='end'] {
-      justify-content: flex-end;
-    }
-    [data-am-cluster][data-am-justify='between'] {
-      justify-content: space-between;
-    }
-    [data-am-cluster][data-am-justify='center'] {
-      justify-content: center;
+    [data-am-wrap='wrap'] {
+      --am-wrap: wrap;
     }
 
-    // Container-responsive collapse (row → column). Threshold is library policy.
-    @container (max-width: 360px) {
+    // One rule per property and key, each falling back to the narrower keys.
+    // Selectors keep the specificity the per-token rules had, so component
+    // stylesheets override the atoms exactly as before.
+    @include am-responsive using ($bp) {
+      [data-am-stack][data-am-gap],
+      [data-am-cluster][data-am-gap],
+      [data-am-grid][data-am-gap],
+      [data-am-panes][data-am-gap] {
+        gap: am-v(gap, $bp, 0px);
+      }
+      [data-am-stack][data-am-align] {
+        align-items: am-v(align, $bp, stretch);
+      }
+      [data-am-cluster] {
+        align-items: am-v(align, $bp, center);
+      }
+      [data-am-cluster][data-am-justify] {
+        justify-content: am-v(justify, $bp, flex-start);
+      }
+      [data-am-cluster][data-am-wrap] {
+        flex-wrap: am-v(wrap, $bp, wrap);
+      }
+    }
+
+    // amFill — the main part of a cluster or stack takes the space left.
+    // Row: grows, may shrink below its content (text truncates) down to the
+    // sm tile, then the rest wrap. Column: takes the remaining height and may
+    // shrink to nothing, so a scroller inside it is bounded.
+    [data-am-cluster] > [data-am-fill] {
+      flex: 999 1 0;
+      min-inline-size: min(var(--am-tile-sm), 100%);
+    }
+    [data-am-stack] > [data-am-fill] {
+      flex: 1 1 0;
+      min-block-size: 0;
+    }
+
+    // --------------------------------------------------------------------------
+    // amGrid — tiles (bare): equal tiles that fill each row and wrap. With a
+    // preset or a track list it is a split; see amPanes below for those rules.
+    // --------------------------------------------------------------------------
+    [data-am-grid] {
+      display: grid;
+    }
+    @each $t in sm, md, lg {
+      [data-am-tile='#{$t}'] {
+        --am-grid-min: var(--am-tile-#{$t});
+      }
+    }
+    @include am-responsive using ($bp) {
+      [data-am-grid=''] {
+        grid-template-columns: repeat(
+          auto-fit,
+          minmax(min(#{am-v(grid-min, $bp, var(--am-tile-md))}, 100%), 1fr)
+        );
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // amTone — one tone as three variables the status pieces read.
+    // --------------------------------------------------------------------------
+    @each $t in neutral, primary, success, warning, error {
+      [data-am-tone='#{$t}'] {
+        --am-tone-fg: var(--am-tone-#{$t}-fg);
+        --am-tone-bg: var(--am-tone-#{$t}-bg);
+        --am-tone-border: var(--am-tone-#{$t}-border);
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // amShowFrom / amHideFrom — swap variants at a container breakpoint, in CSS.
+    // Both variants are rendered; the query decides which one is displayed.
+    // --------------------------------------------------------------------------
+    @each $bp, $min in c.$am-container-edges {
+      @include c.container-down($bp) {
+        [data-am-show-from='#{$bp}'] {
+          display: none !important;
+        }
+      }
+      @include c.container-up($bp) {
+        [data-am-hide-from='#{$bp}'] {
+          display: none !important;
+        }
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // amText — the text's colour role. Type is the M3 class (body-small, …).
+    // --------------------------------------------------------------------------
+    [data-am-text='secondary'] {
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    // Deprecated amClusterCollapse. Stacks BELOW the
+    // breakpoint, at its own fixed widths: sm < 360px, md < 600px.
+    @include c.container-down(360px) {
       [data-am-cluster][data-am-collapse='sm'] {
         flex-direction: column;
         align-items: stretch;
       }
     }
-    @container (max-width: 560px) {
+    @include c.container-down(600px) {
       [data-am-cluster][data-am-collapse='md'] {
         flex-direction: column;
         align-items: stretch;
@@ -240,32 +500,33 @@
     }
 
     // --------------------------------------------------------------------------
-    // amPanes — columns only; rows are the page's own concern.
+    // amGrid splits (a preset or a track list), and the deprecated amPanes:
+    // columns only; rows are the page's own concern.
     // --------------------------------------------------------------------------
-    [data-am-panes] {
+    [data-am-panes],
+    [data-am-grid]:not(:where([data-am-grid=''])) {
       display: grid;
       min-block-size: 0;
       min-inline-size: 0;
     }
-    [data-am-panes] > * {
+    [data-am-panes] > *,
+    [data-am-grid]:not(:where([data-am-grid=''])) > * {
       min-block-size: 0;
       min-inline-size: 0;
       container-type: inline-size;
       container-name: am-region;
     }
-    [data-am-panes='config-preview'] {
-      grid-template-columns: minmax(320px, 2fr) minmax(0, 3fr);
+    [data-am-panes='config-preview'],
+    [data-am-grid='config-preview'] {
+      grid-template-columns: minmax(px(320), 2fr) minmax(0, 3fr);
     }
-    [data-am-panes='rail-canvas-rail'] {
-      grid-template-columns: 280px minmax(0, 1fr) 320px;
+    [data-am-panes='rail-canvas-rail'],
+    [data-am-grid='rail-canvas-rail'] {
+      grid-template-columns: px(280) minmax(0, 1fr) px(320);
     }
-    @each $t in 3xs, 2xs, xs, sm, md, lg, xl, 2xl {
-      [data-am-panes][data-am-gap='#{$t}'] {
-        gap: var(--am-space-#{$t});
-      }
-    }
-    @container am-region (max-width: 720px) {
-      [data-am-panes='config-preview']:not([data-am-panes-stack='never']) {
+    @container am-region (max-width: #{c.am-bp(calc(720rem / 14))}) {
+      [data-am-panes='config-preview']:not([data-am-panes-stack='never']),
+      [data-am-grid='config-preview']:not([data-am-grid-stack='never']) {
         grid-template-columns: minmax(0, 1fr);
       }
     }
@@ -278,6 +539,31 @@
       inset-block-start: var(--am-sticky-offset, 0px);
       background: var(--am-surface-bg, var(--mat-sys-surface));
       z-index: var(--am-z-sticky);
+    }
+
+    // --------------------------------------------------------------------------
+    // amStickyLeft — stays put sideways, as wide as the visible area. With
+    // amStickyTop in a both-ways scroller it is a bar (see the directive).
+    // --------------------------------------------------------------------------
+    [data-am-sticky-left] {
+      position: sticky;
+      inset-inline-start: 0;
+      inline-size: 100%;
+      box-sizing: border-box;
+    }
+    [data-am-scroll='both'] > [data-am-sticky-left][data-am-sticky-top] {
+      block-size: var(--am-sticky-bar);
+      z-index: var(--am-z-bar);
+      // A bar is one line: its row never wraps, and its fill may shrink to 0
+      // (button groups collapse into their menu instead).
+      flex-wrap: nowrap;
+      & > [data-am-fill] {
+        min-inline-size: 0;
+      }
+    }
+    [data-am-scroll='both'] > [data-am-sticky-left][data-am-sticky-top] ~ * {
+      --am-sticky-offset: var(--am-sticky-bar);
+      --sticky-header-offset: var(--am-sticky-bar);
     }
 
     // --------------------------------------------------------------------------
@@ -295,4 +581,5 @@
     // `amSurfaceFill` on a surface that wraps the page scroller. Structural
     // selectors around outlets break with child routes and shell variations.
   } // @at-root
+  c.$am-root-px: $outer-root-px;
 }

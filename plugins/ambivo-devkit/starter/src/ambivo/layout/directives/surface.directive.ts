@@ -9,7 +9,11 @@ export type SurfaceLevel =
   | 'container-high'
   | 'container-highest';
 
-export type RadiusToken = 'none' | 'sm' | 'md' | 'lg' | 'full';
+/**
+ * Corner radius. `page` is the shell's page corner (`--layout-container-shape`:
+ * radius/md, square on a phone), for a surface that stands in for the page.
+ */
+export type RadiusToken = 'none' | 'sm' | 'md' | 'lg' | 'full' | 'page';
 
 import { ScrollDirective } from './scroll.directive';
 
@@ -62,6 +66,9 @@ export class SurfaceDirective {
   protected readonly scrollSibling = inject(ScrollDirective, { optional: true, self: true });
 
   protected radiusVar(): string {
-    return `var(--am-radius-${this.amSurfaceRadius()})`;
+    const radius = this.amSurfaceRadius();
+    // Read where the surface is, not at :root: the shell sets it on its root.
+    if (radius === 'page') return 'var(--layout-container-shape, var(--am-radius-md))';
+    return `var(--am-radius-${radius})`;
   }
 }

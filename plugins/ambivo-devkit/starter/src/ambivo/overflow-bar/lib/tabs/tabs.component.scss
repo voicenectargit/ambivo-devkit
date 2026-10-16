@@ -1,9 +1,10 @@
 // Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
+@use 'px' as *;
 .tabs-container {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 48px;
+  gap: px(4);
+  min-height: px(48);
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   overflow: hidden;
 
@@ -13,46 +14,48 @@
 
   // Density variations
   &.density-compact {
-    min-height: 40px;
-    gap: 2px;
+    min-height: px(40);
+    gap: px(2);
 
     .tab {
-      padding: 8px 12px;
-      min-height: 40px;
-      font-size: 13px;
+      padding: px(8) px(12);
+      min-height: px(40);
+      font: var(--mat-sys-label-medium);
+      letter-spacing: var(--mat-sys-label-medium-tracking);
 
       mat-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
+        font-size: px(18);
+        width: px(18);
+        height: px(18);
       }
     }
   }
 
   &.density-normal {
-    min-height: 48px;
-    gap: 4px;
+    min-height: px(48);
+    gap: px(4);
 
     .tab {
-      padding: 12px 16px;
-      min-height: 48px;
-      font-size: 14px;
+      padding: px(12) px(16);
+      min-height: px(48);
+      // label-large, as the base .tab
     }
   }
 
   &.density-comfortable {
-    min-height: 56px;
-    gap: 8px;
+    min-height: px(56);
+    gap: px(8);
 
     .tab {
-      padding: 16px 20px;
-      min-height: 56px;
-      font-size: 15px;
+      padding: px(16) px(20);
+      min-height: px(56);
+      font: var(--mat-sys-title-medium);
+      letter-spacing: var(--mat-sys-title-medium-tracking);
 
       mat-icon {
-        font-size: 24px;
-        width: 24px;
-        height: 24px;
+        font-size: px(24);
+        width: px(24);
+        height: px(24);
       }
     }
   }
@@ -62,13 +65,14 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  min-height: 48px;
+  gap: px(8);
+  padding: px(12) px(16);
+  min-height: px(48);
   border: none;
   background: transparent;
   color: var(--mat-sys-on-surface-variant);
   font: var(--mat-sys-label-large);
+  letter-spacing: var(--mat-sys-label-large-tracking);
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
@@ -76,9 +80,9 @@
   border-radius: 0;
 
   mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
+    font-size: px(20);
+    width: px(20);
+    height: px(20);
   }
 
   &:hover:not(.disabled):not(.active) {
@@ -111,17 +115,17 @@
   &.truncate {
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 200px;
+    max-width: px(200);
   }
 }
 
 .tab-color {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: px(8);
+  height: px(8);
   border-radius: 50%;
   flex-shrink: 0;
-  margin-right: 8px;
+  margin-right: px(8);
 }
 
 .tab-indicator {
@@ -129,7 +133,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: px(3);
   background-color: var(--mat-sys-primary);
   opacity: 0;
   transform: scaleX(0);
@@ -160,13 +164,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: px(20);
+  height: px(20);
   border-radius: 50%;
   cursor: pointer;
   color: var(--mat-sys-on-surface-variant);
   transition: background-color 0.2s ease;
-  margin-left: 4px;
+  margin-left: px(4);
 
   &:hover {
     background-color: var(--mat-sys-surface-container-highest);
@@ -174,8 +178,8 @@
   }
 
   mat-icon {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
+    font-size: px(16);
+    width: px(16);
+    height: px(16);
   }
 }

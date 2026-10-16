@@ -1,0 +1,43 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
+@use 'sass:math';
+@use 'sass:meta';
+
+// A px length in the app's design pixel (--am-px); anything else unchanged.
+@function -relative($v) {
+  @if meta.type-of($v) == 'number' and math.unit($v) == 'px' {
+    @return calc(#{math.div($v, 1px)} * var(--am-px, 1px));
+  }
+  @return $v;
+}
+
+@mixin matIconButtonSize($buttonSize, $iconSize) {
+  $buttonSize: -relative($buttonSize);
+  $iconSize: -relative($iconSize);
+  width: $buttonSize !important;
+  height: $buttonSize !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+
+  & > *[role='img'] {
+    width: $iconSize;
+    height: $iconSize;
+    font-size: $iconSize;
+
+    svg {
+      width: $iconSize;
+      height: $iconSize;
+    }
+  }
+
+  svg {
+    width: $iconSize;
+    height: $iconSize;
+  }
+
+  .mat-mdc-button-touch-target {
+    width: $buttonSize !important;
+    height: $buttonSize !important;
+  }
+}

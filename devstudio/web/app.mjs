@@ -18,7 +18,7 @@ import { createLocalObjects } from './objects.mjs';
 import { checkBrief, docxText, BriefError, BRIEF_DIR, BRIEF_MAX } from './brief.mjs';
 import { dataModelView, OBJECTS_FILE, MODEL_DOC } from './datamodel.mjs';
 import { createAccess, AccessError, parseNames, names } from './access.mjs';
-import { createPartnerSource, PARTNERPROG_NAME, PARTNERPROG_URL } from './partnersource.mjs';
+import { createPartnerSource, PARTNERPROG_NAME } from './partnersource.mjs';
 import { parsePhases, PhasesError, newPhases, mergePhases, findPhase, cannotStart, phasesView, openingPrompt, phase0Prompt,
   PHASE0, PHASES_FILE, PHASE_DOCS, PHASE_ID, handoffFile } from './phases.mjs';
 import { startSignIn, finishSignIn, signOut as ambivoSignOut, DEFAULT_API as AMBIVO_DEFAULT_API } from './ambivo-signin.mjs';
@@ -1280,7 +1280,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
           if (!entryId && req.method === 'GET') {
             // A person's work email (Partner Program entries) stays on the server: only the access emails use it.
             return json(res, 200, { entries: (await access.list({ fresh: true })).map(({ email, ...e }) => e), floor: config.allowed, admins: config.admins,
-              ...(partnerSource ? { managedBy: { name: PARTNERPROG_NAME, url: PARTNERPROG_URL, ...partnerSource.status() } } : {}) });
+              ...(partnerSource ? { managedBy: { name: PARTNERPROG_NAME, url: config.partnerProg?.url || undefined, ...partnerSource.status() } } : {}) });
           }
           if (!entryId && req.method === 'POST') { const e = await access.add(await readBody(req), user.login, { token: await userToken(user) }); log(`access: ${user.login} added ${e.github} (${e.partner})`); return json(res, 201, { entry: e }); }
           if (entryId && req.method === 'PATCH') { const e = await access.update(entryId, await readBody(req), user.login, { token: await userToken(user) }); log(`access: ${user.login} set ${e.github} ${e.status}`); return json(res, 200, { entry: e }); }

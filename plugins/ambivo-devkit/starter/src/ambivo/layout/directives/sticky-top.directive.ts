@@ -29,11 +29,15 @@ export class StickyTopDirective {
     afterNextRender(
       () => {
         const scroller = el.closest('[data-am-scroll]');
-        if (scroller?.getAttribute('data-am-scroll') === 'both') {
+        // With amStickyLeft it is a bar, the supported both-ways pattern.
+        if (
+          scroller?.getAttribute('data-am-scroll') === 'both' &&
+          !el.hasAttribute('data-am-sticky-left')
+        ) {
           console.warn(
-            '[amStickyTop] is inert inside amScroll="both": a sticky row there spans the ' +
-              'content width and scrolls sideways with it. Only table cells may be sticky ' +
-              'in a biaxial scroller; permanently pinned rows belong in scaffold slots.',
+            '[amStickyTop] inside amScroll="both" needs amStickyLeft on the same element: ' +
+              'alone, a sticky row there spans the content width and scrolls sideways ' +
+              'with it. With both it is a bar (see StickyLeftDirective).',
             el,
           );
         }

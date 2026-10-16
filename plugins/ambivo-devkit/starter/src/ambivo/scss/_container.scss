@@ -1,0 +1,93 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
+// ============================================================================
+// Container queries — the breakpoint scale and the mixins every stylesheet uses
+// to write one. Same numbers as CONTAINER_BREAKPOINTS in
+// primitives/types/responsive.ts (`@container` cannot read var(); a spec keeps
+// the two equal).
+//
+// Each mixin takes a breakpoint key (sm, md, lg, xl; xs is 0, the base) or,
+// for a one-off, a length (480px). Mobile first: a key means "from here up",
+// so `up` is "from here", `down` is "below here".
+//
+//   @use 'container' as c;   (load path: libs/crm2/ui/src/lib/scss)
+//   @include c.container-up(md) { … }            // ≥ 900px
+//   @include c.container-down(md) { … }          // < 900px
+//   @include c.container-between(sm, lg) { … }   // 600px ≤ w < 1280px
+//   @include c.container-up(480px) { … }         // custom length
+//   @include c.container('(min-width: 480px) and (max-height: 400px)') { … }
+//
+// Use THIS file in a component stylesheet, not `m3`: m3's index emits global
+// rules, which would be copied into every component that imports it. It is
+// also forwarded through m3 for app-level stylesheets.
+//
+// They query the NEAREST query container, as the responsive atom values do.
+// ============================================================================
+@use 'sass:map';
+@use 'sass:math';
+@use 'sass:string';
+@use 'sass:meta';
+
+$am-container-bps: (
+  xs: 0px,
+  sm: 600px,
+  md: 900px,
+  lg: 1280px,
+  xl: 1920px,
+);
+
+// The edges above the base, which is what a query is written for.
+$am-container-edges: (
+  sm: map.get($am-container-bps, sm),
+  md: map.get($am-container-bps, md),
+  lg: map.get($am-container-bps, lg),
+  xl: map.get($am-container-bps, xl),
+);
+
+// The root font size the breakpoints are measured against, so they scale with
+// the root like --am-px does (= 1rem / 14). `@container` cannot read var(), but
+// it takes rem: 600px is written calc(600rem / 14), exactly 600px at a 14px root.
+// null writes px, for an app whose sizes are fixed px (am-layout($root-px: null)).
+$am-root-px: 14 !default;
+
+// A px length as a query writes it: root-relative, or px when $am-root-px is null.
+@function am-bp($px) {
+  @if $am-root-px == null or math.unit($px) != 'px' {
+    @return $px;
+  }
+  @return string.unquote('calc(#{math.div($px, 1px)}rem / #{$am-root-px})');
+}
+
+@function am-container-width($bp) {
+  @if meta.type-of($bp) == 'number' {
+    @return $bp;
+  }
+  $w: map.get($am-container-bps, $bp);
+  @if $w == null {
+    @error 'Unknown container breakpoint "#{$bp}". Use xs, sm, md, lg, xl or a length.';
+  }
+  @return $w;
+}
+
+@mixin container($query) {
+  @container #{$query} {
+    @content;
+  }
+}
+
+@mixin container-up($bp) {
+  @container (min-width: #{am-bp(am-container-width($bp))}) {
+    @content;
+  }
+}
+
+@mixin container-down($bp) {
+  @container (max-width: #{am-bp(am-container-width($bp) - 0.02px)}) {
+    @content;
+  }
+}
+
+@mixin container-between($from, $to) {
+  @container (min-width: #{am-bp(am-container-width($from))}) and (max-width: #{am-bp(am-container-width($to) - 0.02px)}) {
+    @content;
+  }
+}

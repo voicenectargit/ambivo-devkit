@@ -4,6 +4,7 @@ import { computed, linkedSignal, Signal, signal } from '@angular/core';
 import { map, Observable, of, startWith } from 'rxjs';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { catchError, switchMap } from 'rxjs/operators';
+import { deepEqual } from 'fast-equals';
 import { indicate } from '@am/shared/utils/rxjs';
 import { PaginatedRequest, PaginatedResponse } from '@am/shared/utils/types';
 import { AbstractResource } from './abstract-resource.interface';
@@ -46,12 +47,19 @@ export class PaginatedResource<
     const source = this.pageSizeSource();
     return typeof source === 'function' ? source() : source;
   });
-  pageIndex = linkedSignal({ source: computed(() => this.request()), computation: () => 0 });
-  payload = computed(() => ({
-    ...this.request(),
-    pageSize: this.pageSize(),
-    pageIndex: this.pageIndex(),
-  }));
+  // Compared by value: `params` builds a fresh object on every run, so an unrelated
+  // signal it happens to read (e.g. a view config rebuilt by a column resize) would
+  // otherwise reset the page and refetch identical data.
+  private requestValue = computed(() => this.request(), { equal: deepEqual });
+  pageIndex = linkedSignal({ source: this.requestValue, computation: () => 0 });
+  payload = computed(
+    () => ({
+      ...this.requestValue(),
+      pageSize: this.pageSize(),
+      pageIndex: this.pageIndex(),
+    }),
+    { equal: deepEqual },
+  );
 
   /**
    * TODO: Remove missing "count" patch after API improved

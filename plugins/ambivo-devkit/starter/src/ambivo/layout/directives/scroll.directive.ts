@@ -17,6 +17,14 @@ import { ScrollRestorationService } from '../services/scroll-restoration.service
 export type ScrollAxis = 'block' | 'inline' | 'both';
 
 /**
+ * Room kept for the scrollbar. `stable` (the block default) keeps content from
+ * shifting when overflow starts; `both-edges` mirrors that room on the start
+ * side so centred content stays centred (an icon rail); `auto` reserves
+ * nothing (a fallback scroller around content that scrolls itself).
+ */
+export type ScrollGutter = 'stable' | 'both-edges' | 'auto';
+
+/**
  * Injection surface for "the nearest scroll viewport". `ScrollDirective`
  * provides itself as this, so descendants can `inject(ScrollRef)` to reach the
  * enclosing scroller (e.g. a virtual-scroll grid needing the viewport element).
@@ -49,6 +57,7 @@ export abstract class ScrollRef {
   providers: [{ provide: ScrollRef, useExisting: forwardRef(() => ScrollDirective) }],
   host: {
     '[attr.data-am-scroll]': 'amScroll()',
+    '[attr.data-am-scroll-gutter]': "amScrollGutter() === 'stable' ? null : amScrollGutter()",
     '[attr.tabindex]': 'tabindex()',
     '[attr.role]': 'role()',
     '[attr.aria-label]': 'amScrollLabel() || null',
@@ -62,6 +71,9 @@ export class ScrollDirective implements ScrollRef {
 
   /** Accessible name — required for `inline`/`both` (always focusable). */
   readonly amScrollLabel = input<string>('');
+
+  /** Room kept for the scrollbar — see `ScrollGutter`. */
+  readonly amScrollGutter = input<ScrollGutter>('stable');
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);

@@ -33,6 +33,9 @@ export type BlockStatusSize = 'l' | 'm';
   host: {
     '[attr.data-size]': 'size()',
     '[attr.data-intent]': 'intent()',
+    // The intent maps onto the shared tones, so its icon colour is the one
+    // every other status uses.
+    '[attr.data-am-tone]': 'intent() === "error" ? "error" : "neutral"',
   },
   template: `
     @if (icon()) {
@@ -58,7 +61,7 @@ export type BlockStatusSize = 'l' | 'm';
       font-size: 48px;
       inline-size: 48px;
       block-size: 48px;
-      color: var(--mat-sys-on-surface-variant);
+      color: var(--am-tone-fg, var(--mat-sys-on-surface-variant));
     }
     .hint {
       color: var(--mat-sys-on-surface-variant);
@@ -69,9 +72,6 @@ export type BlockStatusSize = 'l' | 'm';
     }
     .actions {
       margin-block-start: var(--am-space-sm);
-    }
-    :host([data-intent='error']) .icon {
-      color: var(--mat-sys-error);
     }
     :host([data-size='m']) {
       padding: var(--am-space-md);

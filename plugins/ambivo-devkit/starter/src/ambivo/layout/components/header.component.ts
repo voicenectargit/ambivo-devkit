@@ -2,17 +2,14 @@
 import { booleanAttribute, ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { MeasureDirective } from '../directives/measure.directive';
 
-export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
-
 /**
  * am-header — page/section header: heading + optional hint + trailing
  * actions cluster.
  *
  * - `heading`, not `title`: `title` is a global HTML attribute — a static
  *   value lands in the DOM and renders a native tooltip over the header.
- * - `as` (semantic level) is DECOUPLED from `level` (typography class):
- *   a drawer or pane header is `as="h2"` even at title-large — a page has
- *   one h1.
+ * - Always an `<h1>`: am-header is the top of whatever it heads (page,
+ *   drawer, dialog). `level` sets only how big it looks.
  * - The hint gets a reading measure automatically (amMeasure).
  * - Actions wrap below the heading when the header's own container is
  *   narrow (library threshold, compiled here — no input); `compact` forces
@@ -33,26 +30,7 @@ export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
   host: { '[attr.data-compact]': 'compact() || null' },
   template: `
     <div class="bar">
-      @switch (tag()) {
-        @case ('h1') {
-          <h1 [class]="level()">{{ heading() }}</h1>
-        }
-        @case ('h2') {
-          <h2 [class]="level()">{{ heading() }}</h2>
-        }
-        @case ('h3') {
-          <h3 [class]="level()">{{ heading() }}</h3>
-        }
-        @case ('h4') {
-          <h4 [class]="level()">{{ heading() }}</h4>
-        }
-        @case ('h5') {
-          <h5 [class]="level()">{{ heading() }}</h5>
-        }
-        @case ('h6') {
-          <h6 [class]="level()">{{ heading() }}</h6>
-        }
-      }
+      <h1 [class]="level()">{{ heading() }}</h1>
       <div class="actions"><ng-content select="[actions]" /></div>
     </div>
     @if (hint()) {
@@ -71,12 +49,7 @@ export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
       align-items: center;
       gap: var(--am-space-sm);
     }
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
+    h1 {
       flex: 1 1 auto;
       min-inline-size: 0;
       margin: 0;
@@ -102,8 +75,6 @@ export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 })
 export class HeaderComponent {
   readonly heading = input.required<string>();
-  /** Semantic heading element. Named `tag` (not `as`) — `as` is reserved in Angular template expressions. */
-  readonly tag = input<HeadingTag>('h1');
   /** Typography-hierarchy class (visual scale only). */
   readonly level = input<string>('display-medium');
   readonly hint = input<string>('');

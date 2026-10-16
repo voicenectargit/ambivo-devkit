@@ -29,6 +29,8 @@ function partnerProgConfig(env, ambivoApi, region) {
     tenant: val('DEVSTUDIO_PARTNERPROG_TENANT'),
     email: val('DEVSTUDIO_PARTNERPROG_EMAIL'),
     api: api.endsWith('/') ? api : `${api}/`,
+    // The Partner Program app's address, for the link on the Access page. A deploy setting, so the code names no host.
+    url: val('DEVSTUDIO_PARTNERPROG_URL'),
     // The custom objects' collection ids. Overridable in case the app's objects are renamed.
     partnerCollection: val('DEVSTUDIO_PARTNERPROG_PARTNER_COLLECTION') || 'partnerprog_partner',
     personCollection: val('DEVSTUDIO_PARTNERPROG_PERSON_COLLECTION') || 'partnerprog_person',

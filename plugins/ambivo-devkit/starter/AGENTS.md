@@ -365,18 +365,19 @@ components, not its own. The code check (`ambivo-check`) refuses the common ways
   | Use | Token |
   |---|---|
   | Brand, links, the main action | `var(--color-primary)`, light tint `var(--color-primary-50)` |
-  | Body text, secondary text, faint text | `var(--color-fg-text)`, `var(--color-fg-secondary-text)`, `var(--color-fg-muted)`, `var(--color-fg-ghost)` |
+  | Body text, secondary text, disabled text | `var(--color-fg-text)`, `var(--color-fg-secondary-text)`, `var(--color-fg-disabled)` |
   | Page and surfaces | `var(--color-bg-background)`, `var(--mat-sys-surface)`, `var(--mat-sys-surface-container)` |
-  | Hover and highlight | `var(--color-bg-hover)`, `var(--color-bg-highlight)` |
-  | Good, bad | `var(--color-success)` (with `-50` and `-contrast`), `var(--mat-sys-error)` |
-  | Lines and greys | `var(--mat-sys-outline-variant)`, `var(--color-grey-100)` to `var(--color-grey-900)` |
+  | Hover, pressed, selected | `var(--color-bg-hover)`, `var(--color-bg-pressed)`, `var(--mat-sys-secondary-container)` |
+  | Good, bad | `var(--color-success)`, `var(--mat-sys-error)`, with text on them `var(--mat-sys-on-error)` |
+  | Lines and greys | `var(--mat-sys-outline-variant)`, `var(--color-fg-divider)`, `var(--color-grey-50)` to `var(--color-grey-200)` |
   | Shadows | `var(--mat-sys-level1)` to `var(--mat-sys-level5)`, never a hand-made `box-shadow` |
 
-  The full list is in `src/ambivo/styles/themes/_light_theme.scss`. Read it; do not copy values out of it.
+  The full list is in `src/ambivo/scss/_fallback.scss` and `src/ambivo/scss/_app.scss`. Read them; do not
+  copy values out of them.
 - **Fonts: Roboto, from the starter.** Never set `font-family`, never load another font. Icons are
   Material Symbols (`<mat-icon>name</mat-icon>`), never another icon set.
-- **Text:** Material typography and the starter's text classes (`text-muted`, `text-secondary`,
-  `text-small`, `text-bold`, `text-truncate`). No hand-picked font sizes.
+- **Text:** the theme's type classes (`title-medium`, `body-medium`, `label-small` and the other Material
+  levels) and its text classes (`text-secondary`, `text-disabled`, `text-truncate`). No hand-picked font sizes.
 - **Components:** Angular Material and the Ambivo pieces listed above (`am-block-status`,
   `am-button-group`, `DialogLayout`...). Never Bootstrap, Tailwind, PrimeNG, ng-zorro, Font Awesome
   or another UI kit, not even for one widget.

@@ -1,0 +1,13 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
+// Global classes the current apps (crm2, assetbase, workforce, inventory) used
+// from the legacy partials (libs/styles/src/lib/_utils, _flex, _inert, _dense,
+// _icons, _rich_text), copied here unchanged so these apps load nothing from
+// libs/styles outside m3. The legacy partials stay for the older apps.
+//
+// Emits CSS: @use it once, from an app's styles.scss, never from a component.
+// Print styles are m3/print, which an app @uses on its own (crm2 does not).
+@forward 'utils/utils' as legacy-utils-*;
+@forward 'utils/flex';
+@forward 'utils/inert';
+@forward 'utils/icons';
+@forward 'utils/rich-text';

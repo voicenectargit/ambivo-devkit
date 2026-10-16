@@ -1,8 +1,9 @@
 // Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
+@use 'px' as *;
 .button-group-container {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: px(8);
   flex-wrap: nowrap;
   overflow: hidden;
 
@@ -56,6 +57,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 200px;
+    max-width: px(200);
   }
 }

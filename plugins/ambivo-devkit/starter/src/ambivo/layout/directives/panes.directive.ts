@@ -1,10 +1,15 @@
 // Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
 import { Directive, computed, input } from '@angular/core';
-import type { SpaceToken } from './inset.directive';
+import { atomValue, type Responsive } from '../types/responsive';
+import { spaceCss, type SpaceOrNone } from '../types/space';
 
 export type PanesPreset = 'config-preview' | 'rail-canvas-rail';
 
 /**
+ * @deprecated Use `amGrid` with the preset as its value:
+ * `amPanes="config-preview" amPanesGap="lg"` is
+ * `amGrid="config-preview" amGridGap="lg"`. Kept working until nothing uses it.
+ *
  * amPanes — horizontal division into independently scrolling panes.
  * Owns COLUMNS only; rows belong to the scaffold. The host contains panes
  * and nothing else — no toolbar rows inside.
@@ -26,14 +31,20 @@ export type PanesPreset = 'config-preview' | 'rail-canvas-rail';
   host: {
     '[attr.data-am-panes]': 'presetAttr()',
     '[attr.data-am-panes-stack]': 'amPanesStack()',
-    '[attr.data-am-gap]': 'amPanesGap() || null',
+    '[attr.data-am-gap]': 'gap()?.attr ?? null',
+    '[style]': 'gap()?.vars ?? null',
     '[style.grid-template-columns]': 'rawTracks()',
   },
 })
 export class PanesDirective {
   readonly amPanes = input.required<PanesPreset | string>();
   readonly amPanesStack = input<'auto' | 'never'>('auto');
-  readonly amPanesGap = input<SpaceToken | ''>('');
+  readonly amPanesGap = input<Responsive<SpaceOrNone> | ''>('');
+
+  protected readonly gap = computed(() => {
+    const gap = this.amPanesGap();
+    return gap === '' ? null : atomValue('gap', gap, spaceCss);
+  });
 
   private static readonly PRESETS: ReadonlySet<string> = new Set([
     'config-preview',

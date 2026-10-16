@@ -24,7 +24,6 @@ import { createNotifier, createSes } from './notify.mjs';
 export const IDS_KEY = 'config/partnerprog-ids.json';
 export const SNAPSHOT_KEY = 'config/partnerprog-snapshot.json';
 export const PARTNERPROG_NAME = 'Partner Program';
-export const PARTNERPROG_URL = 'https://partner-program-web-production.up.railway.app';
 export const SOURCE = 'partner-program';
 const REFRESH_MS = 5 * 60_000;
 const RENEW_BEFORE_MS = 60 * 60_000;   // sign in again this long before the token's exp

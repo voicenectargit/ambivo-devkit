@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
 import { Directive, input } from '@angular/core';
 
+/** amContainer's width cap. */
 export type ContainerSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
 /**

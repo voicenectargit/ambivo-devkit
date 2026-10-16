@@ -1,0 +1,18 @@
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
+@forward 'typography';
+@forward 'am-layout';
+@forward 'breakpoints';
+@forward 'breadcrumbs';
+@forward 'dialog';
+@forward 'fallback';
+@forward 'sticky-stepper';
+@forward 'icon-size';
+@forward 'state-layer';
+@forward 'button-toggle';
+
+// The current apps' global styles (crm2, assetbase, workforce, inventory). The
+// classes they took from the legacy partials are in globals (scss/globals), which only an
+// app's styles.scss @uses: forwarded from here, they would be copied into every
+// stylesheet that @uses m3 for a mixin.
+@forward 'icon-button-size';
+@forward 'app';

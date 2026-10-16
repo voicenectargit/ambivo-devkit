@@ -934,7 +934,8 @@ async function showAccess() {
     $('#accessForm').hidden = !!m;
     $('#acHint').hidden = !!m;
     if (m) {
-      $('#acManagedLink').href = m.url;
+      $('#acManagedLink').hidden = !m.url;
+      if (m.url) $('#acManagedLink').href = m.url;
       $('#acManagedRead').textContent = m.lastSuccessAt
         ? `Last read from the Partner Program: ${new Date(m.lastSuccessAt).toLocaleString()}. ${m.count} on the list.`
         : 'Dev Studio has not read the Partner Program yet. Only the people set at deploy time can sign in.';
