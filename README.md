@@ -103,6 +103,8 @@ Keep `127.0.0.1` in each `-p`, so only your computer can reach Dev Studio. The s
 other programs out.
 
 On your computer, Dev Studio has no Share link, no Codex and no Deploy. One app's Preview runs at a time.
+Use one way at a time: stop this container before you open your apps folder in an IDE, because both keep
+their sign-ins and app list in the same `ambivo-devkit-home` volume.
 Delete moves the app's folder to `.devstudio-trash` in your apps folder.
 
 ### VS Code, Cursor or WebStorm
@@ -134,6 +136,9 @@ to start the app. If you start it yourself, run `npm start -- --host 0.0.0.0`. T
 | Sign in to your sandbox again | Run the `docker run ... login` command above, in a terminal on your computer |
 | A shell in place of Claude Code | Add `bash` to the end of the `docker run` command |
 | Dev Studio in place of Claude Code | Add `-p 127.0.0.1:4300:4300`, and add `studio` to the end of the `docker run` command |
+
+**Update to the newest version:** run `docker pull sgosain/ambivo-devkit`. Docker keeps using the copy it
+downloaded until you do.
 
 **Build the image yourself:** clone this repository, then run
 `docker build -f container/Dockerfile -t ambivo-devkit .` and use `ambivo-devkit` in place of
