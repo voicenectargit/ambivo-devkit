@@ -3,16 +3,24 @@
 Build apps on the Ambivo API with your own coding assistant, on your own computer. The kit teaches Claude Code
 the Ambivo API, screen style and sign-in. The apps it builds work with Ambivo from the start.
 
-It is for Ambivo development partners. To become one, write to dev-partner@ambivo.com. The full guide is at
-[ambivo.com/documentation/guides/dev-studio](https://www.ambivo.com/documentation/guides/dev-studio).
+It is for two groups:
 
-There are three ways to build. We recommend the first.
+- **Companies building apps for themselves.** No approval needed. You install the app in your own company,
+  and its custom objects count against your company's quota.
+- **Development partners building apps for clients.** Ambivo must approve you before you install apps in
+  other companies. To apply, write to dev-partner@ambivo.com.
+
+The full guide, with a chart of which way suits you, is at
+[ambivo.com/documentation/guides/dev-studio](https://www.ambivo.com/documentation/guides/dev-studio#choose).
+
+There are four ways to build. We recommend Docker.
 
 | Way | Where it runs | Use it when |
 | --- | --- | --- |
-| [The Docker image](#start-with-the-docker-image) | Your computer, in a container | Most of the time. Dev Studio in your browser, VS Code, WebStorm or the terminal |
-| [Claude Code without Docker](#or-build-without-docker) | Your computer | You already use Claude Code and Node |
-| [Hosted Dev Studio](https://www.ambivo.com/documentation/guides/dev-studio#hosted) | Ambivo's server, in your browser | You cannot run Docker |
+| [The Docker image](#start-with-the-docker-image) | Your computer, in a container | Most of the time. Free. Dev Studio in your browser, VS Code, WebStorm or the terminal |
+| [Claude Code without Docker](#or-build-without-docker) | Your computer | You already use Claude Code and Node. Free |
+| [Private hosted Dev Studio](https://www.ambivo.com/documentation/guides/dev-studio#hosted) | A server for your team only, run by Ambivo | You want Ambivo to host Dev Studio for you. Paid. Coming in December 2026 |
+| [Shared hosted Dev Studio](https://www.ambivo.com/documentation/guides/dev-studio#hosted) | Ambivo's shared server, in your browser | You want to try Dev Studio, or show a demo. It may be removed at any time |
 
 ## Two kinds of Ambivo app
 
