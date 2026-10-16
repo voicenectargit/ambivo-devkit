@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { OverflowBarItem } from './overflow-bar-base.component';
 import { MatMenu } from '@angular/material/menu';

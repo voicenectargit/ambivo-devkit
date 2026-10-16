@@ -4,7 +4,9 @@ Copyright (c) 2026 Ambivo, Inc. All rights reserved.
 
 This license applies to the Ambivo Developer Kit (the "Software"): the files in
 this repository, including the ambivo-devkit plugin, its skills, scripts, hooks,
-the ambivo MCP server, the bundled API descriptions and the starter application.
+the ambivo MCP server, the bundled API descriptions, Dev Studio, the dev
+container and the starter application. The starter application's own files are
+also available under the MIT License, as set out in section 1(b).
 Third-party components keep their own licenses; see THIRD_PARTY_NOTICES.md.
 
 The Software is made available to you, not sold. Ambivo, Inc. ("Ambivo") keeps
@@ -21,10 +23,23 @@ If you do not accept it, do not use the Software.
        support applications that use Ambivo's products and services ("Your
        Applications"); and
 
-   (b) include the files of the starter application (the "starter" folders),
-       with or without changes, in Your Applications, and distribute Your
-       Applications to your own organization and to your clients, in source or
-       compiled form, for use with Ambivo's products and services.
+   (b) use the files of the starter application (the "starter" folders) under
+       the MIT License in LICENSE-AMBIVO-STARTER.txt in those folders, instead
+       of this license. That file says which starter files it covers: AGENTS.md
+       and the tools/ folder are not among them, and stay under this license.
+       You may include AGENTS.md and the tools/ folder, with or without
+       changes, in Your Applications, and distribute Your Applications to your
+       own organization, to your clients and publicly, in source or compiled
+       form, as part of Your Applications, for use with Ambivo's products and
+       services.
+
+   (c) Ambivo also grants you a license under any patents Ambivo can license
+       that are infringed by the Software, for the uses in this section 1.
+       This patent license ends if you claim that the Software infringes a
+       patent.
+
+   Forking this repository on GitHub, as GitHub's Terms of Service allow, is
+   permitted.
 
 2. Restrictions
 
@@ -64,6 +79,9 @@ If you do not accept it, do not use the Software.
    Ambivo provides, is governed by Ambivo's Terms of Use
    (https://docs.ambivo.com/legal/terms-of-use) and any other agreement you
    have with Ambivo. This license gives you no right to use them by itself.
+   This license is Ambivo's written authorization for the uses in section 1.
+   Where it conflicts with the Terms of Use about the Software, this license
+   controls.
 
 6. Trademarks
 
@@ -83,20 +101,20 @@ If you do not accept it, do not use the Software.
    ACCURACY, OR THAT THE SOFTWARE WILL BE ERROR-FREE, SECURE OR UNINTERRUPTED.
    AMBIVO MAY CHANGE OR STOP PROVIDING THE SOFTWARE AT ANY TIME.
 
-9. No liability
+9. Limitation of liability
 
-   YOU USE THE SOFTWARE ENTIRELY AT YOUR OWN RISK. TO THE FULLEST EXTENT
-   PERMITTED BY LAW, AMBIVO AND ITS AFFILIATES, OFFICERS, EMPLOYEES AND
-   SUPPLIERS ASSUME NO LIABILITY AND WILL NOT BE LIABLE TO YOU OR ANY THIRD
-   PARTY FOR ANY DAMAGES OF ANY KIND, WHETHER DIRECT, INDIRECT, INCIDENTAL,
-   SPECIAL, CONSEQUENTIAL, EXEMPLARY OR PUNITIVE, OR FOR ANY LOSS OF PROFITS,
-   REVENUE, DATA, GOODWILL OR BUSINESS, ARISING OUT OF OR RELATED TO THE
-   SOFTWARE, YOUR APPLICATIONS OR THIS LICENSE, HOWEVER CAUSED AND UNDER ANY
-   THEORY OF LIABILITY, EVEN IF ADVISED OF THEIR POSSIBILITY. THE SOFTWARE IS
-   PROVIDED FREE OF CHARGE, AND THIS EXCLUSION IS AN ESSENTIAL PART OF THE
-   BASIS ON WHICH IT IS PROVIDED. WHERE THE LAW DOES NOT ALLOW LIABILITY TO BE
-   EXCLUDED ENTIRELY, AMBIVO'S LIABILITY IS LIMITED TO THE SMALLEST AMOUNT
-   THAT LAW PERMITS.
+   YOU USE THE SOFTWARE AT YOUR OWN RISK. TO THE EXTENT PERMITTED BY LAW,
+   AMBIVO AND ITS AFFILIATES, OFFICERS, EMPLOYEES AND SUPPLIERS WILL NOT BE
+   LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY OR
+   PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS, REVENUE, DATA, GOODWILL OR
+   BUSINESS, ARISING OUT OF OR RELATED TO THE SOFTWARE, YOUR APPLICATIONS OR
+   THIS LICENSE, HOWEVER CAUSED, EVEN IF ADVISED OF THEIR POSSIBILITY. TO THE
+   EXTENT PERMITTED BY LAW, AMBIVO'S TOTAL LIABILITY ARISING OUT OF THE
+   SOFTWARE OR THIS LICENSE IS LIMITED TO US$100. THE SOFTWARE IS PROVIDED
+   FREE OF CHARGE, AND THESE LIMITS ARE AN ESSENTIAL PART OF THE BASIS ON
+   WHICH IT IS PROVIDED. NOTHING IN THIS LICENSE LIMITS LIABILITY THAT CANNOT
+   BE LIMITED BY LAW, INCLUDING FOR DEATH OR PERSONAL INJURY CAUSED BY
+   NEGLIGENCE, OR FOR FRAUD.
 
 10. Indemnity
 
@@ -107,13 +125,20 @@ If you do not accept it, do not use the Software.
 
 11. Termination
 
-   This license ends automatically if you breach it. Ambivo may also end it at
-   any time by notice to you, including by publishing a new version of this
-   license. When it ends, stop using and distributing the Software. Sections 3
+   If you breach this license, Ambivo may end it by notice to you, unless you
+   cure the breach within 30 days of that notice. A new version of this
+   license applies to copies of the Software obtained after it is published.
+   When this license ends, stop using and distributing the Software. Sections 3
    and 6 to 11, and any rights you already granted to your clients to use Your
    Applications as delivered, survive.
 
 12. General
+
+   This license is governed by the law that governs Ambivo's Terms of Use,
+   without regard to conflict-of-law rules. You will comply with the export
+   control and sanctions laws that apply to the Software and to Your
+   Applications. Ambivo does not accept contributions to the Software unless
+   you have signed a contributor agreement with Ambivo.
 
    This is the entire agreement between you and Ambivo about the Software. If a
    court finds part of it unenforceable, the rest stays in effect. Ambivo's

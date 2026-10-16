@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
 import { booleanAttribute, ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { ButtonAppearance } from '../base/overflow-bar-base.component';
 import { OverflowBarItemComponent } from '../base/overflow-bar-item.component';

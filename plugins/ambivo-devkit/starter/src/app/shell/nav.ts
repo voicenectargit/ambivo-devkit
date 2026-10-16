@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
 /** One entry of the left menu. `exact`: active only on this path, not on the paths under it. */
 export interface NavItem {
   path: string;

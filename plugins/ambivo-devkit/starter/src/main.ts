@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
 /// <reference types="@angular/localize" />
 import { bootstrapApplication } from '@angular/platform-browser';
 import { appConfig } from './app/app.config';

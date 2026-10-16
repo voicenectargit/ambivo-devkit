@@ -2,6 +2,14 @@
 
 The Ambivo MCP server (`plugins/ambivo-devkit/mcp/ambivo-mcp.mjs`) is a single bundled file. It includes the open source packages below. Each keeps its own license, reproduced here. These licenses apply to those packages only. The rest of this repository is under the Ambivo Developer Kit License in [LICENSE](LICENSE).
 
+## The Docker image
+
+The image `sgosain/ambivo-devkit` also contains:
+
+- **Node.js**, from the `node:22-bookworm-slim` base image. License: MIT. https://github.com/nodejs/node/blob/main/LICENSE
+- **Claude Code** (`@anthropic-ai/claude-code`), (c) Anthropic PBC. It is installed unmodified and used under Anthropic's Commercial Terms or Consumer Terms. You sign in with your own Anthropic account or key. https://code.claude.com/docs/en/legal-and-compliance
+- **Debian bookworm packages**, unmodified: git, zip, unzip, ca-certificates, procps, less, poppler-utils, chromium, fonts-liberation and tini, with the packages they need. Their licenses are in `/usr/share/doc/<package>/copyright` in the image. Source is at https://sources.debian.org and https://snapshot.debian.org.
+
 ## @modelcontextprotocol/sdk 1.32.0
 
 License: MIT. Source: git+https://github.com/modelcontextprotocol/typescript-sdk.git

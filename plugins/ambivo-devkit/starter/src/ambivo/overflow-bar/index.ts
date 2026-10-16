@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
+// Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
 // Legacy components (keep for backwards compatibility)
 export * from './lib/ui-overflow-bar/ui-overflow-bar.component';
 export * from './lib/directives/overflow-item.directive';

@@ -1,0 +1,1536 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ambivo Dev Studio</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" />
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root { --primary: #6750a4; --on-primary: #fff; --surface: #fef7ff; --surface-2: #f3edf7; --line: #cac4d0; --text: #1d1b20; --muted: #49454f; --error: #b3261e; --core: #1e6b52; --core-bg: #e3f2ec; --custom-bg: #f3edf7; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 Roboto, sans-serif; color: var(--text); background: var(--surface-2); height: 100vh; display: flex; }
+  aside { width: 300px; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+  aside h1 { font-size: 18px; margin: 0; padding: 16px; }
+  aside ul { list-style: none; margin: 0; padding: 0 8px; overflow: auto; flex: 1; }
+  aside li { padding: 10px 12px; border-radius: 12px; cursor: pointer; }
+  aside li.active, aside li:hover { background: var(--surface-2); }
+  aside li small { display: block; color: var(--muted); }
+  main { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100vh; }
+  header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+  header h2 { flex: 1; margin: 0; font-size: 16px; }
+  /* min-height: 0 lets the conversation scroll inside the column; without it the reply box is pushed off screen. */
+  #log { flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 820px; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; word-break: break-word; }
+  .user { align-self: flex-end; background: var(--primary); color: var(--on-primary); }
+  .assistant { background: var(--surface); border: 1px solid var(--line); }
+  .assistant code { font: 12px ui-monospace, monospace; background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+  .assistant .rec { color: var(--primary); }
+  .tip { color: var(--muted); font-size: 13px; line-height: 1.4; margin: 6px 0 0; }
+  .tip a { color: var(--primary); }
+  .tool { color: var(--muted); font: 12px/1.4 ui-monospace, monospace; padding: 2px 14px; }
+  .status, .note { color: var(--muted); font-style: italic; padding: 2px 14px; }
+  .share-link { display: flex; gap: 8px; align-items: center; }
+  .share-link input { flex: 1; }
+  dialog.am label.choice { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 500; }
+  dialog.am label.choice input { width: auto; margin-top: 4px; }
+  dialog.am label.choice small { display: block; font-weight: 400; color: var(--muted); }
+  dialog.am pre { white-space: pre-wrap; max-height: 40vh; overflow: auto; font: 12px ui-monospace, monospace; background: var(--surface-2); padding: 8px; border-radius: 6px; }
+  .error { color: var(--error); padding: 2px 14px; }
+  form.reply { flex-shrink: 0; display: flex; align-items: flex-end; gap: 8px; padding: 12px 16px; background: var(--surface); border-top: 1px solid var(--line); }
+  textarea, input { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; width: 100%; background: #fff; }
+  textarea { resize: vertical; min-height: 44px; max-height: 30vh; }
+  form.reply button { flex-shrink: 0; }
+  .chips { flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px 0; background: var(--surface); border-top: 1px solid var(--line); }
+  [hidden] { display: none !important; }
+  .msg.user.queued { opacity: .6; }
+  .msg.user.queued::after { content: ' (waiting)'; font-size: 12px; }
+  .chips[hidden] { display: none; }
+  .chips button { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); padding: 8px 16px; }
+  .chips + form.reply { border-top: 0; }
+  button { font: inherit; font-weight: 500; border: 0; border-radius: 20px; padding: 10px 18px; cursor: pointer; background: var(--primary); color: var(--on-primary); }
+  button.text { background: none; color: var(--primary); }
+  a.text { font-weight: 500; padding: 10px 18px; color: var(--primary); text-decoration: none; border-radius: 20px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .new { padding: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 640px; }
+  .new label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
+  .new small { font-weight: 400; color: var(--muted); }
+  .new [hidden] { display: none; }
+  .signin { padding: 10px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+  .signin code { display: block; margin-top: 6px; padding: 8px; background: var(--surface-2); border-radius: 6px; font: 12px ui-monospace, monospace; word-break: break-all; user-select: all; }
+  dialog.am { border: 0; border-radius: 16px; padding: 24px; width: min(480px, calc(100vw - 32px));
+    background: var(--surface); color: var(--text); box-shadow: 0 11px 32px rgba(60,64,67,.15), 0 10px 20px rgba(0,0,0,.12); }
+  dialog.am.wide { width: min(1200px, calc(100vw - 32px)); max-height: calc(100vh - 48px); }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; max-height: 65vh; overflow: auto; }
+  .shots figure { margin: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+  .shots img { display: block; width: 100%; height: auto; }
+  .shots figcaption { font-size: 12px; color: var(--muted); padding: 6px 10px; }
+  .guide { max-height: 62vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 8px 20px; }
+  .guide:empty { display: none; }
+  .guide img { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; margin: 6px 0; }
+  .guide table { border-collapse: collapse; } .guide td, .guide th { border: 1px solid var(--line); padding: 4px 8px; text-align: left; }
+  .access { padding: 16px; overflow: auto; }
+  .access-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; }
+  .access-add input, .access-add select { width: auto; flex: 1 1 160px; }
+  .access-table { border-collapse: collapse; width: 100%; background: var(--surface); }
+  .access-table th, .access-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .access-table th { color: var(--muted); font-weight: 500; }
+  .dm-svg { overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: #fff; max-height: 60vh; }
+  .dm-svg svg { display: block; }
+  .dm-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 8px 0 12px; color: var(--muted); font-size: 12px; }
+  .dm-legend span::before { content: ""; display: inline-block; width: 22px; height: 0; margin-right: 6px; vertical-align: middle; border-top: 2px solid; }
+  .dm-legend .restrict::before { border-color: var(--error); }
+  .dm-legend .cascade::before { border-color: var(--primary); }
+  .dm-legend .nullify::before { border-color: var(--muted); border-top-style: dashed; }
+  .dm-legend .byid::before { border-color: var(--core); border-top-style: dotted; }
+  .dm-legend .db::before { width: 14px; height: 12px; border: 1px solid; border-radius: 3px; }
+  .dm-legend .db.custom::before { background: var(--custom-bg); border-color: var(--primary); }
+  .dm-legend .db.core::before { background: var(--core-bg); border-color: var(--core); }
+  .dm-obj { margin: 6px 0; }
+  .dm-obj summary { cursor: pointer; font-weight: 500; }
+  .dm-obj table { border-collapse: collapse; margin: 6px 0 10px; font-size: 13px; }
+  .dm-obj td, .dm-obj th { text-align: left; padding: 3px 12px 3px 0; border-bottom: 1px solid var(--surface-2); }
+  .dm-obj th { color: var(--muted); font-weight: 500; }
+  .dm-doc { white-space: pre-wrap; max-height: 60vh; overflow: auto; font: 12px/1.5 ui-monospace, monospace; background: var(--surface-2); padding: 12px; border-radius: 8px; }
+  dialog.am::backdrop { background: rgba(29,27,32,.4); }
+  dialog.am h3 { margin: 0 0 8px; font-size: 18px; font-weight: 500; }
+  dialog.am p { margin: 0 0 16px; color: var(--muted); }
+  dialog.am .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  dialog.am .err { color: var(--error); margin-top: 8px; min-height: 1em; }
+  dialog.am label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; margin-bottom: 12px; }
+  .amb { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding-top: 6px; }
+  .amb span { word-break: break-all; }
+  button.danger { background: var(--error); }
+  .banner { margin: 16px; padding: 10px 14px; border-radius: 10px; background: #fff3cd; }
+  .trial { margin: 0 16px 12px; padding: 10px 12px; border-radius: 10px; background: #fff3cd; color: #5c4400; }
+  .me { padding: 12px 16px; border-top: 1px solid var(--line); color: var(--muted); display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+  .me button { padding: 6px 0; }
+  select { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; width: 100%; background: #fff; }
+  .empty { margin: auto; color: var(--muted); text-align: center; max-width: 360px; }
+  /* Phases: the plan of a large app, above the conversation. */
+  #phases { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid var(--line); padding: 8px 16px; max-height: 40vh; overflow: auto; }
+  #phases[hidden] { display: none; }
+  #phases summary { cursor: pointer; font-weight: 500; padding: 4px 0; }
+  #phases ol { margin: 4px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  #phases li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 10px; border-radius: 10px; background: var(--surface-2); }
+  #phases li.active { outline: 2px solid var(--primary); }
+  #phases li .t { flex: 1; min-width: 160px; }
+  #phases li small { color: var(--muted); }
+  #phases li button { padding: 6px 14px; }
+  #phases .perr { color: var(--error); margin: 4px 0; }
+  #phases .files { color: var(--muted); margin: 4px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .pst { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #fff; border: 1px solid var(--line); }
+  .pst.waiting { border-color: var(--primary); color: var(--primary); font-weight: 500; }
+  .pst.approved { background: #e8f5e9; border-color: #a5d6a7; }
+  details.phase { border-top: 1px solid var(--line); padding-top: 6px; }
+  details.phase > summary { cursor: pointer; color: var(--muted); font-weight: 500; padding: 4px 0; }
+  details.phase > div { display: flex; flex-direction: column; gap: 10px; }
+  @media (max-width: 720px) { aside { display: none; } }
+</style>
+</head>
+<body>
+<aside>
+  <h1>Dev Studio</h1>
+  <div style="padding: 0 16px 12px"><button id="newBtn" style="width:100%">New app</button></div>
+  <p class="tip trial" id="localTip"><strong>Hosted Dev Studio is a trial, for demos.</strong> We may remove it at any time. Build your apps with Docker on your own computer, in the editor you prefer: <a href="https://code.visualstudio.com/download" target="_blank" rel="noopener">VS Code</a> or <a href="https://www.jetbrains.com/webstorm/download/" target="_blank" rel="noopener">WebStorm</a>. <a href="https://www.ambivo.com/documentation/guides/dev-studio#docker" target="_blank" rel="noopener">How to start with Docker</a></p>
+  <ul id="list"></ul>
+  <div class="me" id="me" hidden>
+    <span id="meName"></span>
+    <button class="text" id="keyBtn" type="button">Change my Claude key</button>
+    <button class="text" id="delKeyBtn" type="button">Delete my Claude key</button>
+    <button class="text" id="oaKeyBtn" type="button">Enter my OpenAI key</button>
+    <button class="text" id="oaDelKeyBtn" type="button">Delete my OpenAI key</button>
+    <div class="amb" id="amb" hidden>
+      <span id="ambStatus"></span>
+      <button class="text" id="ambSignInBtn" type="button">Sign in to your Ambivo sandbox</button>
+      <button class="text" id="ambSignOutBtn" type="button" hidden>Sign out of the sandbox</button>
+    </div>
+    <button class="text" id="accessBtn" type="button" hidden>Access: who may sign in</button>
+    <button class="text" id="signOutBtn" type="button" hidden>Sign out</button>
+  </div>
+</aside>
+<main id="main"><div class="empty">Pick an app on the left, or start a new one.</div></main>
+
+<dialog class="am" id="keyDialog">
+  <form method="dialog" id="keyForm">
+    <h3 id="keyTitle">Enter your Claude key</h3>
+    <p id="keyText"></p>
+    <input id="keyInput" type="password" autocomplete="off" placeholder="sk-ant-…" />
+    <div class="err" id="keyErr" role="alert"></div>
+    <div class="row"><button type="button" class="text" id="keyCancel">Cancel</button><button id="keySave">Save key</button></div>
+  </form>
+</dialog>
+<dialog class="am" id="ambDialog">
+  <form method="dialog" id="ambForm">
+    <h3>Sign in to your Ambivo sandbox</h3>
+    <p id="ambText"></p>
+    <div id="ambCreds">
+      <label>Sandbox email <input id="ambEmail" type="email" autocomplete="username" maxlength="100" placeholder="name+sandbox@yourcompany.com" /></label>
+      <label>Password <input id="ambPassword" type="password" autocomplete="current-password" maxlength="128" /></label>
+    </div>
+    <label id="ambCodeRow" hidden>Code <input id="ambCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" /></label>
+    <div class="err" id="ambErr" role="alert"></div>
+    <div class="row"><button type="button" class="text" id="ambCancel">Cancel</button><button id="ambGo">Sign in</button></div>
+  </form>
+</dialog>
+<dialog class="am" id="confirmDialog">
+  <form method="dialog">
+    <h3 id="confirmTitle"></h3>
+    <p id="confirmText"></p>
+    <div class="row"><button type="button" class="text" id="confirmNo">Cancel</button><button class="danger" id="confirmYes"></button></div>
+  </form>
+</dialog>
+
+<dialog class="am" id="pushDialog">
+  <form method="dialog" id="pushForm">
+    <h3>Push to GitHub</h3>
+    <p id="pushText">Pick a repository. Dev Studio puts the app's files on a new branch there.</p>
+    <select id="pushRepo"></select>
+    <div class="err" id="pushErr" role="alert"></div>
+    <div class="row"><button type="button" class="text" id="pushCancel">Close</button><button id="pushGo">Push</button></div>
+  </form>
+</dialog>
+
+<dialog class="am" id="limitsDialog">
+  <form method="dialog" id="limitsForm">
+    <h3>Spending limit</h3>
+    <p>Claude Code stops when a phase has cost this much, and the page says so. Raise the limit to carry on. In an app without phases, the limit applies to each message.</p>
+    <label>Limit for each phase, in US dollars<input id="limitBudget" type="number" min="1" max="1000" step="1" placeholder="No limit" /></label>
+    <label>Model
+      <select id="limitModel">
+        <option value="">Claude Code's default</option>
+        <option value="sonnet">Sonnet: faster and cheaper, for routine phases</option>
+        <option value="opus">Opus: the most capable, for hard phases</option>
+      </select>
+    </label>
+    <p class="hint">Codex apps use the OpenAI key's own limits; these settings apply to Claude Code.</p>
+    <div class="err" id="limitsErr" role="alert"></div>
+    <div class="row"><button type="button" class="text" id="limitsCancel">Cancel</button><button id="limitsSave">Save</button></div>
+  </form>
+</dialog>
+
+<dialog class="am wide" id="shotsDialog">
+  <form method="dialog">
+    <h3 id="shotsTitle">Screens</h3>
+    <p id="shotsText"></p>
+    <div id="shotsBody" class="shots"></div>
+    <div class="row"><button id="shotsClose">Close</button></div>
+  </form>
+</dialog>
+
+<dialog class="am wide" id="guideDialog">
+  <form method="dialog">
+    <h3>User guide</h3>
+    <p id="guideText"></p>
+    <div id="guideBody" class="guide"></div>
+    <div class="err" id="guideErr" role="alert"></div>
+    <div class="row"><button type="button" class="text" id="guideClose">Close</button><button type="button" class="text" id="guideDownload" hidden>Download</button><button type="button" id="guideWrite">Write the guide</button></div>
+  </form>
+</dialog>
+
+<dialog class="am wide" id="delDialog">
+  <form method="dialog" id="delForm">
+    <h3 id="delTitle">Delete</h3>
+    <label class="choice"><input type="radio" name="delWhat" value="app" checked /><span>Delete the app in Dev Studio<small>Its files, conversation, preview and share link. What it made in your Ambivo sandbox stays there.</small></span></label>
+    <label class="choice"><input type="radio" name="delWhat" value="all" /><span>Also remove what it made in my Ambivo sandbox<small>Its custom objects with their records and files, its sample records, and the Ambivo records tagged with its app key. Only in your sandbox.</small></span></label>
+    <div id="delPlan" hidden></div>
+    <label id="delConfirmRow" hidden>Type the app's name to confirm<input id="delConfirm" autocomplete="off" /></label>
+    <div class="err" id="delErr" role="alert"></div>
+    <div class="row"><button type="button" class="text" id="delCancel">Cancel</button><button id="delGo">Delete</button></div>
+  </form>
+</dialog>
+
+<dialog class="am wide" id="modelDialog">
+  <form method="dialog">
+    <h3>Data model</h3>
+    <p id="modelText"></p>
+    <div id="modelBody"></div>
+    <div class="row"><button id="modelClose">Close</button></div>
+  </form>
+</dialog>
+
+<dialog class="am" id="dlDialog">
+  <form method="dialog" id="dlForm">
+    <h3>Download zip</h3>
+    <p>Choose what goes in the zip.</p>
+    <label class="choice"><input type="radio" name="dlFor" value="dev" checked /><span>For developers (everything)<small>All the app's files, with the assistant's rules and the Ambivo check tools.</small></span></label>
+    <label class="choice"><input type="radio" name="dlFor" value="client" /><span>For a client: leave out developer files<small>The app's code without AGENTS.md, the tools folder, the app brief, the phase plan and notes, the client brief file, your sandbox sample data files and the dev server settings.</small></span></label>
+    <div class="row"><button type="button" class="text" id="dlCancel">Cancel</button><button id="dlGo">Download</button></div>
+  </form>
+</dialog>
+
+<dialog class="am wide" id="deployDialog">
+  <form method="dialog" id="deployForm">
+    <h3>Deploy to a client</h3>
+    <p id="deployText">Make a link and send it to your client's Ambivo admin. They sign in with their own account, see the custom objects the app adds, and click Install. You never see their password. Their company must be on the Pro plan.</p>
+    <div class="share-link" id="deployLinkRow" hidden><input id="deployLink" readonly /><button type="button" class="text" id="deployCopy">Copy</button></div>
+    <p class="note" id="deployLinkNote" hidden></p>
+    <div id="deployLists"></div>
+    <div class="err" id="deployErr" role="alert"></div>
+    <div class="row"><button type="button" class="text" id="deployClose">Close</button><button id="deployGo">Make a deploy link</button></div>
+  </form>
+</dialog>
+
+<dialog class="am" id="shareDialog">
+  <form method="dialog" id="shareForm">
+    <h3>Share this app</h3>
+    <p id="shareText"></p>
+    <div class="share-link" id="shareLinkRow" hidden><input id="shareLink" readonly /><button type="button" class="text" id="shareCopy">Copy</button></div>
+    <pre id="shareLog" hidden></pre>
+    <div class="err" id="shareErr" role="alert"></div>
+    <div class="row"><button type="button" class="text" id="shareClose">Close</button><button type="button" class="text" id="shareOff" hidden>Turn off the link</button><button id="shareGo">Build and share</button></div>
+  </form>
+</dialog>
+
+<template id="newTpl">
+  <form class="new">
+    <h2 style="margin:0">Start a new app</h2>
+    <label>App name <input name="name" maxlength="60" required placeholder="Stock Room" /></label>
+    <label>What should the app do?
+      <small>Say who uses it and what they do. You will be asked follow-up questions.</small>
+      <textarea name="description" rows="6" placeholder="Warehouse staff count stock on a phone. A manager checks the counts and approves them."></textarea>
+    </label>
+    <label>Client brief (optional)
+      <small>A PDF, Word (DOCX), Markdown or text file, up to 10 MB. With a brief, the app is built in phases. You approve each phase before the next one starts.</small>
+      <input name="briefFile" type="file" accept=".pdf,.docx,.md,.txt" />
+    </label>
+    <label>Assistant
+      <small>The coding assistant that builds your app. Each uses your own key.</small>
+      <select name="assistant" id="newAssistant">
+        <option value="claude">Claude Code</option>
+        <option value="codex">Codex</option>
+      </select>
+    </label>
+    <label id="newKey">Your Claude key
+      <small>An Anthropic API key (sk-ant-api…), or a Claude subscription token (sk-ant-oat…) from <code>claude setup-token</code>. Dev Studio saves it for your account, encrypted. You can delete it at any time.</small>
+      <input name="anthropicKey" type="password" autocomplete="off" placeholder="sk-ant-…" />
+    </label>
+    <label id="newOaKey" hidden>Your OpenAI key
+      <small>An OpenAI API key from platform.openai.com. It starts with sk-. Dev Studio saves it for your account, encrypted. You can delete it at any time.</small>
+      <input name="openaiKey" type="password" autocomplete="off" placeholder="sk-…" />
+    </label>
+    <p id="savedKey" hidden></p>
+    <div class="signin" id="signin">Checking your Ambivo sign-in…</div>
+    <div><button>Start</button></div>
+    <div class="error" id="newErr"></div>
+  </form>
+</template>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+let current = null, source = null, me = null;
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const body = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
+  if (!res.ok) {
+    // A page left open past the sign-in's end: say so at once, not as one more failed button.
+    if (body?.sessionEnded && me) { me = null; showSignInPage(true); }
+    const e = new Error(body?.error || `Something went wrong (${res.status}).`);
+    e.needKey = !!body?.needKey; e.provider = body?.provider || 'claude'; e.signIn = !!body?.signIn; e.files = body?.files; e.restart = !!body?.restart; e.log = body?.log;
+    throw e;
+  }
+  return body;
+}
+
+// Each assistant uses its own key: Claude Code a Claude key, Codex an OpenAI key.
+const KEYS = {
+  claude: { name: 'Claude key', flag: 'keyed', field: 'anthropicKey', placeholder: 'sk-ant-…',
+    text: 'An Anthropic API key (sk-ant-api…) or a Claude subscription token (sk-ant-oat…). Dev Studio saves it for your account, encrypted. You can delete it at any time.' },
+  openai: { name: 'OpenAI key', flag: 'openaiKeyed', field: 'openaiKey', placeholder: 'sk-…',
+    text: 'An OpenAI API key from platform.openai.com. It starts with sk-. Dev Studio saves it for your account, encrypted. You can delete it at any time.' },
+};
+const providerOf = (p) => (p?.assistant === 'codex' ? 'openai' : 'claude');
+
+// Ask for a key in a page dialog. Resolves true when a key was saved.
+function askForKey(provider = 'claude') {
+  const k0 = KEYS[provider];
+  const dlg = $('#keyDialog'), input = $('#keyInput'), err = $('#keyErr');
+  input.value = ''; err.textContent = '';
+  $('#keyTitle').textContent = `Enter your ${k0.name}`; $('#keyText').textContent = k0.text; input.placeholder = k0.placeholder;
+  dlg.showModal(); input.focus();
+  return new Promise((resolve) => {
+    const done = (v) => { dlg.close(); $('#keyForm').onsubmit = null; $('#keyCancel').onclick = null; resolve(v); };
+    $('#keyCancel').onclick = () => done(false);
+    dlg.oncancel = () => done(false);
+    $('#keyForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const k = input.value.trim();
+      if (!k) { err.textContent = 'Paste your key first.'; return; }
+      $('#keySave').disabled = true;
+      try {
+        await api('/api/key', { method: 'POST', body: JSON.stringify({ provider, [k0.field]: k }) });
+        document.querySelector('.banner')?.remove();
+        if (me) me[k0.flag] = true;
+        showMe();
+        done(true);
+      } catch (e2) { err.textContent = e2.message; }
+      finally { $('#keySave').disabled = false; }
+    };
+  });
+}
+
+// A styled yes/no question. Resolves true on yes.
+function confirmInPage(title, text, yesLabel) {
+  const dlg = $('#confirmDialog');
+  $('#confirmTitle').textContent = title; $('#confirmText').textContent = text; $('#confirmYes').textContent = yesLabel;
+  dlg.showModal();
+  return new Promise((resolve) => {
+    const done = (v) => { dlg.close(); resolve(v); };
+    $('#confirmNo').onclick = () => done(false);
+    $('#confirmYes').onclick = (e) => { e.preventDefault(); done(true); };
+    dlg.oncancel = () => done(false);
+  });
+}
+
+async function loadList() {
+  const items = await api('/api/projects');
+  $('#list').innerHTML = '';
+  for (const p of items.sort((a, b) => b.created - a.created)) {
+    const li = document.createElement('li');
+    li.className = p.id === current ? 'active' : '';
+    li.innerHTML = `<span></span><small></small>`;
+    li.firstChild.textContent = p.name;
+    li.lastChild.textContent = p.busy ? 'Working…' : new Date(p.created).toLocaleString();
+    li.onclick = () => open(p.id);
+    $('#list').append(li);
+  }
+}
+
+function showNew() {
+  current = null; source?.close();
+  $('#main').replaceChildren($('#newTpl').content.cloneNode(true));
+  // The form asks for the chosen assistant's key, unless one is saved.
+  const showKey = () => {
+    const provider = $('#newAssistant').value === 'codex' ? 'openai' : 'claude';
+    // Local Dev Studio: Claude Code signed in inside the container needs no key here.
+    const signedIn = provider === 'claude' && !!me?.claudeSignedIn;
+    const saved = !!me?.[KEYS[provider].flag] || signedIn;
+    $('#newKey').hidden = provider !== 'claude' || saved;
+    $('#newOaKey').hidden = provider !== 'openai' || saved;
+    $('#newKey input').required = !$('#newKey').hidden;
+    $('#newOaKey input').required = !$('#newOaKey').hidden;
+    $('#savedKey').hidden = !saved;
+    $('#savedKey').textContent = signedIn && !me?.[KEYS[provider].flag]
+      ? 'Dev Studio will use your Claude Code sign-in in this container.'
+      : `Dev Studio will use your saved ${KEYS[provider].name}.`;
+  };
+  // Codex is not in the dev container.
+  if (me?.local) { $('#newAssistant').value = 'claude'; $('#newAssistant').closest('label').hidden = true; }
+  $('#newAssistant').onchange = showKey;
+  showKey();
+  showSignIn();
+  $('#main form').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(e.target));
+    const file = f.briefFile;
+    delete f.briefFile;
+    $('#newErr').textContent = '';
+    try {
+      if (file && file.size) {
+        if (file.size > BRIEF_MAX) throw new Error('The file is larger than 10 MB. Send a smaller copy, for example without pictures.');
+        f.brief = { name: file.name, data: await base64Of(file) };
+      } else if (!f.description.trim()) throw new Error('Describe what the app should do, or add a client brief.');
+      const { id } = await api('/api/projects', { method: 'POST', body: JSON.stringify(f) }); await loadList(); open(id);
+    }
+    catch (err) { $('#newErr').textContent = err.message; }
+  };
+}
+
+const BRIEF_MAX = 10 * 1024 * 1024;
+/** A file's bytes as base64, for the JSON body. */
+function base64Of(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] || '');
+    r.onerror = () => reject(new Error('Could not read the file. Try again.'));
+    r.readAsDataURL(file);
+  });
+}
+
+let live = false;  // false while the server replays history; true after its 'sync' event
+let lastAssistant = '';  // the assistant's latest message, for the answer chips
+let projectCost = 0;     // sum of every step's cost in the open project (history replays from the start)
+let currentAssistant = 'claude';
+let projectTokens = 0;   // Codex projects: tokens, summed the same way (Codex reports tokens, not dollars)
+
+// One-tap answers for the assistant's standard endings. Most chips send their text as a message.
+// "Approve this phase" calls the approve route instead: approving is the partner's decision, recorded by
+// Dev Studio, so it costs no assistant step and works the same for Claude Code and Codex.
+// `phase`: the phase in progress ({ id, status }) or null.
+function chipsFor(text, phase = null) {
+  const t = String(text || '').trim();
+  const end = t.split(/\n\s*\n/).pop() || '';
+  if (phase && phase.status === 'waiting' && /\bapprove (this |the )?phase\b/i.test(end)) return [{ label: 'Approve this phase', approve: phase.id }];
+  if (/use your recommendations/i.test(t)) return [{ label: 'Use your recommendations' }];
+  // A question about the plan or brief in the last paragraph, or an explicit wait for a yes.
+  const asksPlan = /\b(plan|brief)\b[^?]*\?/i.test(end) && /\b(right|good|ok|okay|approve|go ahead|build)\b/i.test(end);
+  const waitsYes = /\bwaiting for your (yes|ok|okay|approval)\b/i.test(end);
+  if (!phase && (asksPlan || waitsYes)) return [{ label: 'Yes, build it' }];
+  return [];
+}
+function activePhase() {
+  if (!phaseState?.phased || !phaseState.active) return null;
+  return phaseState.list.find((x) => x.id === phaseState.active) || null;
+}
+function showChips(on) {
+  const box = $('#chips'); if (!box) return;
+  const chips = on ? chipsFor(lastAssistant, activePhase()) : [];
+  box.replaceChildren(...chips.map((c) => Object.assign(document.createElement('button'), {
+    type: 'button', textContent: c.label,
+    onclick: () => {
+      if (c.approve) return phaseAction(c.approve, 'approve');
+      $('#text').value = c.label; $('form.reply').requestSubmit();
+    },
+  })));
+  box.hidden = !chips.length;
+}
+
+// ---- phases: the plan of a large app ------------------------------------------------------
+let phaseState = null;   // what /api/projects/<id>/phases returns
+const STATUS = { not_started: 'Not started', working: 'Working', waiting: 'Waiting for approval', approved: 'Approved' };
+function money(p) {
+  if (currentAssistant === 'codex') return `${(p.tokens || 0).toLocaleString()} tokens`;
+  return `$${(p.cost || 0).toFixed(2)}`;
+}
+
+function renderPhases() {
+  const box = $('#phases'); if (!box) return;
+  const st = phaseState || {};
+  const files = st.brief || [];
+  box.hidden = !st.phased && !files.length;
+  if (box.hidden) return;
+  const wasOpen = box.querySelector('details')?.open ?? true;
+  box.innerHTML = '<details><summary></summary><div class="perr" role="alert" hidden></div><div class="files"></div><ol></ol></details>';
+  const det = box.querySelector('details');
+  det.open = wasOpen;
+  const done = (st.list || []).filter((x) => x.status === 'approved').length;
+  det.querySelector('summary').textContent = st.phased
+    ? `Phases: ${done} of ${st.list.length} approved. Total so far: ${money(st.total || {})}.` +
+      (currentAssistant !== 'codex' && limitsNow?.phaseBudget ? ` Limit: $${limitsNow.phaseBudget} a phase.` : '')
+    : 'Client brief';
+  if (st.error) { const e = det.querySelector('.perr'); e.hidden = false; e.textContent = `The phase plan has a problem: ${st.error} Ask the assistant to fix docs/PHASES.md.`; }
+  const fl = det.querySelector('.files');
+  fl.append(Object.assign(document.createElement('span'), { textContent: files.length ? `Brief: ${files.map((f) => f.name).join(', ')}` : 'No brief file.' }));
+  const pick = Object.assign(document.createElement('input'), { type: 'file', accept: '.pdf,.docx,.md,.txt', hidden: true });
+  pick.onchange = () => pick.files[0] && uploadBrief(pick.files[0]);
+  const addBtn = Object.assign(document.createElement('button'), { type: 'button', className: 'text', textContent: 'Add a brief file' });
+  addBtn.onclick = () => pick.click();
+  fl.append(pick, addBtn);
+  const ol = det.querySelector('ol');
+  (st.list || []).forEach((ph, i) => {
+    const li = document.createElement('li');
+    if (ph.id === st.active) li.className = 'active';
+    const t = Object.assign(document.createElement('span'), { className: 't' });
+    t.append(`${i}. ${ph.title}`, Object.assign(document.createElement('small'), { textContent: ph.goal ? ` ${ph.goal}` : '' }));
+    li.append(t, Object.assign(document.createElement('span'), { className: `pst ${ph.status}`, textContent: STATUS[ph.status] || ph.status }),
+      Object.assign(document.createElement('small'), { textContent: currentAssistant !== 'codex' && limitsNow?.phaseBudget && ph.status === 'working' ? `${money(ph)} of $${limitsNow.phaseBudget}` : money(ph) }));
+    const btn = (label, action, cls = '') => Object.assign(document.createElement('button'), { type: 'button', className: cls, textContent: label, onclick: () => phaseAction(ph.id, action) });
+    if (ph.id === st.active && ph.status === 'waiting') li.append(btn('Approve phase', 'approve'));
+    if (ph.canStart) li.append(btn('Start phase', 'start'));
+    if (ph.status === 'approved' && !st.active) li.append(btn('Reopen', 'reopen', 'text'));
+    if (ph.status !== 'not_started') {
+      const view = Object.assign(document.createElement('button'), { type: 'button', className: 'text', textContent: 'Show messages' });
+      view.onclick = () => { const g = document.querySelector(`details.phase[data-phase="${ph.id}"]`); if (g) { g.open = true; g.scrollIntoView({ behavior: 'smooth' }); } };
+      li.append(view);
+    }
+    if (ph.shots > 0) {
+      const shots = Object.assign(document.createElement('button'), { type: 'button', className: 'text', textContent: `Screens (${ph.shots})` });
+      shots.onclick = () => showShots(current, ph);
+      li.append(shots);
+    }
+    ol.append(li);
+  });
+}
+
+async function refreshPhases() {
+  if (!current) return;
+  const id = current;
+  const wasPhased = !!phaseState?.phased, wasActive = phaseState?.active;
+  const next = await api(`/api/projects/${id}/phases`).catch(() => null);
+  if (!next || id !== current) return;
+  phaseState = next;
+  // A project that just became phased, or a new phase in progress: show the conversation grouped again.
+  if ((!wasPhased && next.phased) || (next.active && next.active !== wasActive)) return open(id);
+  renderPhases();
+}
+
+async function phaseAction(phaseId, action) {
+  const id = current;
+  const go = () => api(`/api/projects/${id}/phases/${phaseId}/${action}`, { method: 'POST' });
+  try {
+    try { await go(); }
+    catch (err) {
+      if (!err.needKey) throw err;
+      if (!(await askForKey(err.provider))) return;
+      await go();
+    }
+    open(id);
+  } catch (err) { add({ kind: 'error', text: err.message }); }
+}
+
+async function uploadBrief(file) {
+  if (file.size > BRIEF_MAX) return add({ kind: 'error', text: 'The file is larger than 10 MB. Send a smaller copy, for example without pictures.' });
+  try {
+    const res = await fetch(`/api/projects/${current}/brief?name=${encodeURIComponent(file.name)}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `Something went wrong (${res.status}).`);
+    refreshPhases();
+  } catch (err) { add({ kind: 'error', text: err.message }); }
+}
+
+/** Where an event goes: the conversation, or, in a phased app, its phase's group. */
+function holder(ev) {
+  const log = $('#log');
+  if (!phaseState?.phased) return log;
+  const pid = ev.phase || 'brief';
+  let g = log.querySelector(`details.phase[data-phase="${pid}"]`);
+  if (!g) {
+    const ph = phaseState.list.find((x) => x.id === pid);
+    g = Object.assign(document.createElement('details'), { className: 'phase' });
+    g.dataset.phase = pid;
+    g.open = pid === phaseState.active || !phaseState.active;
+    // Only the latest group stays open when no phase is in progress.
+    if (!phaseState.active) log.querySelectorAll('details.phase').forEach((d) => { d.open = false; });
+    g.append(Object.assign(document.createElement('summary'), { textContent: ph ? `Phase ${phaseState.list.indexOf(ph)}: ${ph.title}` : pid }), document.createElement('div'));
+    log.append(g);
+  }
+  return g.lastChild;
+}
+
+function add(ev) {
+  const log = $('#log'); if (!log) return;
+  if (ev.kind === 'sync') { live = true; setWorking(!!ev.busy); showChips(!ev.busy); return; }
+  if (ev.kind === 'phases') { if (live) refreshPhases(); return; }
+  if (ev.kind === 'idle') {
+    if (live) { setWorking(false); refreshPhases().finally(() => showChips(true)); }
+    return;
+  }
+  if (ev.kind === 'assistant') lastAssistant = ev.text;
+  if (ev.kind === 'user') { lastAssistant = ''; showChips(false); }
+  if (ev.kind === 'done') {
+    if (ev.error && ev.text) add({ kind: 'error', text: ev.text });
+    if (typeof ev.cost === 'number') {
+      projectCost += ev.cost;
+      add({ kind: 'status', text: `This step cost $${ev.cost.toFixed(2)}. This app so far: $${projectCost.toFixed(2)}.` });
+    }
+    if (typeof ev.tokens === 'number') {
+      projectTokens += ev.tokens;
+      add({ kind: 'status', text: `This step used ${ev.tokens.toLocaleString()} tokens. This app so far: ${projectTokens.toLocaleString()} tokens.` });
+    }
+    return;
+  }
+  const div = document.createElement('div');
+  div.className = ev.kind === 'user' || ev.kind === 'assistant' ? `msg ${ev.kind}${ev.queued ? ' queued' : ''}` : ev.kind;
+  if (ev.kind === 'assistant') div.innerHTML = renderText(ev.text);
+  else div.textContent = ev.text;
+  if (ev.help?.href?.startsWith('https://')) {
+    // A tip the server attaches to an error, for example building on your own computer after a memory error.
+    const tip = document.createElement('p');
+    tip.className = 'tip';
+    tip.append(`${ev.help.text} `);
+    const a = Object.assign(document.createElement('a'), { href: ev.help.href, target: '_blank', rel: 'noopener', textContent: ev.help.link });
+    tip.append(a);
+    div.append(tip);
+  }
+  holder(ev).append(div); log.scrollTop = log.scrollHeight;
+  if (live && ((ev.kind === 'user' && !ev.queued) || ev.kind === 'status')) setWorking(true);
+  if (live && ev.kind === 'error') setWorking(false);
+}
+
+// While the assistant works, a message waits and goes to it when the run ends.
+function setWorking(on) {
+  const b = $('#send'); if (!b) return;
+  b.disabled = false;
+  b.textContent = on ? 'Send when it finishes' : 'Send';
+}
+
+let openSeq = 0;   // a later open() wins over one still loading, so two event streams never share the page
+async function open(id) {
+  const seq = ++openSeq;
+  current = id; source?.close();
+  const p = await api(`/api/projects/${id}`);
+  if (seq !== openSeq) return;
+  source?.close();
+  $('#main').innerHTML = `
+    <header><h2></h2><a class="text" id="preview" target="_blank" rel="noopener">Preview</a><button class="text" id="model">Data model</button><button class="text" id="guide">User guide</button><button class="text" id="limits">Spending limit</button><button class="text" id="dl">Download zip</button>${me?.local ? '' : '<button class="text" id="share"></button>'}${me?.mode === 'server' ? '<button class="text" id="deploy">Deploy</button>' : ''}${me?.canPush ? '<button class="text" id="push">Push to GitHub</button>' : ''}<button class="text" id="del">Delete</button></header>
+    <section id="phases" hidden></section>
+    ${p.keyed ? '' : `<div class="banner">Dev Studio has no ${KEYS[providerOf(p)].name} for you. You will be asked for it when you send your next message, or <button class="text" id="rekey">Enter it now</button></div>`}
+    <div id="log"></div>
+    <div id="chips" class="chips" hidden></div>
+    <form class="reply"><textarea id="text" rows="3" placeholder="Answer all the questions here in one message, for example: 1. One client. 2. Lead Sources, leadsources. 3. …"></textarea><button id="send">Send</button></form>`;
+  $('header h2').textContent = p.assistant === 'codex' ? `${p.name} (Codex)` : p.name;
+  $('#dl').onclick = () => downloadZip(id);
+  $('#model').onclick = () => showDataModel(id);
+  $('#limits').onclick = () => editLimits(id, p);
+  $('#guide').onclick = () => showGuide(id);
+  $('#preview').href = `/api/projects/${id}/preview`;
+  $('#del').onclick = () => deleteApp(id, p);
+  $('#push')?.addEventListener('click', () => pushToGitHub(id));
+  shareState = p.share || { on: false };
+  showShareButton();
+  $('#share')?.addEventListener('click', () => shareApp(id));
+  $('#deploy')?.addEventListener('click', () => deployApp(id));
+  $('#rekey')?.addEventListener('click', async () => {
+    try { await askForKey(providerOf(p)); } catch (e) { add({ kind: 'error', text: e.message }); }
+  });
+  setWorking(!!p.busy);
+  if (p.phases?.phased && !p.phases.active) $('#text').placeholder = 'No phase is in progress. Start the next phase above, or reopen one, to talk to the assistant.';
+  $('form.reply').onsubmit = async (e) => {
+    e.preventDefault();
+    const text = $('#text').value.trim(); if (!text) return;
+    const send = () => api(`/api/projects/${id}/messages`, { method: 'POST', body: JSON.stringify({ text }) });
+    try { await send(); $('#text').value = ''; }
+    catch (err) {
+      // No key yet: keep the text, ask for the key, then send the same message.
+      if (err.needKey) {
+        try { if (await askForKey(err.provider)) { await send(); $('#text').value = ''; } }
+        catch (e2) { add({ kind: 'error', text: e2.message }); }
+      } else add({ kind: 'error', text: err.message });
+    }
+  };
+  live = false; lastAssistant = ''; projectCost = 0; projectTokens = 0;
+  currentAssistant = p.assistant; phaseState = p.phases || null; limitsNow = p.limits || null;
+  renderPhases();
+  source = new EventSource(`/api/projects/${id}/events`);
+  source.onmessage = (m) => add(JSON.parse(m.data));
+  loadList();
+}
+
+// The screenshots the assistant took of a phase's screens, to check before approving it.
+async function showShots(id, ph) {
+  const dlg = $('#shotsDialog'), body = $('#shotsBody');
+  $('#shotsTitle').textContent = `Screens: ${ph.title}`;
+  $('#shotsText').textContent = 'Reading the screenshots…';
+  body.replaceChildren();
+  $('#shotsClose').onclick = () => dlg.close();
+  dlg.showModal();
+  let files;
+  try { files = (await api(`/api/projects/${id}/phases/${ph.id}/screens`)).files; }
+  catch (e) { $('#shotsText').textContent = e.message; return; }
+  $('#shotsText').textContent = files.length ? `${files.length} screenshots the assistant took before its handoff note. Open one to see it full size.` : 'No screenshots for this phase.';
+  for (const f of files) {
+    const src = `/api/projects/${id}/phases/${ph.id}/screens?file=${encodeURIComponent(f)}`;
+    const fig = document.createElement('figure');
+    const a = Object.assign(document.createElement('a'), { href: src, target: '_blank', rel: 'noopener' });
+    a.append(Object.assign(document.createElement('img'), { src, alt: f, loading: 'lazy' }));
+    fig.append(a, Object.assign(document.createElement('figcaption'), { textContent: f }));
+    body.append(fig);
+  }
+}
+
+// ---- user guide --------------------------------------------------------------------------
+// The guide is Markdown the assistant wrote. Everything is escaped first; pictures come only from the
+// guide's own images/ folder, links only to http(s) addresses.
+function renderGuide(md, imageUrl) {
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const inline = (t) => esc(t)
+    .replace(/!\[([^\]]*)\]\((?:\.\/)?images\/([A-Za-z0-9][A-Za-z0-9._-]{0,80}\.png)\)/g, (_, alt, f) => `<img alt="${alt}" src="${esc(imageUrl(f))}">`)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+  const out = [];
+  let list = null, para = [], table = null;
+  const flush = () => {
+    if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para = []; }
+    if (list) { out.push(`<${list.tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join('')}</${list.tag}>`); list = null; }
+    if (table) { out.push(`<table>${table.map((r, i) => `<tr>${r.map((c) => `<${i ? 'td' : 'th'}>${inline(c)}</${i ? 'td' : 'th'}>`).join('')}</tr>`).join('')}</table>`); table = null; }
+  };
+  for (const raw of String(md).split('\n')) {
+    const line = raw.trimEnd();
+    let m;
+    if (!line.trim()) { flush(); continue; }
+    if ((m = /^(#{1,4})\s+(.*)$/.exec(line))) { flush(); out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`); continue; }
+    if (/^\s*\|/.test(line)) {
+      const cells = line.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+      if (cells.every((c) => /^:?-{2,}:?$/.test(c))) continue;
+      if (!table) { flush(); table = []; }
+      table.push(cells); continue;
+    }
+    if ((m = /^\s*(\d+)\.\s+(.*)$/.exec(line)) || (m = /^\s*[-*]\s+(.*)$/.exec(line))) {
+      const tag = /^\s*\d+\./.test(line) ? 'ol' : 'ul', text = m[2] ?? m[1];
+      if (para.length || table) flush();
+      if (list && list.tag !== tag) flush();
+      (list ||= { tag, items: [] }).items.push(text); continue;
+    }
+    if (list && /^\s{2,}\S/.test(raw)) { list.items[list.items.length - 1] += ' ' + line.trim(); continue; }
+    if (list || table) flush();
+    para.push(line.trim());
+  }
+  flush();
+  return out.join('\n');
+}
+
+async function showGuide(id) {
+  const dlg = $('#guideDialog'), text = $('#guideText'), body = $('#guideBody'), err = $('#guideErr');
+  const write = $('#guideWrite'), dl = $('#guideDownload');
+  err.textContent = ''; body.replaceChildren(); dl.hidden = true;
+  $('#guideClose').onclick = () => dlg.close();
+  if (!dlg.open) dlg.showModal();
+  text.textContent = 'Reading the guide…';
+  let g;
+  try { g = await api(`/api/projects/${id}/guide`); } catch (e) { text.textContent = e.message; return; }
+  const imageUrl = (f) => `/api/projects/${id}/guide?image=${encodeURIComponent(f)}`;
+  if (g.text) {
+    text.textContent = `The guide for the people who use the app and the admin who sets it up. It is in docs/user-guide/ and goes to the client in the zip.${g.cost ? ` Writing it cost $${g.cost.toFixed(2)} so far.` : ''}`;
+    body.innerHTML = renderGuide(g.text, imageUrl);
+    write.textContent = 'Write it again';
+    dl.hidden = false;
+    dl.onclick = () => downloadGuide(g.text, imageUrl, $('header h2')?.textContent || 'App');
+  } else {
+    text.textContent = 'There is no guide yet. The assistant reads the app, takes screenshots and writes a guide for the people who use it and the admin who sets it up, in plain words. It takes a few minutes and is charged to your key like any message.';
+    write.textContent = 'Write the guide';
+  }
+  write.onclick = async () => {
+    err.textContent = '';
+    try { await api(`/api/projects/${id}/guide`, { method: 'POST' }); dlg.close(); add({ kind: 'note', text: 'The assistant is writing the user guide. Open User guide when it finishes.' }); }
+    catch (e) {
+      if (e.needKey) { try { if (await askForKey(e.provider)) await api(`/api/projects/${id}/guide`, { method: 'POST' }); dlg.close(); } catch (e2) { err.textContent = e2.message; } }
+      else err.textContent = e.message;
+    }
+  };
+}
+
+// One HTML file with the pictures inside it, to send or print.
+async function downloadGuide(md, imageUrl, title) {
+  const data = {};
+  for (const m of String(md).matchAll(/!\[[^\]]*\]\((?:\.\/)?images\/([A-Za-z0-9][A-Za-z0-9._-]{0,80}\.png)\)/g)) {
+    if (data[m[1]]) continue;
+    const b = await (await fetch(imageUrl(m[1]))).blob();
+    data[m[1]] = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+  }
+  const html = renderGuide(md, (f) => data[f] || '');
+  const name = title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'app';
+  const doc = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title.replace(/</g, '&lt;')}: user guide</title>
+<style>body{font:16px/1.6 Roboto,system-ui,sans-serif;max-width:860px;margin:32px auto;padding:0 16px;color:#1d1b20}img{max-width:100%;border:1px solid #cac4d0;border-radius:8px}table{border-collapse:collapse}td,th{border:1px solid #cac4d0;padding:4px 8px;text-align:left}code{background:#f3edf7;padding:1px 4px;border-radius:4px}</style></head><body>${html}</body></html>`;
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([doc], { type: 'text/html' })), download: `${name}-user-guide.html` });
+  document.body.append(a); a.click(); a.remove();
+}
+
+// Delete an app, and if asked, everything it made in the partner's sandbox (listed first).
+const TYPE_WORDS = { account: 'accounts', contact: 'contacts', lead: 'leads', opportunity: 'opportunities', task: 'tasks', product: 'products', order: 'orders', invoice: 'invoices', bill: 'bills', payment: 'payments' };
+// After a removal: what went wrong, in words, or ''. A failed delete or a failed lookup keeps the app,
+// so its sample-data list is kept and the removal can run again.
+function teardownProblems(r) {
+  const out = [];
+  const failed = Array.isArray(r?.failed) ? r.failed : [];
+  const lookups = Array.isArray(r?.lookup_problems) ? r.lookup_problems : [];
+  if (failed.length) out.push(`${failed.length} could not be removed: ${failed.map((f) => `${f.entity} ${f.id} (${f.error})`).join('; ')}.`);
+  if (lookups.length) out.push(`${lookups.length} lookups failed, so some records were not checked: ${lookups.map((x) => `${x.entity} (${x.error})`).join('; ')}.`);
+  if (!r || !Array.isArray(r.failed)) out.push('The removal did not answer as expected.');
+  return out.length ? `${out.join(' ')} The app was not deleted, so you can try again.` : '';
+}
+
+async function deleteApp(id, p) {
+  const dlg = $('#delDialog'), plan = $('#delPlan'), err = $('#delErr'), go = $('#delGo');
+  $('#delTitle').textContent = `Delete ${p.name}`;
+  err.textContent = ''; plan.hidden = true; plan.replaceChildren(); $('#delConfirmRow').hidden = true; $('#delConfirm').value = '';
+  $('#delForm').delWhat.value = 'app'; go.textContent = 'Delete'; go.disabled = false;
+  $('#delCancel').onclick = () => dlg.close();
+  let listed = null;
+  // Reads what the teardown would remove and shows it. The removal sends back this list's fingerprint.
+  const showPlan = async () => {
+    listed = null;
+    plan.textContent = 'Reading what the app made in your sandbox…'; go.disabled = true;
+    let got;
+    try { got = await api(`/api/projects/${id}/teardown`); }
+    catch (e) { plan.textContent = ''; err.textContent = e.message; return; }
+    listed = got;
+    go.disabled = false;
+    plan.replaceChildren();
+    const ul = document.createElement('ul');
+    const li = (t) => ul.append(Object.assign(document.createElement('li'), { textContent: t }));
+    for (const o of listed.custom_objects) li(`Custom object ${o.collection_id}${o.records != null ? `, ${o.records} records` : ''}, with the files on them`);
+    const byType = {};
+    for (const r of listed.core_records) (byType[r.entity] ||= []).push(r.name || r.id);
+    for (const [t, names] of Object.entries(byType)) li(`${names.length} ${TYPE_WORDS[t] || t}: ${names.slice(0, 6).join(', ')}${names.length > 6 ? ', …' : ''}`);
+    if (!listed.custom_objects.length && !listed.core_records.length) li('Nothing. The app made nothing in your sandbox that the teardown can find.');
+    if (listed.kept?.length) {
+      const kb = {};
+      for (const k of listed.kept) (kb[`${TYPE_WORDS[k.entity] || k.entity}, because ${k.kept_because}`] ||= []).push(k.name || k.id);
+      for (const [why, names] of Object.entries(kb)) li(`Kept: ${names.length} ${why}.`);
+    }
+    if (listed.already_gone?.length) li(`Already gone: ${listed.already_gone.length} records on the sample data list. They are taken off the list.`);
+    plan.append(Object.assign(document.createElement('p'), { textContent: `In your sandbox (company ${listed.tenant_id}), this goes:` }), ul);
+    for (const n of listed.notes ?? []) plan.append(Object.assign(document.createElement('p'), { className: 'hint', textContent: n }));
+    const stays = document.createElement('p'); stays.className = 'hint';
+    stays.textContent = `This stays: ${listed.not_removed.join(' ')}`;
+    plan.append(stays);
+    if (listed.lookup_problems?.length) {
+      plan.append(Object.assign(document.createElement('p'), { className: 'hint',
+        textContent: `Could not check: ${listed.lookup_problems.map((x) => `${x.entity} (${x.error})`).join('; ')}. The app is kept after the removal, so you can run it again.` }));
+    }
+  };
+  for (const r of $('#delForm').delWhat) r.onchange = async () => {
+    err.textContent = '';
+    const all = $('#delForm').delWhat.value === 'all';
+    plan.hidden = !all; $('#delConfirmRow').hidden = !all;
+    go.textContent = all ? 'Remove and delete' : 'Delete';
+    if (!all) { go.disabled = false; return; }
+    if (!listed) await showPlan();
+  };
+  $('#delForm').onsubmit = async (e) => {
+    e.preventDefault(); err.textContent = '';
+    const all = $('#delForm').delWhat.value === 'all';
+    if (all && !listed?.fingerprint) { err.textContent = 'Wait for the list of what goes, then try again.'; return; }
+    go.disabled = true;
+    try {
+      if (all) {
+        let r;
+        try {
+          r = await api(`/api/projects/${id}/teardown`, { method: 'POST', body: JSON.stringify({ confirm: $('#delConfirm').value, fingerprint: listed.fingerprint }) });
+        } catch (ex) {
+          // The list changed since it was shown: show the new one, and keep the message.
+          if (/The list changed/.test(ex.message)) { await showPlan(); err.textContent = ex.message; return; }
+          throw ex;
+        }
+        const problems = teardownProblems(r);
+        // The list is read again, so a second try sends a fresh fingerprint.
+        if (problems) { await showPlan(); err.textContent = problems; return; }
+      }
+      await api(`/api/projects/${id}`, { method: 'DELETE' });
+      dlg.close(); showNew(); loadList();
+    } catch (ex) { err.textContent = ex.message; go.disabled = false; }
+  };
+  dlg.showModal();
+}
+
+// ---- access (Dev Studio admins) -----------------------------------------------------------
+// Who may sign in, beyond the list set at deploy time. A change takes effect within a minute.
+async function showAccess() {
+  current = null; source?.close(); source = null;
+  const main = $('#main');
+  main.innerHTML = `<header><h2>Access: who may sign in</h2></header>
+    <div class="access">
+      <p class="hint" id="acHint">Partners on this list may sign in with GitHub. Pausing one ends their sign-in within a minute; their apps are kept. Changes need no deploy.</p>
+      <form id="accessForm" class="access-add">
+        <input id="acGithub" placeholder="GitHub user or organisation" autocomplete="off" required />
+        <select id="acKind"><option value="user">User</option><option value="org">Organisation</option></select>
+        <input id="acPartner" placeholder="Partner company" autocomplete="off" required />
+        <input id="acNote" placeholder="Note (optional)" autocomplete="off" />
+        <button>Add</button>
+      </form>
+      <div id="acManaged" hidden>
+        <p>Access comes from the Partner Program app. Change it there. <a id="acManagedLink" target="_blank" rel="noopener">Open the Partner Program</a></p>
+        <p class="hint" id="acManagedRead"></p>
+        <div class="err" id="acManagedError" role="alert"></div>
+        <ul class="hint" id="acManagedProblems"></ul>
+        <p class="hint" id="acManagedNotify"></p>
+        <div class="err" id="acManagedNotifyError" role="alert"></div>
+        <ul class="hint" id="acManagedNotifyProblems"></ul>
+      </div>
+      <div class="err" id="acErr" role="alert"></div>
+      <table class="access-table"><thead><tr><th>GitHub</th><th>Kind</th><th>Partner</th><th>Status</th><th>Note</th><th>Added</th><th></th></tr></thead><tbody id="acRows"></tbody></table>
+      <p class="hint" id="acFloor"></p>
+    </div>`;
+  const err = $('#acErr');
+  const draw = async () => {
+    let d;
+    try { d = await api('/api/access'); } catch (e) { err.textContent = e.message; return; }
+    // The list comes from the Partner Program app: read-only here.
+    const m = d.managedBy;
+    $('#acManaged').hidden = !m;
+    $('#accessForm').hidden = !!m;
+    $('#acHint').hidden = !!m;
+    if (m) {
+      $('#acManagedLink').href = m.url;
+      $('#acManagedRead').textContent = m.lastSuccessAt
+        ? `Last read from the Partner Program: ${new Date(m.lastSuccessAt).toLocaleString()}. ${m.count} on the list.`
+        : 'Dev Studio has not read the Partner Program yet. Only the people set at deploy time can sign in.';
+      $('#acManagedError').textContent = m.lastError
+        ? `The last read failed at ${new Date(m.lastErrorAt).toLocaleString()}: ${m.lastError}${m.lastSuccessAt ? ' The list below is from the last read that worked.' : ''}`
+        : '';
+      const probs = $('#acManagedProblems'); probs.replaceChildren();
+      for (const p of m.problems || []) { const li = document.createElement('li'); li.textContent = p; probs.append(li); }
+      // The access emails (DEVSTUDIO_PARTNERPROG_NOTIFY).
+      const n = m.notify;
+      $('#acManagedNotify').textContent = n
+        ? 'Dev Studio emails each person when their access turns active.'
+        : 'Access emails are off. Dev Studio does not email people when their access turns active.';
+      const nerr = [];
+      if (n?.lastRunError) nerr.push(n.lastRunError);
+      if (n?.lastSendError) nerr.push(`An access email to ${n.lastSendError.github} failed at ${new Date(n.lastSendError.at).toLocaleString()}: ${n.lastSendError.message}. Dev Studio tries again in 5 minutes, up to 5 times.`);
+      $('#acManagedNotifyError').textContent = nerr.join(' ');
+      const nprobs = $('#acManagedNotifyProblems'); nprobs.replaceChildren();
+      for (const p of n?.problems || []) { const li = document.createElement('li'); li.textContent = p; nprobs.append(li); }
+    }
+    const rows = $('#acRows'); rows.replaceChildren();
+    for (const e of d.entries.slice().sort((a, b) => a.partner.localeCompare(b.partner) || a.github.localeCompare(b.github))) {
+      const tr = document.createElement('tr');
+      const cell = (t) => { const td = document.createElement('td'); td.textContent = t; tr.append(td); return td; };
+      cell(e.github); cell(e.kind === 'org' ? 'Organisation' : 'User'); cell(e.partner);
+      cell(e.status === 'active' ? 'Active' : 'Paused'); cell(e.note || '');
+      cell(m ? 'Partner Program' : `${new Date(e.added_at).toLocaleDateString()} by ${e.added_by}`);
+      const act = cell('');
+      if (m) { rows.append(tr); continue; }
+      const toggle = Object.assign(document.createElement('button'), { type: 'button', className: 'text', textContent: e.status === 'active' ? 'Pause' : 'Make active' });
+      toggle.onclick = async () => { err.textContent = ''; try { await api(`/api/access/${e.id}`, { method: 'PATCH', body: JSON.stringify({ status: e.status === 'active' ? 'paused' : 'active' }) }); draw(); } catch (x) { err.textContent = x.message; } };
+      const del = Object.assign(document.createElement('button'), { type: 'button', className: 'text', textContent: 'Remove' });
+      del.onclick = async () => {
+        if (!(await confirmInPage(`Remove ${e.github}?`, 'They can no longer sign in. Their apps are kept.', 'Remove'))) return;
+        err.textContent = ''; try { await api(`/api/access/${e.id}`, { method: 'DELETE' }); draw(); } catch (x) { err.textContent = x.message; }
+      };
+      act.append(toggle, del);
+      rows.append(tr);
+    }
+    if (!d.entries.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 7; td.textContent = m ? 'Nobody from the Partner Program yet.' : 'No partners yet. Add one above.'; tr.append(td); rows.append(tr); }
+    $('#acFloor').textContent = `Always allowed, set at deploy time: ${d.floor.join(', ') || 'nobody'}. Admins: ${d.admins.join(', ')}.`;
+  };
+  $('#accessForm').onsubmit = async (ev) => {
+    ev.preventDefault(); err.textContent = '';
+    try {
+      await api('/api/access', { method: 'POST', body: JSON.stringify({ github: $('#acGithub').value, kind: $('#acKind').value, partner: $('#acPartner').value, note: $('#acNote').value }) });
+      $('#accessForm').reset(); draw();
+    } catch (x) { err.textContent = x.message; }
+  };
+  draw();
+}
+
+async function editLimits(id, p) {
+  const dlg = $('#limitsDialog'), err = $('#limitsErr');
+  const lim = p.limits || {};
+  $('#limitBudget').value = lim.phaseBudget ?? '';
+  $('#limitModel').value = lim.model || '';
+  err.textContent = '';
+  $('#limitsCancel').onclick = () => dlg.close();
+  $('#limitsForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const v = $('#limitBudget').value.trim();
+    try {
+      const r = await api(`/api/projects/${id}/settings`, { method: 'PUT', body: JSON.stringify({ phaseBudget: v === '' ? null : Number(v), model: $('#limitModel').value }) });
+      p.limits = r.limits; limitsNow = r.limits; dlg.close(); renderPhases();
+    } catch (ex) { err.textContent = ex.message; }
+  };
+  dlg.showModal();
+}
+let limitsNow = null;
+
+// ---- data model ----------------------------------------------------------------------------
+// The app's custom objects as boxes, each link an arrow from the object that holds the field to the
+// object it points at. A box sits to the right of every object it links to.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(name, attrs = {}, text) {
+  const e = document.createElementNS(SVG_NS, name);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function modelLevels(objects) {
+  const byId = new Map(objects.map((o) => [o.id, o]));
+  const level = new Map(), visiting = new Set();
+  const lv = (id) => {
+    if (level.has(id)) return level.get(id);
+    if (visiting.has(id)) return 0; // a loop: stop here
+    visiting.add(id);
+    const targets = byId.get(id).fields.filter((f) => f.link && f.link.to !== id && byId.has(f.link.to)).map((f) => f.link.to);
+    const v = targets.length ? 1 + Math.max(...targets.map(lv)) : 0;
+    visiting.delete(id); level.set(id, v);
+    return v;
+  };
+  objects.forEach((o) => lv(o.id));
+  return level;
+}
+
+function drawModel(objects, core = []) {
+  const W = 250, GAP_X = 110, GAP_Y = 22, HEAD = 26, LINE = 17, PAD = 8;
+  const level = modelLevels(objects);
+  // Column 0: Ambivo's own records (Core database). The app's custom objects (custom database) follow,
+  // each to the right of every object it links to.
+  const shift = core.length ? 1 : 0;
+  const cols = [];
+  for (const o of objects) (cols[level.get(o.id) + shift] ||= []).push(o);
+  const box = new Map(), coreBox = new Map();
+  let height = 0;
+  if (core.length) {
+    let y = 16;
+    for (const c of core) { const h = HEAD + LINE + PAD; coreBox.set(c.id, { x: 16, y, h }); y += h + GAP_Y; }
+    height = y;
+  }
+  cols.forEach((col, c) => {
+    if (!col) return;
+    let y = 16;
+    for (const o of col) {
+      const links = o.fields.filter((f) => f.link || f.core);
+      const h = HEAD + LINE * (1 + links.length) + PAD;
+      box.set(o.id, { x: 16 + c * (W + GAP_X), y, h, links });
+      y += h + GAP_Y;
+    }
+    height = Math.max(height, y);
+  });
+  const width = 16 + Math.max(cols.length, 1) * (W + GAP_X) - GAP_X + 16;
+  const svg = svgEl('svg', { width, height, viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': 'Data model diagram' });
+  const css = getComputedStyle(document.documentElement);
+  const color = { restrict: css.getPropertyValue('--error').trim(), cascade: css.getPropertyValue('--primary').trim(), nullify: css.getPropertyValue('--muted').trim(), none: css.getPropertyValue('--muted').trim(), byid: css.getPropertyValue('--core').trim() };
+  const tok = (n) => css.getPropertyValue(n).trim();
+  const defs = svgEl('defs');
+  for (const [rule, c] of Object.entries(color)) {
+    const m = svgEl('marker', { id: `dm-${rule}`, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
+    m.append(svgEl('path', { d: 'M0,0 L10,5 L0,10 z', fill: c }));
+    defs.append(m);
+  }
+  svg.append(defs);
+  const edges = svgEl('g'), nodes = svgEl('g');
+  svg.append(edges, nodes);
+  for (const c of core) {
+    const b = coreBox.get(c.id);
+    const g = svgEl('g');
+    g.append(svgEl('rect', { x: b.x, y: b.y, width: W, height: b.h, rx: 10, fill: tok('--core-bg'), stroke: tok('--core') }));
+    g.append(svgEl('text', { x: b.x + 10, y: b.y + 18, 'font-weight': 600, 'font-size': 13, fill: tok('--core') }, c.name));
+    g.append(svgEl('text', { x: b.x + 10, y: b.y + HEAD + 12, 'font-size': 11, fill: tok('--muted') }, 'Ambivo record, Core database'));
+    nodes.append(g);
+  }
+  for (const o of objects) {
+    const b = box.get(o.id);
+    const g = svgEl('g');
+    g.append(svgEl('rect', { x: b.x, y: b.y, width: W, height: b.h, rx: 10, fill: tok('--custom-bg'), stroke: tok('--primary') }));
+    g.append(svgEl('text', { x: b.x + 10, y: b.y + 18, 'font-weight': 600, 'font-size': 13, fill: css.getPropertyValue('--text').trim() }, o.id));
+    const req = o.fields.filter((f) => f.required).length;
+    g.append(svgEl('text', { x: b.x + 10, y: b.y + HEAD + 12, 'font-size': 11, fill: css.getPropertyValue('--muted').trim() }, `${o.fields.length} fields, ${req} required`));
+    b.links.forEach((f, i) => {
+      const y = b.y + HEAD + LINE * (i + 1) + 12;
+      if (f.core) {
+        const cb = coreBox.get(f.core), name = core.find((c) => c.id === f.core)?.name ?? f.core;
+        g.append(svgEl('text', { x: b.x + 10, y, 'font-size': 11, fill: tok('--core') }, `${f.name} → ${name} (by id${f.guessed ? ', guessed' : ''})`));
+        if (cb) {
+          const x1 = b.x, y1 = y - 4, x2 = cb.x + W, y2 = cb.y + HEAD / 2 + 4, mx = (x1 + x2) / 2;
+          edges.append(svgEl('path', { d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`, fill: 'none', stroke: color.byid, 'stroke-width': 1, 'stroke-dasharray': '2 3', opacity: 0.7, 'marker-end': 'url(#dm-byid)' }));
+        }
+        return;
+      }
+      g.append(svgEl('text', { x: b.x + 10, y, 'font-size': 11, fill: css.getPropertyValue('--text').trim() }, `${f.name} → ${f.link.to.replace(/^[a-z0-9]+_/, '')} (${f.link.rule})`));
+      const t = box.get(f.link.to);
+      if (!t) return; // points outside the app: the label says where
+      const rule = color[f.link.rule] ? f.link.rule : 'none';
+      const dash = rule === 'nullify' || rule === 'none' ? '5 4' : '';
+      if (f.link.to === o.id) {
+        // A link to its own kind: a small loop on the right edge.
+        const x = b.x + W;
+        edges.append(svgEl('path', { d: `M${x},${y - 4} C${x + 40},${y - 4} ${x + 40},${b.y + 10} ${x},${b.y + 10}`, fill: 'none', stroke: color[rule], 'stroke-width': 1.5, 'stroke-dasharray': dash, 'marker-end': `url(#dm-${rule})` }));
+        return;
+      }
+      const x1 = b.x, y1 = y - 4, x2 = t.x + W, y2 = t.y + HEAD / 2 + 4;
+      const mx = (x1 + x2) / 2;
+      edges.append(svgEl('path', { d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`, fill: 'none', stroke: color[rule], 'stroke-width': 1.5, 'stroke-dasharray': dash, 'marker-end': `url(#dm-${rule})` }));
+    });
+    nodes.append(g);
+  }
+  return svg;
+}
+
+let CORE_NAMES = {};
+function modelTables(objects) {
+  const wrap = document.createElement('div');
+  for (const o of objects) {
+    const d = document.createElement('details'); d.className = 'dm-obj';
+    const s = document.createElement('summary'); s.textContent = `${o.name} (${o.id})`; d.append(s);
+    const t = document.createElement('table');
+    const head = t.insertRow(); for (const h of ['Field', 'Type', 'Required', 'Links to']) { const th = document.createElement('th'); th.textContent = h; head.append(th); }
+    for (const f of o.fields) {
+      const r = t.insertRow();
+      const coreName = f.core ? (CORE_NAMES[f.core] || f.core) : '';
+      for (const v of [f.name, f.type, f.required ? 'yes' : '', f.link ? `${f.link.to} (on delete: ${f.link.rule})` : f.core ? `${coreName}, Core database (by id${f.guessed ? ', guessed from the field name' : ''})` : '']) r.insertCell().textContent = v;
+    }
+    d.append(t); wrap.append(d);
+  }
+  return wrap;
+}
+
+async function showDataModel(id) {
+  const dlg = $('#modelDialog'), text = $('#modelText'), body = $('#modelBody');
+  text.textContent = 'Reading the data model…'; body.replaceChildren();
+  $('#modelClose').onclick = () => dlg.close();
+  dlg.showModal();
+  let m;
+  try { m = await api(`/api/projects/${id}/datamodel`); }
+  catch (err) { text.textContent = err.message; return; }
+  if ((m.source === 'install' || m.source === 'doc') && m.objects?.length) {
+    const core = m.core || [];
+    CORE_NAMES = Object.fromEntries(core.map((c) => [c.id, c.name]));
+    const objWord = m.objects.length === 1 ? 'custom object' : 'custom objects';
+    const coreWord = core.length === 1 ? 'kind of Ambivo record' : 'kinds of Ambivo record';
+    text.textContent = `${m.objects.length} ${objWord}` +
+      (core.length ? ` and the ${core.length} ${coreWord} they point at` : '') +
+      (m.source === 'doc' ? ', as planned in docs/DATA_MODEL.md. Nothing is installed yet.' : ', as the install step creates them (src/install/app-objects.json).') +
+      ' An arrow goes from the object holding the field to the record it points at.';
+    const legend = document.createElement('div'); legend.className = 'dm-legend';
+    for (const [cls, words] of [['db custom', 'Custom objects: custom database'], ['db core', 'Ambivo records: Core database'],
+      ['restrict', 'restrict: cannot be deleted while others point at it'], ['cascade', 'cascade: deleting it deletes the records pointing at it'],
+      ['nullify', 'nullify: deleting it clears the link'], ['byid', 'by id: holds the Ambivo record\'s id; nothing is checked on delete']]) {
+      if (cls === 'db core' && !core.length) continue;
+      if (cls === 'byid' && !core.length) continue;
+      const sp = document.createElement('span'); sp.className = cls; sp.textContent = words; legend.append(sp);
+    }
+    const pic = document.createElement('div'); pic.className = 'dm-svg'; pic.append(drawModel(m.objects, core));
+    body.append(legend, pic, modelTables(m.objects));
+    if (m.objects.some((o) => o.fields.some((f) => f.guessed))) {
+      const note = Object.assign(document.createElement('p'), { className: 'hint', textContent: 'A link marked "guessed" was worked out from the field name. List it in core_links in src/install/app-objects.json, or in the "links to" column of docs/DATA_MODEL.md, to state it.' });
+      body.append(note);
+    }
+    if (m.source === 'doc') {
+      const d = document.createElement('details'); d.className = 'dm-obj';
+      d.append(Object.assign(document.createElement('summary'), { textContent: 'docs/DATA_MODEL.md' }));
+      const pre = document.createElement('div'); pre.className = 'dm-doc'; pre.textContent = m.doc; d.append(pre);
+      body.append(d);
+    }
+  } else if (m.source === 'install') {
+    text.textContent = m.error || 'src/install/app-objects.json lists no objects yet.';
+  } else if (m.source === 'doc') {
+    text.textContent = 'The objects are not installed yet. This is the plan in docs/DATA_MODEL.md. The diagram appears once the install step is written.';
+    const pre = document.createElement('div'); pre.className = 'dm-doc'; pre.textContent = m.doc; body.append(pre);
+  } else {
+    text.textContent = 'There is no data model yet. The assistant writes docs/DATA_MODEL.md in phase 0 of an app built from a brief.';
+  }
+}
+
+// Download zip: everything (for developers), or without the developer files (for a client).
+function downloadZip(id) {
+  const dlg = $('#dlDialog');
+  $('#dlForm').reset();
+  dlg.showModal();
+  $('#dlCancel').onclick = () => dlg.close();
+  $('#dlForm').onsubmit = (e) => {
+    e.preventDefault();
+    const client = $('#dlForm').elements.dlFor.value === 'client';
+    dlg.close();
+    const a = Object.assign(document.createElement('a'), { href: `/api/projects/${id}/download${client ? '?for=client' : ''}` });
+    document.body.append(a); a.click(); a.remove();
+  };
+}
+
+// Share link: a public copy of the built app. Anyone with the link signs in with their own Ambivo account.
+let shareState = { on: false };
+function showShareButton() {
+  const b = $('#share'); if (!b) return;
+  b.textContent = shareState.on ? 'Shared link' : 'Share';
+}
+function shareApp(id) {
+  const dlg = $('#shareDialog'), text = $('#shareText'), err = $('#shareErr'), go = $('#shareGo'), off = $('#shareOff'), log = $('#shareLog');
+  const show = () => {
+    err.textContent = ''; log.hidden = true; go.disabled = false; off.disabled = false;
+    const on = !!shareState.on;
+    $('#shareLinkRow').hidden = !on;
+    off.hidden = !on;
+    go.textContent = on ? 'Share again' : 'Build and share';
+    if (!on) {
+      text.textContent = 'Dev Studio builds the app and gives you a link. Anyone with the link can open the app. To see data, they sign in with their own Ambivo account.';
+      return;
+    }
+    $('#shareLink').value = shareState.url;
+    const when = new Date(shareState.at).toLocaleString();
+    text.textContent = shareState.missing
+      ? `This link was made on ${when}, but its files are not on this server. Click Share again to build it.`
+      : `Anyone with this link can open the app. They sign in with their own Ambivo account. Shared on ${when}. Share again to put your latest changes on the link.`;
+  };
+  show();
+  dlg.showModal();
+  $('#shareClose').onclick = () => dlg.close();
+  $('#shareCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText($('#shareLink').value); $('#shareCopy').textContent = 'Copied'; setTimeout(() => { $('#shareCopy').textContent = 'Copy'; }, 2000); }
+    catch { $('#shareLink').select(); }
+  };
+  off.onclick = async () => {
+    off.disabled = true; err.textContent = '';
+    try { shareState = await api(`/api/projects/${id}/share`, { method: 'DELETE' }); showShareButton(); show(); }
+    catch (e) { err.textContent = e.message; off.disabled = false; }
+  };
+  $('#shareForm').onsubmit = async (e) => {
+    e.preventDefault();
+    go.disabled = true; off.disabled = true; err.textContent = ''; log.hidden = true;
+    text.textContent = 'Building the app. This can take a minute or two.';
+    try {
+      shareState = await api(`/api/projects/${id}/share`, { method: 'POST' });
+      showShareButton(); show();
+    } catch (e2) {
+      show();
+      err.textContent = e2.message;
+      if (e2.log) { log.textContent = e2.log; log.hidden = false; }
+    }
+  };
+}
+
+// Deploy: a one-time link that a client's Ambivo admin opens to install the app's custom objects.
+function deployApp(id) {
+  const dlg = $('#deployDialog'), err = $('#deployErr'), go = $('#deployGo'), lists = $('#deployLists');
+  const fmt = (t) => new Date(t).toLocaleString();
+  const STATUS = { open: 'Waiting for the admin', done: 'Used', revoked: 'Stopped', expired: 'Ended' };
+  const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
+  async function load() {
+    lists.textContent = '';
+    let st;
+    try { st = await api(`/api/projects/${id}/deploy`); } catch (e) { err.textContent = e.message; return; }
+    if (st.deployments.length) {
+      lists.append(el('h4', 'Installed'));
+      const ul = el('ul');
+      for (const d of st.deployments) {
+        const v = d.appVersion ? ` version ${d.appVersion}` : '';
+        ul.append(el('li', d.ok ? `${d.company}: installed${v} on ${fmt(d.at)} by ${d.by}` : `${d.company}: did not finish on ${fmt(d.at)}. ${d.error || ''}`, d.ok ? '' : 'err'));
+      }
+      lists.append(ul);
+    }
+    if (st.links.length) {
+      lists.append(el('h4', 'Links'));
+      const ul = el('ul');
+      for (const l of st.links) {
+        const li = el('li', `Made ${fmt(l.created)}${l.appVersion ? `, version ${l.appVersion}` : ''}: ${STATUS[l.status] || l.status}${l.status === 'open' ? `, until ${fmt(l.exp)}` : ''}. `);
+        if (l.status === 'open') {
+          const stop = el('button', 'Stop this link', 'text'); stop.type = 'button';
+          stop.onclick = async () => {
+            stop.disabled = true;
+            try { await api(`/api/projects/${id}/deploy?link=${encodeURIComponent(l.short)}`, { method: 'DELETE' }); await load(); }
+            catch (e) { err.textContent = e.message; stop.disabled = false; }
+          };
+          li.append(stop);
+        }
+        ul.append(li);
+      }
+      lists.append(ul);
+    }
+  }
+  err.textContent = ''; $('#deployLinkRow').hidden = true; $('#deployLinkNote').hidden = true; go.disabled = false;
+  dlg.showModal();
+  load();
+  $('#deployClose').onclick = () => dlg.close();
+  $('#deployCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText($('#deployLink').value); $('#deployCopy').textContent = 'Copied'; setTimeout(() => { $('#deployCopy').textContent = 'Copy'; }, 2000); }
+    catch { $('#deployLink').select(); }
+  };
+  $('#deployForm').onsubmit = async (e) => {
+    e.preventDefault();
+    go.disabled = true; err.textContent = '';
+    try {
+      const r = await api(`/api/projects/${id}/deploy`, { method: 'POST' });
+      $('#deployLink').value = r.url;
+      $('#deployLinkRow').hidden = false;
+      const n = r.objects.length;
+      $('#deployLinkNote').textContent = `Send this link to your client's admin. It installs ${n === 1 ? '1 custom object' : `${n} custom objects`}${r.appVersion ? ` from version ${r.appVersion}` : ''}, as the app is now. It works once, until ${fmt(r.exp)}. Copy it now: Dev Studio does not show it again.`;
+      $('#deployLinkNote').hidden = false;
+      await load();
+    } catch (e2) { err.textContent = e2.message; }
+    finally { go.disabled = false; }
+  };
+}
+
+// Push the app's files to a new branch in a repository where the Dev Studio GitHub app is installed.
+async function pushToGitHub(id) {
+  const dlg = $('#pushDialog'), sel = $('#pushRepo'), err = $('#pushErr'), go = $('#pushGo'), text = $('#pushText');
+  err.textContent = ''; sel.replaceChildren(); go.disabled = true; sel.hidden = false;
+  text.textContent = 'Loading your repositories…';
+  dlg.showModal();
+  $('#pushCancel').onclick = () => dlg.close();
+  try {
+    const { repos, installUrl } = await api('/api/github/repos');
+    if (!repos.length) {
+      sel.hidden = true;
+      text.innerHTML = 'Dev Studio cannot reach any of your repositories yet. <a target="_blank" rel="noopener">Install the Dev Studio app on GitHub</a>, pick a repository, then try again.';
+      if (installUrl) text.querySelector('a').href = installUrl; else text.querySelector('a').removeAttribute('href');
+      return;
+    }
+    text.textContent = "Pick a repository. Dev Studio puts the app's files on a new branch there.";
+    for (const r of repos) sel.append(Object.assign(document.createElement('option'), { value: r.fullName, textContent: r.fullName }));
+    go.disabled = false;
+  } catch (e) {
+    err.textContent = e.message;
+    if (e.signIn) err.innerHTML += ' <a href="/auth/login">Sign in</a>';
+    return;
+  }
+  $('#pushForm').onsubmit = async (e) => {
+    e.preventDefault();
+    go.disabled = true; err.textContent = ''; text.textContent = 'Pushing…';
+    try {
+      const r = await api(`/api/projects/${id}/push`, { method: 'POST', body: JSON.stringify({ repo: sel.value }) });
+      sel.hidden = true;
+      text.innerHTML = `Pushed ${r.files} files to the branch <code></code>. <a target="_blank" rel="noopener">Open it on GitHub</a>`;
+      text.querySelector('code').textContent = r.branch;
+      text.querySelector('a').href = r.url;
+    } catch (e2) {
+      text.textContent = '';
+      err.textContent = e2.message;
+      if (e2.files?.length) err.textContent += ' ' + e2.files.map((f) => `${f.path} line ${f.line}`).join(', ');
+      go.disabled = false;
+    }
+  };
+}
+
+const AMB_INTRO = 'The assistant uses this sign-in to read sample records while it builds your app. ' +
+  'Use your sandbox account only. Its email looks like name+sandbox@yourcompany.com.';
+
+// Sign in to the partner's Ambivo sandbox (server mode). The password goes to Dev Studio once and is not kept.
+// Resolves true when signed in.
+function askForAmbivo() {
+  const dlg = $('#ambDialog'), err = $('#ambErr'), go = $('#ambGo');
+  const email = $('#ambEmail'), pw = $('#ambPassword'), code = $('#ambCode');
+  let codeStep = false;
+  const step = (toCode, text) => {
+    codeStep = toCode;
+    $('#ambCreds').hidden = toCode; $('#ambCodeRow').hidden = !toCode;
+    $('#ambText').textContent = text;
+    go.textContent = toCode ? 'Finish sign-in' : 'Sign in';
+    (toCode ? code : email.value ? pw : email).focus();
+  };
+  pw.value = ''; code.value = ''; err.textContent = '';
+  dlg.showModal();
+  step(false, AMB_INTRO);
+  return new Promise((resolve) => {
+    const done = (v) => { pw.value = ''; code.value = ''; dlg.close(); $('#ambForm').onsubmit = null; resolve(v); };
+    $('#ambCancel').onclick = () => done(false);
+    dlg.oncancel = () => done(false);
+    $('#ambForm').onsubmit = async (e) => {
+      e.preventDefault();
+      err.textContent = '';
+      if (!codeStep && (!email.value.trim() || !pw.value)) { err.textContent = 'Enter your sandbox email and password.'; return; }
+      if (codeStep && !code.value.trim()) { err.textContent = 'Enter the code from the email.'; return; }
+      go.disabled = true;
+      try {
+        const r = codeStep
+          ? await api('/api/ambivo/verify', { method: 'POST', body: JSON.stringify({ code: code.value }) })
+          : await api('/api/ambivo/sign-in', { method: 'POST', body: JSON.stringify({ email: email.value.trim(), password: pw.value }) });
+        pw.value = '';
+        if (r.needCode) {
+          step(true, `Ambivo sent a code to ${r.destination || 'your email'}. Enter it here.`);
+          return;
+        }
+        me.ambivo = { signedIn: true, email: r.email, tenantName: r.tenantName, until: r.until };
+        showAmbivo(); showSignIn();
+        done(true);
+      } catch (e2) {
+        err.textContent = e2.message;
+        if (e2.restart) { code.value = ''; step(false, AMB_INTRO); }
+      } finally { go.disabled = false; }
+    };
+  });
+}
+
+/** "4:05 PM" today, or "Sat 4:05 PM" on another day, in the viewer's own time zone. */
+function endTime(ms) {
+  const d = new Date(ms), time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString([], { weekday: 'short' })} ${time}`;
+}
+
+function showAmbivo() {
+  const a = me?.ambivo;
+  $('#amb').hidden = !a;
+  if (!a) return;
+  $('#ambStatus').textContent = a.signedIn
+    ? `Ambivo sandbox: ${a.email}${a.until ? `. Signed in until ${endTime(a.until)}.` : ''}`
+    : (a.ended ? a.message : '');
+  $('#ambStatus').hidden = !$('#ambStatus').textContent;
+  $('#ambSignInBtn').hidden = !!a.signedIn;
+  $('#ambSignOutBtn').hidden = !a.signedIn;
+}
+
+// The assistant reads sample records from the Ambivo sandbox as whoever signed in.
+async function showSignIn() {
+  const box = $('#signin'); if (!box) return;
+  if (me?.ambivo) {
+    const a = me.ambivo;
+    if (a.signedIn) {
+      box.textContent = `The assistant will read sample records from your Ambivo sandbox as ${a.email}.`;
+    } else {
+      box.innerHTML = '<span></span> <button class="text" type="button" id="ambFromForm">Sign in to your Ambivo sandbox</button>';
+      box.querySelector('span').textContent = (a.ended ? `${a.message} ` : '') + 'The assistant cannot read your Ambivo sandbox yet. It can still build the app.';
+      $('#ambFromForm').onclick = () => askForAmbivo();
+    }
+    return;
+  }
+  const s = await api('/api/ambivo-sign-in');
+  if (s.server) {
+    box.textContent = 'You sign in to your Ambivo sandbox in the Preview.';
+  } else if (s.signedIn) {
+    const until = s.until ? ` until ${new Date(s.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '';
+    box.textContent = `The assistant will read sample records from your Ambivo sandbox as ${s.email}${until}.`;
+  } else {
+    box.innerHTML = 'The assistant cannot read your Ambivo sandbox yet. It can still build the app. ' +
+      'To let it read sample records, open Terminal on this computer, run this, then sign in with your sandbox email and password:<code></code>' +
+      '<button class="text" type="button" id="recheck">I have signed in</button>';
+    box.querySelector('code').textContent = s.command;
+    $('#recheck').onclick = showSignIn;
+  }
+}
+
+// Light formatting for the assistant's replies: bold and inline code. Everything is escaped first,
+// so text from the model can never become HTML.
+function renderText(t) {
+  const esc = String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return esc
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    .replace(/^(Recommended:)/gm, '<strong class="rec">$1</strong>');
+}
+
+
+function showMe() {
+  if (!me) return;
+  $('#me').hidden = false;
+  $('#meName').textContent = me.login ? `Signed in as ${me.login}` : '';
+  $('#keyBtn').textContent = me.keyed ? 'Change my Claude key' : 'Enter my Claude key';
+  $('#delKeyBtn').hidden = !me.keyed;
+  $('#oaKeyBtn').textContent = me.openaiKeyed ? 'Change my OpenAI key' : 'Enter my OpenAI key';
+  $('#oaDelKeyBtn').hidden = !me.openaiKeyed;
+  if (me.local) {
+    // On the maker's computer: Codex is hosted only, and Claude Code's own sign-in (or a key in the
+    // container's environment) needs no key saved here.
+    $('#oaKeyBtn').hidden = true;
+    $('#oaDelKeyBtn').hidden = true;
+    if (me.claudeSignedIn && !me.keyed) {
+      $('#meName').textContent = 'Claude: your Claude Code sign-in in this container';
+      $('#keyBtn').hidden = true;
+    }
+  }
+  $('#signOutBtn').hidden = me.mode !== 'server';
+  $('#accessBtn').hidden = !me.admin;
+  // The trial note is for the hosted Dev Studio. On the maker's own computer, say where the apps are saved.
+  if (me.local) {
+    $('#localTip').textContent = 'Your apps are saved in the folder you started Dev Studio from. Each app has its own folder there.';
+    $('#localTip').classList.remove('trial');
+    $('#localTip').style.padding = '0 16px 12px';
+  } else if (me.mode !== 'server') {
+    $('#localTip').hidden = true;
+  }
+  showAmbivo();
+}
+
+$('#accessBtn').onclick = () => showAccess();
+$('#keyBtn').onclick = () => askForKey('claude');
+$('#oaKeyBtn').onclick = () => askForKey('openai');
+$('#oaDelKeyBtn').onclick = async () => {
+  if (!(await confirmInPage('Delete your OpenAI key?', 'Dev Studio forgets your OpenAI key. Codex apps will ask for it before your next message.', 'Delete key'))) return;
+  await api('/api/key?provider=openai', { method: 'DELETE' });
+  me.openaiKeyed = false; showMe();
+  if (current) open(current); else showNew();
+};
+$('#delKeyBtn').onclick = async () => {
+  if (!(await confirmInPage('Delete your Claude key?', 'Dev Studio forgets your Claude key. Claude Code apps will ask for it before your next message.', 'Delete key'))) return;
+  await api('/api/key', { method: 'DELETE' });
+  me.keyed = false; showMe();
+  if (current) open(current); else showNew();
+};
+$('#ambSignInBtn').onclick = () => askForAmbivo();
+$('#ambSignOutBtn').onclick = async () => {
+  if (!(await confirmInPage('Sign out of your Ambivo sandbox?', 'The assistant stops reading sample records. You can sign in again at any time.', 'Sign out'))) return;
+  try { await api('/api/ambivo', { method: 'DELETE' }); } catch (e) { return add({ kind: 'error', text: e.message }); }
+  me.ambivo = { signedIn: false }; showAmbivo(); showSignIn();
+};
+$('#signOutBtn').onclick = async () => { await api('/auth/logout', { method: 'POST' }); location.reload(); };
+
+function showSignInPage(ended = false) {
+  $('#newBtn').disabled = true;
+  $('#me').hidden = true; $('#list').replaceChildren();
+  if (source) { source.close(); source = null; }
+  const why = ended ? 'Your Dev Studio sign-in has ended. Sign in again to carry on. Your apps and their work are kept.'
+    : 'Sign in with your GitHub account to build Ambivo apps.';
+  $('#main').innerHTML = `<div class="empty"><h2>Dev Studio</h2><p>${why}</p><p><button id="ghSignIn">Sign in with GitHub</button></p></div>`;
+  $('#ghSignIn').onclick = () => { location.href = '/auth/login'; };
+}
+
+$('#newBtn').onclick = showNew;
+(async () => {
+  try { me = await api('/api/me'); }
+  catch (e) { if (e.signIn) return showSignInPage(); throw e; }
+  showMe();
+  loadList();
+})();
+</script>
+</body>
+</html>

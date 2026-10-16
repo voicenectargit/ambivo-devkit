@@ -1,0 +1,10 @@
+{
+  "name": "ambivo-devstudio-web",
+  "private": true,
+  "description": "Dev Studio server. No runtime dependencies: Node built-ins only.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

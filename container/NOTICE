@@ -1,0 +1,14 @@
+Ambivo dev container: licences
+
+Copyright (c) 2026 Ambivo, Inc.
+
+- The Ambivo Developer Kit (plugin, MCP server, Dev Studio, this container's scripts) is under the
+  Ambivo Developer Kit License in LICENSE, in this folder.
+- The starter app's own files are under the MIT License in
+  /opt/ambivo-devkit/plugins/ambivo-devkit/starter/LICENSE-AMBIVO-STARTER.txt.
+- Open source packages bundled into the MCP server, and the other parts of this image, are listed in
+  THIRD_PARTY_NOTICES.md, in this folder.
+- Claude Code (@anthropic-ai/claude-code) is (c) Anthropic PBC. It is installed unmodified and used
+  under Anthropic's Commercial Terms or Consumer Terms. You sign in with your own Anthropic account or
+  key.
+- The Debian packages in this image keep their licences in /usr/share/doc/<package>/copyright.

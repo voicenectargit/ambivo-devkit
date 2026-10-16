@@ -1,5 +1,9 @@
-// Copy this .devcontainer folder into the folder you keep your apps in, open that folder in VS Code or
-// Cursor, and pick "Reopen in Container". Then open a terminal and run: ambivo-start
+// Copy this .devcontainer folder into the folder you keep your apps in, and open that folder:
+//   VS Code or Cursor: pick "Reopen in Container".
+//   WebStorm or another JetBrains IDE: open devcontainer.json, click the container icon left of its first line, and pick
+//   "Create Dev Container and Mount Sources". Then forward port 4300 in the IDE's ports list.
+// Dev Studio starts by itself on port 4300. VS Code opens it in your browser. If it does not open, go to http://localhost:4300.
+// To work in the terminal instead, open one in the IDE and run: ambivo-start
 // To use an image you built yourself, change "image" to its name (see container/Dockerfile).
 {
   "name": "Ambivo dev kit",
@@ -9,6 +13,9 @@
   "mounts": ["source=ambivo-devkit-home,target=/home/node/.claude,type=volume"],
   "remoteUser": "node",
   "overrideCommand": false,
-  "forwardPorts": [4200],
-  "portsAttributes": { "4200": { "label": "Your app", "onAutoForward": "notify" } }
+  "forwardPorts": [4300, 4200],
+  "portsAttributes": {
+    "4300": { "label": "Dev Studio", "onAutoForward": "openBrowser" },
+    "4200": { "label": "Your app", "onAutoForward": "notify" }
+  }
 }

@@ -1,6 +1,6 @@
 {
-  "docs_commit": "33693e2",
-  "built_at": "2026-10-14",
+  "docs_commit": "14c7830",
+  "built_at": "2026-10-16",
   "specs": [
     {
       "id": "esign",
@@ -12,7 +12,7 @@
       "id": "procurement",
       "title": "Procurement",
       "file": "ambivo-procurement.openapi.yaml",
-      "operations": 112
+      "operations": 113
     },
     {
       "id": "inventory",
@@ -30,7 +30,7 @@
       "id": "crm",
       "title": "CRM",
       "file": "ambivo-crm.openapi.yaml",
-      "operations": 281
+      "operations": 286
     },
     {
       "id": "unified-model",

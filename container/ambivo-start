@@ -4,10 +4,12 @@
 # Gets the Ambivo dev container ready, then starts Claude Code in /work.
 #
 #   ambivo-start            set up, sign in to the sandbox if needed, then start Claude Code
+#   ambivo-start studio     set up, then start Dev Studio on http://localhost:4300
 #   ambivo-start login      sign in to the sandbox again
 #   ambivo-start <command>  set up, then run the command (for example: ambivo-start bash)
 #
-# With no terminal (docker run -d, or a dev container in VS Code or Cursor) it sets up and then waits.
+# With no terminal (docker run -d, or a dev container in VS Code, Cursor or a JetBrains IDE) it sets up
+# and starts Dev Studio.
 set -euo pipefail
 
 MARKET=/opt/ambivo-devkit
@@ -44,13 +46,23 @@ sign_in() {
   node "$MCP" login
 }
 
+studio() {
+  # A second start (a terminal in an IDE while the container's own start runs it) finds it already up.
+  if node -e "require('http').get('http://127.0.0.1:${DEVSTUDIO_PORT:-4300}/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"; then
+    echo "Dev Studio is already running: http://localhost:${DEVSTUDIO_PORT:-4300}"
+    exit 0
+  fi
+  # Dev Studio prints its link, with the secret the browser needs the first time.
+  signed_in || echo "To let Claude work in your Ambivo sandbox, run this in a terminal on your computer: $DEVSTUDIO_LOGIN_COMMAND"
+  exec node /opt/ambivo-devstudio/server.mjs
+}
+
 if [ "${1:-}" = "login" ]; then sign_in; exit; fi
+if [ "${1:-}" = "studio" ]; then studio; fi
 if [ $# -gt 0 ]; then exec "$@"; fi
 
-if [ ! -t 0 ]; then
-  echo "Ambivo dev container is ready. Open a terminal in it and run: ambivo-start"
-  exec sleep infinity
-fi
+# No terminal: an IDE's dev container or docker run -d. Dev Studio is the way in.
+if [ ! -t 0 ]; then studio; fi
 
 signed_in || sign_in
 cat <<EOF
@@ -59,6 +71,7 @@ Ready. Your apps are saved in /work, the folder you started from.
   Start an app:   /ambivo-new-app a stock count app for warehouse staff
   See the app:    http://localhost:4200, after Claude runs npm start
   Sign in again:  ambivo-start login
+  Dev Studio:     add studio to the end of the docker run command
 
 EOF
 exec claude
