@@ -76,6 +76,15 @@ docker run --rm -v ambivo-devkit-home:/home/node/.claude -v "$PWD":/work sgosain
 
 Dev Studio shows the same list on the left, and starts no app until the Claude sign-in works.
 
+**Push to GitHub (optional).** Sign in to GitHub once. It shows a code to enter at github.com/login/device:
+
+```sh
+docker run -it --rm -v ambivo-devkit-home:/home/node/.claude sgosain/ambivo-devkit github
+```
+
+Then Claude can push your app with git, and Dev Studio's **Push to GitHub** puts it on a new branch of a
+repository you pick. Both use your own GitHub account.
+
 On Windows PowerShell, use `-v "${PWD}:/work"` in place of `-v "$PWD":/work`, and type each command on one line.
 
 ### Dev Studio in your browser
@@ -93,7 +102,7 @@ Stop it with `docker stop ambivo-devkit`, and start it again with `docker start 
 Keep `127.0.0.1` in each `-p`, so only your computer can reach Dev Studio. The secret in the link keeps
 other programs out.
 
-On your computer, Dev Studio has no Share link, no Push to GitHub, no Codex and no Deploy. One app's Preview runs at a time.
+On your computer, Dev Studio has no Share link, no Codex and no Deploy. One app's Preview runs at a time.
 Delete moves the app's folder to `.devstudio-trash` in your apps folder.
 
 ### VS Code, Cursor or WebStorm

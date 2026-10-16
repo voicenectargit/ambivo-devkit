@@ -8,7 +8,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sign, verify, parseCookies, cookie } from './session.mjs';
-import { parseTar, findSecrets } from './github.mjs';
+import { parseTar, findSecrets, createGitHub } from './github.mjs';
 import { PREVIEW_PORT, EXPORT_EXCLUDES } from './drivers/docker.mjs';
 import { zipFiles, clientFiles } from './zipfile.mjs';
 import { createFileProjects } from './projects.mjs';
@@ -1001,12 +1001,43 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
     return t.token;
   }
 
+  // ---- GitHub on the maker's computer ------------------------------------------------------------
+  // The dev container's own GitHub sign-in (ambivo-start github, kept by gh): Dev Studio pushes with the
+  // maker's token, to repositories they may push to. Hosted Dev Studio uses its GitHub App instead.
+  const GITHUB_SIGN_IN = 'docker run -it --rm -v ambivo-devkit-home:/home/node/.claude sgosain/ambivo-devkit github';
+  const localGitHub = driver.kind === 'local'
+    ? createGitHub({ api: 'https://api.github.com', web: 'https://github.com', browserWeb: 'https://github.com' }, fetchImpl) : null;
+  const ghCache = { at: 0, token: null };
+  /** The maker's GitHub token from gh, or null. Read at most every 30 seconds. */
+  function ghToken() {
+    if (!localGitHub) return Promise.resolve(null);
+    if (Date.now() - ghCache.at < 30_000) return Promise.resolve(ghCache.token);
+    return new Promise((resolve) => {
+      execFile(config.ghCommand || 'gh', ['auth', 'token', '--hostname', 'github.com'], { timeout: 10_000 }, (err, stdout) => {
+        ghCache.at = Date.now();
+        ghCache.token = !err && String(stdout).trim() ? String(stdout).trim() : null;
+        resolve(ghCache.token);
+      });
+    });
+  }
+  const canPush = async () => !!(serverMode && github) || !!(await ghToken());
+
   async function push(p, user, fullName) {
-    const token = await userToken(user);
-    if (!token) return [401, { error: 'Sign in again to push to GitHub.', signIn: true }];
-    const repos = await github.listRepos(token);
-    const repo = repos.find((r) => r.fullName.toLowerCase() === String(fullName || '').toLowerCase());
-    if (!repo) return [400, { error: 'Dev Studio cannot reach that repository. Install the Dev Studio app on it first.' }];
+    let token, repo, local = false;
+    if (serverMode) {
+      token = await userToken(user);
+      if (!token) return [401, { error: 'Sign in again to push to GitHub.', signIn: true }];
+      const repos = await github.listRepos(token);
+      repo = repos.find((r) => r.fullName.toLowerCase() === String(fullName || '').toLowerCase());
+      if (!repo) return [400, { error: 'Dev Studio cannot reach that repository. Install the Dev Studio app on it first.' }];
+    } else {
+      token = await ghToken();
+      if (!token) return [401, { error: `Sign in to GitHub first. Run this in a terminal on your computer: ${GITHUB_SIGN_IN}` }];
+      const repos = await localGitHub.listUserRepos(token);
+      repo = repos.find((r) => r.fullName.toLowerCase() === String(fullName || '').toLowerCase());
+      if (!repo) return [400, { error: 'Your GitHub account cannot push to that repository.' }];
+      local = true;
+    }
     await prepare(p.id);
     const child = driver.exportTar(p.id);
     let errText = '';
@@ -1018,10 +1049,10 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
     if (hits.length) {
       return [409, { error: 'Some files look like they hold a secret, such as a key or a password. Ask the assistant to remove it, then push again.', files: hits.slice(0, 20) }];
     }
-    const installation = await github.installationToken(repo.installationId, repo.id);
+    const pushToken = local ? token : await github.installationToken(repo.installationId, repo.id);
     const stamp = new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-');
     const slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'app';
-    const out = await github.pushFiles(installation, repo.fullName, files, {
+    const out = await (local ? localGitHub : github).pushFiles(pushToken, repo.fullName, files, {
       branch: `devstudio/${slug}-${stamp}`, message: `Ambivo app: ${p.name} (from Dev Studio)`,
     });
     log(`pushed ${p.id} to ${repo.fullName} ${out.branch} (${files.length} files)`);
@@ -1294,7 +1325,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
           local: driver.kind === 'local', projectsRoot: driver.kind === 'local' ? driver.root : undefined,
           claudeSignedIn: ownLogin(),
           ...(driver.kind === 'local' && config.checks ? { setup: { ...(setup || {}), checking: !!setupRun } } : {}),
-          keyed: await keys.has(user.id), openaiKeyed: await openai.has(user.id), canPush: !!(serverMode && github), installUrl: github?.installUrl || null,
+          keyed: await keys.has(user.id), openaiKeyed: await openai.has(user.id), canPush: await canPush(), installUrl: github?.installUrl || null,
           ...(serverMode && ambivoSessions ? { ambivo: await ambivoStatus(user.id) } : {}),
         });
       }
@@ -1358,6 +1389,11 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         return json(res, 200, s
           ? { signedIn: true, email: s.email, until: s.expiresAt ? s.expiresAt * 1000 : undefined, command: config.loginCommand || LOGIN_COMMAND }
           : { signedIn: false, command: config.loginCommand || LOGIN_COMMAND });
+      }
+      if (req.method === 'GET' && url.pathname === '/api/github/repos' && localGitHub) {
+        const token = await ghToken();
+        if (!token) return json(res, 401, { error: `Sign in to GitHub first. Run this in a terminal on your computer: ${GITHUB_SIGN_IN}` });
+        return json(res, 200, { repos: await localGitHub.listUserRepos(token), installUrl: null, local: true });
       }
       if (req.method === 'GET' && url.pathname === '/api/github/repos') {
         if (!serverMode || !github) return json(res, 404, { error: 'Not found' });
@@ -1643,7 +1679,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         return;
       }
       if (sub === 'push' && req.method === 'POST') {
-        if (!serverMode || !github) return json(res, 404, { error: 'Not found' });
+        if (!(serverMode && github) && !localGitHub) return json(res, 404, { error: 'Not found' });
         if (busy.has(id)) return json(res, 409, { error: 'The assistant is working. Push when it finishes.' });
         const body = await readBody(req);
         try {

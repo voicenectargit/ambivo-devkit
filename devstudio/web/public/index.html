@@ -1328,7 +1328,12 @@ async function pushToGitHub(id) {
   dlg.showModal();
   $('#pushCancel').onclick = () => dlg.close();
   try {
-    const { repos, installUrl } = await api('/api/github/repos');
+    const { repos, installUrl, local } = await api('/api/github/repos');
+    if (!repos.length && local) {
+      sel.hidden = true;
+      text.textContent = 'Your GitHub account cannot push to any repository yet. Create one on GitHub, then try again.';
+      return;
+    }
     if (!repos.length) {
       sel.hidden = true;
       text.innerHTML = 'Dev Studio cannot reach any of your repositories yet. <a target="_blank" rel="noopener">Install the Dev Studio app on GitHub</a>, pick a repository, then try again.';

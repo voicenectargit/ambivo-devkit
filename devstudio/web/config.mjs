@@ -74,6 +74,8 @@ export function loadConfig(env = process.env) {
     loginCommand: env.DEVSTUDIO_LOGIN_COMMAND || '',
     // The dev container's checks (container/ambivo-checks.mjs). Set in the image only; Dev Studio shows them.
     checks: env.DEVSTUDIO_CHECKS || '',
+    // The GitHub CLI the dev container signs in with; tests point it at a stand-in.
+    ghCommand: env.DEVSTUDIO_GH || '',
     // A project container idle this long is saved and stopped; 0 turns it off. The local driver has no
     // containers, and its preview is used without Dev Studio seeing it, so it is always off there.
     idleMinutes: String(env.DEVSTUDIO_DRIVER || '').trim().toLowerCase() === 'local' ? 0

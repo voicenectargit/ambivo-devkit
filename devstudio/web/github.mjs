@@ -101,6 +101,22 @@ export function createGitHub(cfg, fetchImpl = fetch) {
       return out;
     },
 
+    /**
+     * Repositories the user may push to, with their own token (the GitHub sign-in in the dev
+     * container): theirs, their organisations' and those they collaborate on. Up to 300, most recent first.
+     */
+    async listUserRepos(userToken) {
+      const out = [];
+      for (let page = 1; page <= 3; page++) {
+        const r = await call(userToken, 'GET', `/user/repos?per_page=100&page=${page}&sort=pushed&affiliation=owner,collaborator,organization_member`);
+        for (const repo of r ?? []) {
+          if (repo.permissions?.push) out.push({ id: repo.id, fullName: repo.full_name, defaultBranch: repo.default_branch, private: !!repo.private });
+        }
+        if ((r ?? []).length < 100) break;
+      }
+      return out;
+    },
+
     /** A short-lived token for one repository, contents write only. */
     async installationToken(installationId, repositoryId) {
       const jwt = appJwt(appId, privateKey);

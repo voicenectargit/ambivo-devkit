@@ -16,9 +16,10 @@ FROM node:22-bookworm-slim
 
 # chromium: Claude looks at the screens it builds (plugin scripts/ambivo-screenshot.mjs), headless.
 # poppler-utils: Claude Code reads a PDF brief with pdftoppm. tini: passes Ctrl+C on and reaps processes.
+# gh: GitHub's command-line tool (MIT), for the maker's own GitHub sign-in (ambivo-start github) and push.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git zip unzip ca-certificates procps less poppler-utils \
-      chromium fonts-liberation tini \
+      chromium fonts-liberation tini gh \
  && rm -rf /var/lib/apt/lists/*
 
 # Claude Code is not in the image. ambivo-start downloads this version from npm on the first start, into
@@ -42,12 +43,15 @@ RUN chmod 0755 /usr/local/bin/ambivo-start /usr/local/bin/ambivo-checks.mjs && c
  && mkdir -p /work && chown node:node /work
 
 # Everything that must survive a new container lives in one folder, so one volume keeps it: Claude Code's
-# sign-in and sessions (CLAUDE_CONFIG_DIR), the plugin, and the Ambivo sandbox sign-in (XDG_CONFIG_HOME).
+# sign-in and sessions (CLAUDE_CONFIG_DIR), the plugin, the Ambivo sandbox sign-in (XDG_CONFIG_HOME), and
+# the GitHub sign-in with git's settings (GH_CONFIG_DIR, GIT_CONFIG_GLOBAL).
 ENV CLAUDE_CONFIG_DIR=/home/node/.claude \
     CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION} \
     CLAUDE_CODE_PREFIX=/home/node/.claude/claude-code \
     PATH=/home/node/.claude/claude-code/bin:$PATH \
     XDG_CONFIG_HOME=/home/node/.claude/config \
+    GH_CONFIG_DIR=/home/node/.claude/gh \
+    GIT_CONFIG_GLOBAL=/home/node/.claude/gitconfig \
     CHROMIUM=/usr/bin/chromium \
     DISABLE_AUTOUPDATER=1 \
     AMBIVO_DEV_CONTAINER=1 \

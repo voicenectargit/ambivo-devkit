@@ -6,6 +6,7 @@
 #   ambivo-start            set up, sign in to the sandbox if needed, then start Claude Code
 #   ambivo-start studio     set up, then start Dev Studio on http://localhost:4300
 #   ambivo-start login      sign in to the sandbox again
+#   ambivo-start github     sign in to GitHub, so Claude and Dev Studio can push to your repositories
 #   ambivo-start status     what is ready and what to do: Claude Code, the plugin, the Claude sign-in
 #                           (tried for real), the sandbox sign-in
 #   ambivo-start <command>  set up, then run the command (for example: ambivo-start bash)
@@ -83,6 +84,21 @@ studio() {
   exec node /opt/ambivo-devstudio/server.mjs
 }
 
+# GitHub: the maker's own account, with a one-time code. Git then pushes with it, and commits carry the
+# account's name and its no-reply address unless the maker set their own.
+github_sign_in() {
+  echo "Sign in to GitHub. Open https://github.com/login/device on your computer and enter the code shown below."
+  # No questions (git's sign-in is set up just below); no browser in a container, so gh prints the address.
+  GH_PROMPT_DISABLED=1 BROWSER=true gh auth login --hostname github.com --git-protocol https --web || exit 1
+  gh auth setup-git --hostname github.com
+  if [ -z "$(git config --global user.email || true)" ]; then
+    login=$(gh api user --jq .login) && id=$(gh api user --jq .id) \
+      && git config --global user.name "$login" \
+      && git config --global user.email "${id}+${login}@users.noreply.github.com"
+  fi
+  echo "Signed in to GitHub as $(gh api user --jq .login)."
+}
+if [ "${1:-}" = "github" ]; then github_sign_in; exit; fi
 if [ "${1:-}" = "login" ]; then
   [ -f "$MCP" ] || { echo "The Ambivo plugin is not installed yet. Start the container again." >&2; exit 1; }
   sign_in; exit

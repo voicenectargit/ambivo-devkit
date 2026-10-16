@@ -27,6 +27,7 @@ const IMAGE = 'sgosain/ambivo-devkit';
 const VOLUME = '-v ambivo-devkit-home:/home/node/.claude';
 export const CLAUDE_SIGN_IN = `docker run -it --rm ${VOLUME} ${IMAGE} claude`;
 export const SANDBOX_SIGN_IN = `docker run -it --rm ${VOLUME} ${IMAGE} login`;
+export const GITHUB_SIGN_IN = `docker run -it --rm ${VOLUME} ${IMAGE} github`;
 
 function run(cmd, args, { timeout = 20_000, env } = {}) {
   return new Promise((resolve) => {
@@ -121,6 +122,11 @@ export async function runChecks({ auth = false, fetchImpl = fetch } = {}) {
     const o = await openaiAuth(fetchImpl);
     if (o) add('openai-auth', false, o.ok, o.text, o.fix);
   }
+
+  // GitHub, recommended: Claude and Dev Studio push the app to the maker's own repositories with it.
+  const gh = await run('gh', ['api', 'user', '--jq', '.login'], { timeout: 15_000 });
+  add('github', false, gh.ok && !!gh.out, gh.ok && gh.out ? `GitHub: signed in as ${gh.out}` : 'GitHub: not signed in',
+    'Needed only to push your apps to GitHub. To sign in, run this in a terminal on your computer.', GITHUB_SIGN_IN);
 
   const s = sandboxSession();
   add('sandbox', false, !!s, s ? `Ambivo sandbox: ${s.email}` : 'Ambivo sandbox: not signed in',
