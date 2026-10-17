@@ -110,16 +110,29 @@ Delete moves the app's folder to `.devstudio-trash` in your apps folder.
 
 ### VS Code, Cursor or WebStorm
 
-Copy the `.devcontainer` folder of this repository into your apps folder.
+Copy the `.devcontainer` folder of this repository into your apps folder. If the `ambivo-devkit` container
+from above is running, stop it first with `docker stop ambivo-devkit`. Both use port 4300 and the same volume.
 
 - **VS Code or Cursor:** install the Dev Containers extension, open your apps folder, and pick
-  **Reopen in Container**.
+  **Reopen in Container**. Dev Studio opens in your browser. If it does not, go to http://localhost:4300.
 - **WebStorm or another JetBrains IDE:** open `.devcontainer/devcontainer.json`. Click the container icon
   left of its first line, and pick **Create Dev Container and Mount Sources**. Then forward port 4300 in
-  the IDE's ports list.
+  the IDE's ports list, and go to http://localhost:4300.
 
-Open http://localhost:4300 for Dev Studio. VS Code opens it for you. To use Claude Code in the IDE's
-terminal instead, run `ambivo-start` there.
+Your apps folder is `/work` in the container. A change made in the IDE is also on your computer.
+
+Does http://localhost:4300 not load? Open a terminal in the IDE and run `ambivo-start studio`. Does Dev Studio
+ask for its link? Run this in the IDE's terminal and open the address it prints:
+
+```sh
+echo "http://localhost:4300/?token=$(cat ~/.claude/devstudio/access-token)"
+```
+
+**Claude Code in the IDE.** Open a terminal in the IDE and run `ambivo-start`. It starts Claude Code in your
+apps folder. Dev Studio keeps running beside it. Work on an app in one of them at a time.
+
+Dev Studio lists only the apps made in Dev Studio. An app you make with Claude Code in the terminal is in your
+apps folder and in the IDE. It is not in Dev Studio's list.
 
 ### Claude Code in the terminal
 

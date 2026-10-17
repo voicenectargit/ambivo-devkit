@@ -2,8 +2,10 @@
 //   VS Code or Cursor: pick "Reopen in Container".
 //   WebStorm or another JetBrains IDE: open devcontainer.json, click the container icon left of its first line, and pick
 //   "Create Dev Container and Mount Sources". Then forward port 4300 in the IDE's ports list.
+// Stop the ambivo-devkit container first if it is running: both use port 4300 and the same volume.
 // Dev Studio starts by itself on port 4300. VS Code opens it in your browser. If it does not open, go to http://localhost:4300.
-// To work in the terminal instead, open one in the IDE and run: ambivo-start
+// If that does not load, open a terminal in the IDE and run: ambivo-start studio
+// For Claude Code, open a terminal in the IDE and run: ambivo-start. Dev Studio keeps running beside it.
 // To use an image you built yourself, change "image" to its name (see container/Dockerfile).
 {
   "name": "Ambivo dev kit",
