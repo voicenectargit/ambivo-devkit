@@ -124,6 +124,10 @@ function checkInstall(root) {
     if (typeof key !== 'string' || !/^[a-z][a-z0-9]{1,23}$/.test(key)) {
       add(objectsPath, firstLine(text, /"app_key"/) || 1, 'install-app-key',
         'Set "app_key" at the top of app-objects.json: 2 to 24 lowercase letters or digits. The install step sends it as hosting_apps on every object.');
+    } else if (['crm', 'inventory', 'workforce', 'books', 'ambivo'].includes(key)) {
+      // Ambivo refuses these as app keys (APP_KEY_RESERVED_FOR_AMBIVO).
+      add(objectsPath, firstLine(text, /"app_key"/) || 1, 'install-app-key',
+        `"${key}" is the name of an Ambivo app. Pick another app_key.`);
     }
     for (const obj of Array.isArray(doc.objects) ? doc.objects : []) {
       const id = String(obj?.collection_id ?? '');
