@@ -5,8 +5,9 @@ the Ambivo API, screen style and sign-in. The apps it builds work with Ambivo fr
 
 It is for two groups:
 
-- **Companies building apps for themselves.** No approval needed. You install the app in your own company,
-  and its custom objects count against your company's quota.
+- **Companies building apps for themselves.** No approval needed. You install the app in your own company.
+  Each custom object the app creates counts toward your plan's limit on custom objects, the same as one you
+  add in the CRM.
 - **Development partners building apps for clients.** Ambivo must approve you before you install apps in
   other companies. To apply, write to dev-partner@ambivo.com.
 
