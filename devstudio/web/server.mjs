@@ -64,7 +64,7 @@ const migration = objects ? await migrateRecords({ dataDir: config.data, objects
 const partnerSource = config.partnerProg.on
   ? createPartnerSource({ config, objects: objects || createLocalObjects(config.data), lookup: github ? (name) => github.lookup(name) : null, credentials })
   : null;
-if (partnerSource) console.log(`access: from the Partner Program (tenant ${config.partnerProg.tenant}, user ${config.partnerProg.email}); the Access page is read-only`);
+if (partnerSource) console.log(`access: from the Partner Program (tenant ${config.partnerProg.tenant}, ${config.partnerProg.key ? 'with a service key' : `user ${config.partnerProg.email}`}); the Access page is read-only`);
 if (partnerSource) console.log(config.partnerProg.notify.on
   ? `access: emails each person whose access turns active, from ${config.partnerProg.notify.from} through SES (${config.partnerProg.notify.region})`
   : 'access: no access emails (DEVSTUDIO_PARTNERPROG_NOTIFY is not on)');

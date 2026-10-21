@@ -18,9 +18,10 @@ export function pem(value) {
 export const SECRET_PLACEHOLDER = 'SET-ME-OUT-OF-BAND';
 
 /**
- * The Partner Program source. On only when tenant, email and password are all set; otherwise Dev Studio
- * keeps its own Access list. The password is not enumerable, so printing or serialising the config
- * does not show it.
+ * The Partner Program source. On when the tenant is set with a service key, or with an email and
+ * password; otherwise Dev Studio keeps its own Access list. A key wins over the password: Dev Studio
+ * then never signs in. The key and the password are not enumerable, so printing or serialising the
+ * config does not show them.
  */
 function partnerProgConfig(env, ambivoApi, region) {
   const val = (k) => { const v = String(env[k] || '').trim(); return v === SECRET_PLACEHOLDER ? '' : v; };
@@ -35,8 +36,11 @@ function partnerProgConfig(env, ambivoApi, region) {
     partnerCollection: val('DEVSTUDIO_PARTNERPROG_PARTNER_COLLECTION') || 'partnerprog_partner',
     personCollection: val('DEVSTUDIO_PARTNERPROG_PERSON_COLLECTION') || 'partnerprog_person',
   };
-  Object.defineProperty(out, 'password', { value: String(env.DEVSTUDIO_PARTNERPROG_PASSWORD || '') === SECRET_PLACEHOLDER ? '' : String(env.DEVSTUDIO_PARTNERPROG_PASSWORD || ''), enumerable: false });
-  out.on = !!(out.tenant && out.email && out.password);
+  const secret = (k) => (String(env[k] || '') === SECRET_PLACEHOLDER ? '' : String(env[k] || ''));
+  Object.defineProperty(out, 'password', { value: secret('DEVSTUDIO_PARTNERPROG_PASSWORD'), enumerable: false });
+  // An Ambivo service key (amb_sk_…) that reads the two collections. Made by a company admin in Ambivo.
+  Object.defineProperty(out, 'key', { value: secret('DEVSTUDIO_PARTNERPROG_KEY').trim(), enumerable: false });
+  out.on = !!(out.tenant && (out.key || (out.email && out.password)));
   // Email each person when their access turns active (notify.mjs). Only with the source on. The sender
   // is fixed here, never taken from a record. An empty reply-to or configuration set leaves it out.
   const or = (k, d) => (env[k] === undefined ? d : String(env[k]).trim());

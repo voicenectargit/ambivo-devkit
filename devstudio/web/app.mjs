@@ -24,6 +24,7 @@ import { parsePhases, PhasesError, newPhases, mergePhases, findPhase, cannotStar
   PHASE0, PHASES_FILE, PHASE_DOCS, PHASE_ID, handoffFile } from './phases.mjs';
 import { startSignIn, finishSignIn, signOut as ambivoSignOut, DEFAULT_API as AMBIVO_DEFAULT_API } from './ambivo-signin.mjs';
 import { createDeploy } from './deploy.mjs';
+import { JOBS_FILE, JOB_ID, JobsError, cleanJobsDoc, coreCall, jobsForCore, objectsForJobs, secretProblem } from './appjobs.mjs';
 
 /** Exit codes that mean a run hit its container's memory cap (see the error emitted when a run ends). */
 const OUT_OF_MEMORY_CODES = new Set([134, 137]);
@@ -1220,6 +1221,102 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
     return [200, phasesOut(projects[p.id])];
   }
 
+  // ---- jobs: the app's scheduled jobs (appjobs.mjs) -----------------------------------------------
+  /**
+   * The Jobs dialog. GET: the project's app-jobs.json and the app's objects, and the jobs as they run in
+   * the maker's sandbox. PUT: save the file. POST ?action=install|enable|run|secret|runs: Core's
+   * /app_job routes, as the maker, in their sandbox only. Answers [status, body].
+   */
+  async function jobsRoute(id, p, req, url) {
+    const action = url.searchParams.get('action') || '';
+    const signInText = serverMode
+      ? 'Sign in to your Ambivo sandbox first, with the button on the left.'
+      : `Sign in to Ambivo on this computer first. Run this in a terminal: ${config.loginCommand || LOGIN_COMMAND}`;
+    const session = async () => {
+      const amb = await ambivoEnv(id, p);
+      if (!amb || amb === 'ended') return null;
+      const apiUrl = amb.AMBIVO_API_URL || (!serverMode ? localAmbivoSession()?.apiUrl : null) || config.ambivoApi;
+      return { fetchImpl, apiUrl, token: amb.AMBIVO_TOKEN };
+    };
+    const fail = (r) => [r.status, { error: r.error, code: r.code || undefined, ...(r.signIn ? { ambivoSignIn: true } : {}) }];
+    await prepare(id);
+    const objectsText = await readText(id, OBJECTS_FILE);
+    const { appKey, objects } = objectsText ? objectsForJobs(objectsText) : { appKey: '', objects: [] };
+
+    if (req.method === 'GET' && !action) {
+      const text = await readText(id, JOBS_FILE);
+      let doc = null, fileError = null;
+      if (text !== null) { try { doc = JSON.parse(text); } catch (err) { fileError = `src/install/app-jobs.json is not valid JSON: ${err.message}`; } }
+      const out = { appKey, objects, doc, fileError, hasObjects: objectsText !== null, live: null, liveError: null, signIn: false };
+      const s = await session();
+      if (!s) return [200, { ...out, signIn: true, liveError: signInText }];
+      if (!appKey) return [200, out];
+      const match = encodeURIComponent(JSON.stringify({ app_key: appKey }));
+      const [jobs, runs, secrets] = await Promise.all([
+        coreCall(s, 'GET', `app_job/list?page_size=50&match_filter_dict=${match}`),
+        coreCall(s, 'GET', 'app_job/run/list?page_size=100'),
+        coreCall(s, 'GET', `app_job/secret/list?app_key=${encodeURIComponent(appKey)}`),
+      ]);
+      if (!jobs.ok) return [200, { ...out, liveError: jobs.error, signIn: !!jobs.signIn }];
+      out.live = {
+        jobs: jobs.body.data_list || [],
+        // Runs of this app's jobs only, newest first.
+        runs: runs.ok ? (runs.body.data_list || []).filter((r) => r.app_key === appKey).slice(0, 50) : [],
+        secrets: secrets.ok ? (secrets.body.data_list || []).map((x) => ({ name: x.name, host: x.host, updated_at: x.updated_at })) : [],
+      };
+      return [200, out];
+    }
+    if (req.method === 'PUT' && !action) {
+      if (busy.has(id)) return [409, { error: 'The assistant is working. Save the jobs when it finishes.' }];
+      if (objectsText === null) return [409, { error: 'The app has no custom objects yet (src/install/app-objects.json). Jobs work on the app\'s own objects. Ask the assistant to add them first.' }];
+      let text;
+      try { text = cleanJobsDoc((await readBody(req, 300000)).doc, appKey); }
+      catch (err) { if (err instanceof JobsError) return [err.status, { error: err.message }]; throw err; }
+      await driver.writeFile(id, JOBS_FILE, Buffer.from(text));
+      log(`project ${id}: jobs file saved from the Jobs dialog`);
+      emit(id, { kind: 'note', text: 'Jobs saved in src/install/app-jobs.json.' });
+      // The rules check, from the plugin (the app's own copy may be older). Only the install folder's lines.
+      const r = await runIn(id, ['node', `${PLUGIN}/scripts/ambivo-check.mjs`, '/work/app'], {}, { timeoutMs: 60000 });
+      const lines = `${r.out}\n${r.err}`.split('\n').filter((l) => /src\/install\//.test(l)).map((l) => l.replace(/^ERROR /, '')).slice(0, 40);
+      return [200, { saved: true, problems: lines }];
+    }
+    if (req.method !== 'POST') return [405, { error: 'Not allowed' }];
+    const body = await readBody(req);
+    const s = await session();
+    if (!s) return [409, { error: signInText, ambivoSignIn: true }];
+    if (action === 'install') {
+      // The same call install.mjs makes after the objects: the whole list, into the sandbox.
+      if (!appKey) return [409, { error: 'The app has no custom objects yet (src/install/app-objects.json).' }];
+      let doc;
+      try { doc = JSON.parse(await readText(id, JOBS_FILE) ?? 'null'); } catch { doc = null; }
+      if (!doc || !Array.isArray(doc.jobs)) return [409, { error: 'There is no valid src/install/app-jobs.json to send.' }];
+      const r = await coreCall(s, 'PUT', `app_job/app/${encodeURIComponent(appKey)}`, { jobs: jobsForCore(doc) });
+      if (!r.ok) return fail(r);
+      log(`project ${id}: ${(r.body.data_list || []).length} jobs sent to the sandbox`);
+      return [200, { jobs: r.body.data_list || [], signingSecrets: r.body.signing_secrets || {} }];
+    }
+    if (action === 'secret') {
+      const name = String(body.name || ''), host = String(body.host || '').trim().toLowerCase();
+      const problem = secretProblem(name, body.value, host);
+      if (problem) return [400, { error: problem }];
+      if (!appKey) return [409, { error: 'The app has no custom objects yet (src/install/app-objects.json).' }];
+      // The value goes to Ambivo only. It is never logged or kept here.
+      const r = await coreCall(s, 'PUT', `app_job/secret/${encodeURIComponent(appKey)}/${encodeURIComponent(name)}`, { value: body.value, host });
+      if (!r.ok) return fail(r);
+      log(`project ${id}: sandbox secret ${name} set for ${host}`);
+      return [200, { set: name, host }];
+    }
+    const job = String(url.searchParams.get('job') || '');
+    if (!JOB_ID.test(job)) return [404, { error: 'No such job.' }];
+    let r;
+    if (action === 'enable') r = await coreCall(s, 'PATCH', `app_job/${job}`, { enabled: body.enabled === true });
+    else if (action === 'run') r = await coreCall(s, 'POST', `app_job/${job}/run`, {});
+    else if (action === 'runs') r = await coreCall(s, 'GET', `app_job/run/list?page_size=20&match_filter_dict=${encodeURIComponent(JSON.stringify({ job_id: job }))}`);
+    else return [404, { error: 'Not found' }];
+    if (!r.ok) return fail(r);
+    return [200, action === 'runs' ? { runs: r.body.data_list || [] } : { ok: true, job: r.body.app_job || null }];
+  }
+
   // ---- deploy: a one-time link for a client's admin (deploy.mjs) ---------------------------------
   const deploy = serverMode && deploySessions && deployPending ? createDeploy({
     stateObjects, sessions: deploySessions, pending: deployPending, config, fetchImpl, log,
@@ -1235,7 +1332,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
   const DEPLOY_ROUTE = /^\/deploy\/([A-Za-z0-9_-]{43})(?:\/(info|sign-in|verify|install|cancel))?$/;
 
   // ---- requests -----------------------------------------------------------------------------
-  const ROUTE = new RegExp(`^/api/projects(?:/(${ID}))?(?:/(events|messages|download|keys|preview|push|share|brief|phases|datamodel|settings|guide|teardown|deploy))?(?:/([a-z][a-z0-9-]{0,39})/(start|approve|reopen|screens))?$`);
+  const ROUTE = new RegExp(`^/api/projects(?:/(${ID}))?(?:/(events|messages|download|keys|preview|push|share|brief|phases|datamodel|settings|guide|teardown|deploy|jobs))?(?:/([a-z][a-z0-9-]{0,39})/(start|approve|reopen|screens))?$`);
 
   async function handler(req, res) {
     const url = new URL(req.url, 'http://x');
@@ -1296,7 +1393,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         if (act === 'info' && req.method === 'GET') out = await deploy.info(secret);
         else if (act === 'sign-in' && req.method === 'POST') out = await deploy.signIn(secret, await readBody(req));
         else if (act === 'verify' && req.method === 'POST') out = await deploy.verify(secret, await readBody(req));
-        else if (act === 'install' && req.method === 'POST') out = await deploy.install(secret);
+        else if (act === 'install' && req.method === 'POST') out = await deploy.install(secret, await readBody(req));
         else if (act === 'cancel' && req.method === 'POST') out = await deploy.cancel(secret);
         else out = [405, { error: 'Not allowed' }];
         res.setHeader('Referrer-Policy', 'no-referrer');
@@ -1491,6 +1588,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         if (req.method === 'DELETE') { const [code, out] = await deploy.revoke(p, String(url.searchParams.get('link') || '')); return json(res, code, out); }
         return json(res, 405, { error: 'Not allowed' });
       }
+      if (sub === 'jobs') { const [code, out] = await jobsRoute(id, p, req, url); return json(res, code, out); }
       if (sub === 'teardown' && (req.method === 'GET' || req.method === 'POST')) {
         // What the app made in the partner's Ambivo sandbox: listed (GET), or removed (POST). It runs the
         // devkit's teardown in the project's container, as the partner, in their sandbox only.

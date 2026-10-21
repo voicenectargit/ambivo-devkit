@@ -73,6 +73,7 @@ For an app with custom objects, plan these, in this order, and add the feature p
 | `prototype` | Prototype (optional) | The screens and the left menu with sample data held in the app, no API calls. See below. |
 | `shell` | App shell | Wires the left menu (`AppShellComponent`, the `ambivo-angular-app` skill) with every section, a dashboard placeholder and an empty page per section. After a Prototype it is short: the menu and pages exist; it puts `signedInGuard` back on every page and checks sign-in, routes and the phone layout. |
 | `objects` | Install custom objects | Writes `src/install/app-objects.json` and `src/install/install.mjs` (the `ambivo-custom-objects` skill) and runs it against the sandbox twice; the second run changes nothing. Needs the Ambivo sandbox sign-in. |
+| `jobs` | Scheduled jobs (only when the brief needs them) | Writes `src/install/app-jobs.json` and the jobs part of `install.mjs` (the `ambivo-app-jobs` skill): pulls from or pushes to outside services, reminders, digests, clean-up. Runs each job once in the sandbox. Put it after the objects it uses. |
 | `samples` | Sample data | Adds linked sample records to the sandbox with the `ambivo-sample-data` skill. |
 | (features) | one per module | The real screens, reading and writing through the API. |
 | `reports` | Reports | Lists, totals and exports the brief asks for. |

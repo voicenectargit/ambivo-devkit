@@ -1,12 +1,19 @@
 // Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
 // Who may sign in to Dev Studio beyond the floor list, read from the Partner Program app in Ambivo.
-// On when DEVSTUDIO_PARTNERPROG_TENANT, _EMAIL and _PASSWORD are set (config.partnerProg.on); the
-// Access page is then read-only and access.mjs takes its entries from here.
+// On when DEVSTUDIO_PARTNERPROG_TENANT is set with _KEY, or with _EMAIL and _PASSWORD
+// (config.partnerProg.on); the Access page is then read-only and access.mjs takes its entries from here.
+//
+// With DEVSTUDIO_PARTNERPROG_KEY (an Ambivo service key, amb_sk_…) every read sends the key and Dev
+// Studio never signs in. The key reads only the two collections, as the person it names. Without a
+// key, Dev Studio signs in as the service user with the password.
 //
 //   start()     loads the last stored snapshot, refreshes once, then every refreshMs (5 minutes)
-//   refresh()   signs in as the service user, reads every partner and person, builds the entries
+//   refresh()   reads every partner and person (with the key, or signed in), builds the entries
 //   entries()   the entries of the last good read, in access.mjs's shape
-//   status()    { configured, lastSuccessAt, lastError, lastErrorAt, problems, count, notify? }
+//   status()    { configured, lastSuccessAt, lastError, lastErrorAt, problems, count, nextTryAt, notify? }
+//
+// A sign-in refusal that trying again cannot fix (expired temporary password, wrong password, blocked,
+// verification on, wrong account), or a refused key, pauses the reads for 60 minutes; a restart tries at once.
 //
 // With DEVSTUDIO_PARTNERPROG_NOTIFY=on, each read that works is followed by notify.mjs: a person whose
 // access turns active gets one email. Person entries carry `name` and `email` (the work email) for it.
@@ -17,7 +24,7 @@
 // for a name wins, so a login that is renamed and then taken by someone else does not inherit access.
 //
 // Any failure keeps the last good snapshot (memory, else the stored one). With none, the list is empty
-// and only the floor gets in. The password and the token are never logged.
+// and only the floor gets in. The key, the password and the token are never logged.
 
 import { createNotifier, createSes } from './notify.mjs';
 
@@ -29,11 +36,18 @@ const REFRESH_MS = 5 * 60_000;
 const RENEW_BEFORE_MS = 60 * 60_000;   // sign in again this long before the token's exp
 const TIMEOUT_MS = 20_000;
 const DEVICE_ID = 'devstudio';
+// A refused sign-in that trying again cannot fix waits this long before the next try. Each try with
+// an expired temporary password makes Ambivo mail the service user a reset link (one per 15 minutes),
+// and wrong passwords count toward Ambivo's 5-try block.
+const SIGN_IN_PAUSE_MS = 60 * 60_000;
+const SIGN_IN_STOPS = /TEMP_PASSWORD_EXPIRED|CREDENTIAL|PASSWORD|BLOCKED|MFA|WRONG_TENANT|NOT_FOUND|INACTIVE|DISABLED/i;
+// Ambivo's refusals of a service key: INVALID_SERVICE_KEY, SERVICE_KEY_NOT_ALLOWED, SERVICE_KEY_USER_INACTIVE.
+const KEY_REFUSED = /SERVICE_KEY/;
 // Ambivo error codes that mean the session is over: sign in again once and retry.
 const SESSION_ENDED = /SESSION|TOKEN|NOT_AUTHENTICATED|UNAUTHORI[SZ]ED|LOGIN_REQUIRED|AUTH/i;
 
 export class PartnerSourceError extends Error {
-  constructor(message, code = null) { super(message); this.code = code; }
+  constructor(message, code = null, { signIn = false } = {}) { super(message); this.code = code; this.signIn = signIn; }
 }
 
 const lower = (s) => String(s ?? '').trim().toLowerCase().replace(/^@/, '');
@@ -63,15 +77,16 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
   let loaded = null;              // the stored snapshot, read once
   let timer = null;
   let lastLogged = '';
+  let pausedUntil = 0;            // after a sign-in refusal that trying again cannot fix
 
   // ---- Ambivo ---------------------------------------------------------------------------------
 
-  async function call(method, path, body, auth) {
+  async function call(method, path, body, auth, key = null) {
     let r;
     try {
       r = await fetchImpl(`${pp.api}${path}`, {
         method,
-        headers: { 'content-type': 'application/json', ...(auth ? { authorization: `Bearer ${auth}` } : {}) },
+        headers: { 'content-type': 'application/json', ...(auth ? { authorization: `Bearer ${auth}` } : {}), ...(key ? { 'x-ambivo-service-key': key } : {}) },
         body: body ? JSON.stringify(body) : undefined,
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
@@ -84,16 +99,19 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
 
   async function signIn() {
     const { status, j } = await call('POST', 'user/login', { email: pp.email, password: pp.password, device_id: DEVICE_ID });
-    if (j?.is_mfa_response) throw new PartnerSourceError('The service user has sign-in verification on. Turn it off for that user.', 'MFA');
+    if (j?.is_mfa_response) throw new PartnerSourceError('The service user has sign-in verification on. Turn it off for that user.', 'MFA', { signIn: true });
     const t = j?.user?.token;
     if (status !== 200 || j?.result !== 1 || !t) {
       const code = j?.error_code || j?.error?.error_code || `HTTP_${status}`;
-      throw new PartnerSourceError(`Ambivo refused the service user's sign-in (${code}).`, code);
+      const message = code === 'TEMP_PASSWORD_EXPIRED'
+        ? 'The service user\'s temporary password has expired. Set a new password for it in Ambivo, then update DEVSTUDIO_PARTNERPROG_PASSWORD.'
+        : `Ambivo refused the service user's sign-in (${code}).`;
+      throw new PartnerSourceError(message, code, { signIn: SIGN_IN_STOPS.test(code) });
     }
     const payload = jwtPayload(t);
     if (!payload || String(payload.tenant_id ?? '') !== pp.tenant) {
       // Nothing from this session is used: the service user must be in the Partner Program's account.
-      throw new PartnerSourceError('The service user belongs to another Ambivo account. Nothing was read.', 'WRONG_TENANT');
+      throw new PartnerSourceError('The service user belongs to another Ambivo account. Nothing was read.', 'WRONG_TENANT', { signIn: true });
     }
     token = t;
     // Without an exp, keep it until Ambivo says the session is over.
@@ -102,8 +120,22 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
     tokenUntil = now() + life - Math.min(RENEW_BEFORE_MS, life / 2);
   }
 
+  /** GET with the service key. A refused key pauses the reads, like a refused sign-in. */
+  async function getWithKey(path) {
+    const { status, j } = await call('GET', path, null, null, pp.key);
+    if (status === 200 && j?.result === 1) return j;
+    const code = j?.error_code || j?.error?.error_code || '';
+    if (KEY_REFUSED.test(code)) {
+      throw new PartnerSourceError(code === 'SERVICE_KEY_USER_INACTIVE'
+        ? 'The person Dev Studio\'s key acts as can no longer sign in to Ambivo. Make a new key, then update DEVSTUDIO_PARTNERPROG_KEY.'
+        : `Ambivo refused Dev Studio's key (${code}). Make a new key in Ambivo, then update DEVSTUDIO_PARTNERPROG_KEY.`, code, { signIn: true });
+    }
+    throw new PartnerSourceError(`Ambivo could not give the Partner Program records (${code || `HTTP ${status}`}).`, code || `HTTP_${status}`);
+  }
+
   /** GET with the service token; on 401 or a session-ended error, sign in again once and retry. */
   async function get(path) {
+    if (pp.key) return getWithKey(path);
     for (let i = 0; ; i++) {
       if (!token || now() >= tokenUntil) await signIn();
       const { status, j } = await call('GET', path, null, token);
@@ -247,6 +279,7 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
 
   async function run() {
     await (loaded ??= loadStored());
+    if (now() < pausedUntil) return;   // keeps the last error and the last good list
     try {
       const b = await build();
       snapshot = { at: now(), entries: b.entries, problems: b.problems };
@@ -260,7 +293,8 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
       lastError = err instanceof PartnerSourceError ? err.message : `Reading the Partner Program failed (${err.message}).`;
       lastErrorAt = now();
       lastLogged = '';
-      log(`partner program: read failed, ${snapshot ? 'keeping the last good list' : 'no good list yet, only the floor signs in'}: ${err.code || ''} ${lastError}`);
+      if (err.signIn) pausedUntil = now() + SIGN_IN_PAUSE_MS;
+      log(`partner program: read failed, ${snapshot ? 'keeping the last good list' : 'no good list yet, only the floor signs in'}: ${err.code || ''} ${lastError}${err.signIn ? ' Next try in 60 minutes.' : ''}`);
     }
   }
 
@@ -272,6 +306,7 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
     entries() { return snapshot?.entries ?? []; },
     status() {
       return { configured: true, lastSuccessAt: snapshot?.at ?? null, lastError, lastErrorAt, problems: snapshot?.problems ?? [], count: snapshot?.entries?.length ?? 0,
+        nextTryAt: now() < pausedUntil ? pausedUntil : null,
         ...(notifier ? { notify: notifier.status() } : {}) };
     },
     start() {

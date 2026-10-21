@@ -17,6 +17,10 @@
 // /work/deploys/<short id>/ at that moment, so later edits in Dev Studio cannot change what the admin
 // approved. Links last 7 days and install once. Only a hash of the link's secret is stored.
 //
+// An app with scheduled jobs (src/install/app-jobs.json) shows them too, with the secrets its jobs
+// send (an outside service's API key, say). The admin types each value on the page; Install sends it to
+// Ambivo with their session (PUT /app_job/secret) before the install step runs. Dev Studio never stores it.
+//
 // State (stateObjects):
 //   deploylinks/<sha256 of secret>.json   { projectId, ownerId, ownerLogin, appName, appVersion,
 //                                           objects:[{id,name}], dir, created, exp, status, ... }
@@ -25,6 +29,7 @@
 // both keyed by the link hash and removed after the install or on cancel.
 import { createHash, randomBytes } from 'node:crypto';
 import { startSignIn, finishSignIn, signOut as ambivoSignOut } from './ambivo-signin.mjs';
+import { jobsFromFile, secretProblem, coreCall } from './appjobs.mjs';
 
 export const DEPLOY_LINK_MS = 7 * 24 * 3600 * 1000;
 export const DEPLOY_SESSION_MS = 30 * 60 * 1000;   // how long a signed-in admin has to click Install
@@ -82,6 +87,13 @@ export function createDeploy({ stateObjects, sessions, pending, config, fetchImp
     }
     const parsed = objectsFromInstallFile(cfgText);
     if (!parsed) return [409, { error: 'The app\'s src/install/app-objects.json lists no custom objects. Ask the assistant to fix it, then make the link.' }];
+    // Scheduled jobs are optional; a jobs file that cannot be read stops the link.
+    let jobsText = null;
+    try { jobsText = (await app.sh(id, `cat ${INSTALL_DIR}/app-jobs.json`)).stdout; } catch { /* no jobs */ }
+    const jobs = jobsText === null ? null : jobsFromFile(jobsText);
+    if (jobsText !== null && (!jobs || !/^[a-z][a-z0-9]{1,23}$/.test(jobs.appKey))) {
+      return [409, { error: 'The app\'s src/install/app-jobs.json cannot be read. Ask the assistant to fix it, then make the link.' }];
+    }
     if (reachesOutside(installSrc)) {
       return [409, { error: 'The install step uses files outside src/install, so it cannot be sent as a link. Ask the assistant to keep everything it needs in src/install.' }];
     }
@@ -95,6 +107,7 @@ export function createDeploy({ stateObjects, sessions, pending, config, fetchImp
     const rec = {
       projectId: id, ownerId: String(user.id), ownerLogin: user.login || '', appName: project.name,
       appVersion: parsed.appVersion, objects: parsed.objects, dir, created: now, exp: now + DEPLOY_LINK_MS, status: 'open',
+      ...(jobs ? { appKey: jobs.appKey, jobs: jobs.jobs, secrets: jobs.secrets } : {}),
     };
     await putJson(linkKey(hash), rec, { ifNoneMatch: '*' });
     await app.update(id, (p) => {
@@ -104,7 +117,8 @@ export function createDeploy({ stateObjects, sessions, pending, config, fetchImp
     });
     log(`project ${id}: deploy link ${short} made by ${user.login} (app ${rec.appVersion || 'no version'}, ${rec.objects.length} objects)`);
     app.emit(id, { kind: 'note', text: `Deploy link made for version ${rec.appVersion || '(no version)'}. It works once, for 7 days.` });
-    return [201, { url: `${app.publicUrl}/deploy/${secret}`, exp: rec.exp, appVersion: rec.appVersion, objects: rec.objects }];
+    return [201, { url: `${app.publicUrl}/deploy/${secret}`, exp: rec.exp, appVersion: rec.appVersion, objects: rec.objects,
+      jobs: rec.jobs ?? [], secrets: rec.secrets ?? [] }];
   }
 
   /** Stop a link that has not been used. */
@@ -152,6 +166,7 @@ export function createDeploy({ stateObjects, sessions, pending, config, fetchImp
     if (l.error) return l.error;
     const s = await sessionInfo(l.hash);
     return [200, { appName: l.rec.appName, appVersion: l.rec.appVersion, objects: l.rec.objects, partner: l.rec.ownerLogin,
+      jobs: l.rec.jobs ?? [], secrets: l.rec.secrets ?? [],
       exp: l.rec.exp, status: l.rec.status, ...(s ? { signedIn: s } : {}) }];
   }
 
@@ -269,9 +284,16 @@ export function createDeploy({ stateObjects, sessions, pending, config, fetchImp
   }
 
   /** Run the frozen install step once with the admin's session, then end the session. */
-  async function install(secret) {
+  async function install(secret, body = {}) {
     const l = await openLink(secret);
     if (l.error) return l.error;
+    // Each secret the jobs need, typed by the admin. Checked before anything runs; held only for this request.
+    const needed = Array.isArray(l.rec.secrets) ? l.rec.secrets : [];
+    const given = body?.secrets && typeof body.secrets === 'object' ? body.secrets : {};
+    for (const s of needed) {
+      const problem = secretProblem(s.name, given[s.name], s.host);
+      if (problem) return [400, { error: problem === `Enter the value for ${s.name}.` ? `Enter the ${s.label || s.name}.` : problem }];
+    }
     if (l.rec.status !== 'open') return [409, { error: 'The app is being installed right now. Wait for it to finish.' }];
     const meta = await sessions.info(l.hash);
     if (!meta || !(meta.until > Date.now())) return [401, { error: 'Sign in again to install.', restart: true }];
@@ -288,13 +310,21 @@ export function createDeploy({ stateObjects, sessions, pending, config, fetchImp
     try {
       await app.prepare(id);
       const env = { AMBIVO_TOKEN: s.token, ...(s.apiUrl && s.apiUrl !== config.ambivoApi ? { AMBIVO_API_URL: s.apiUrl } : {}) };
-      r = await app.runIn(id, ['node', `${l.rec.dir}/install.mjs`, '--tenant', String(s.tenantId || '')], env);
+      // The secrets first, so the jobs the install step adds can run at once. A refusal stops the install.
+      let refused = null;
+      for (const sec of needed) {
+        const c = await coreCall({ fetchImpl, apiUrl: s.apiUrl || config.ambivoApi, token: s.token }, 'PUT',
+          `app_job/secret/${encodeURIComponent(l.rec.appKey)}/${encodeURIComponent(sec.name)}`, { value: given[sec.name], host: sec.host });
+        if (!c.ok) { refused = `Error: The ${sec.label || sec.name} was not saved: ${c.error}`; break; }
+      }
+      r = refused ? { code: 1, out: '', err: refused }
+        : await app.runIn(id, ['node', `${l.rec.dir}/install.mjs`, '--tenant', String(s.tenantId || '')], env);
     } finally {
       app.setBusy(id, false);
       await forgetSession(l.hash);
     }
     const ok = r.code === 0;
-    const line = String(r.err || '').split('\n').map((x) => x.trim()).find((x) => /error/i.test(x)) || '';
+    const line = (String(r.err || '').split('\n').map((x) => x.trim()).find((x) => /error/i.test(x)) || '').replace(/^Error:\s*/, '');
     const now = Date.now();
     const entry = { at: now, company: meta.tenantName || '', tenantId: String(s.tenantId || ''), by: meta.email || '',
       appVersion: l.rec.appVersion, ok, link: l.hash.slice(0, 16), ...(ok ? {} : { error: line.slice(0, 300) }) };

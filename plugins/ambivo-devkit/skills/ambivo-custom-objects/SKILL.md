@@ -16,6 +16,9 @@ that is a custom object, and the app reads and writes it through the `/custom/ob
 - Need files or comments on a record? The custom object files and comments endpoints.
 - Need logic to run on the server when a record changes? Ask the user first. Ambivo workflows can run
   on custom object changes; check the workflows spec before promising it.
+- Need something to run on a schedule, or while nobody has the app open (pull from or push to an
+  outside service, reminders, a daily email of records, cleaning up old records)? That is an app job,
+  declared in `src/install/app-jobs.json`. See the `ambivo-app-jobs` skill.
 - Something truly cannot be done with the Ambivo API and custom objects? Stop and tell the user what
   is missing. Do not build a server to work around it.
 
@@ -149,6 +152,8 @@ per client tenant by that tenant's admin:
   nothing outside `src/install`: Dev Studio's **Deploy** copies that folder and runs the copy in the
   client's company, with `AMBIVO_TOKEN` set to the client admin's session and `--tenant` set. A step that
   imports `../` cannot be deployed.
+- `src/install/app-jobs.json` (only when the app has scheduled jobs): install.mjs sends it after the
+  objects exist. See the `ambivo-app-jobs` skill.
 - **Single-client app:** run it once for that client.
 - **App for many clients:** run it once per client; nothing in it may name one client's sites, ids or
   data. The app reads per-client values (sites, picklists) from the API at runtime.

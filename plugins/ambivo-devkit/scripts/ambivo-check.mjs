@@ -161,6 +161,226 @@ function checkInstall(root) {
   return out;
 }
 
+// A standalone app's scheduled jobs: src/install/app-jobs.json (the ambivo-app-jobs skill).
+const JOB_TYPES = ['http_pull', 'http_push', 'reminder', 'email_digest', 'housekeeping', 'app_webhook'];
+const JOB_KEY = /^[a-z][a-z0-9_]{1,39}$/;
+const SECRET_NAME = /^[A-Z][A-Z0-9_]{1,63}$/;
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const FILTER_OPS = ['eq', 'ne', 'lt', 'lte', 'gt', 'gte', 'in', 'nin', 'exists', 'older_than_days', 'within_next_days'];
+// Fields Ambivo keeps on every record. A job may read some of them, and never writes any.
+const RESERVED_FIELDS = new Set(['id', 'tenant_id', 'userid', 'updated_by_userid', 'created_by', 'created_by_userid',
+  'updated_by', 'created_ts', 'updated_ts', 'access_dict', 'comments', 'file_ids_list', 'deleted']);
+const reservedField = (f) => RESERVED_FIELDS.has(f) || String(f).startsWith('_');
+// A header value that looks like a key: "Bearer ...", "sk_...", or a long run of random-looking characters.
+const KEYLIKE = /^\s*(bearer|basic|token)\s+\S+|\b(sk|pk|rk)_[A-Za-z0-9]|\bsk-[A-Za-z0-9]|[A-Za-z0-9+/_=-]{32,}/i;
+
+/** The host of an https URL on a public-looking name, or null. */
+function publicHttpsHost(url) {
+  let u;
+  try { u = new URL(String(url)); } catch { return null; }
+  const h = u.hostname.toLowerCase();
+  if (u.protocol !== 'https:' || !h || h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal') ||
+      h.endsWith('.localhost') || /^[\d.]+$/.test(h) || h.includes(':') || h.startsWith('[') || !/\.[a-z]{2,63}$/.test(h)) return null;
+  return h;
+}
+
+function checkJobs(root) {
+  const dir = join(root, 'src', 'install');
+  const path = join(dir, 'app-jobs.json');
+  if (!existsSync(path)) return [];
+  const out = [];
+  const text = readFileSync(path, 'utf8');
+  const lineOf = (needle) => (needle ? firstLine(text, new RegExp(String(needle).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))) : 0) || 1;
+  const add = (line, id, message) => out.push({ file: path, line, id, severity: 'error', message });
+  let doc;
+  try { doc = JSON.parse(text); } catch (e) {
+    add(1, 'jobs-json', `app-jobs.json is not valid JSON: ${e.message}`);
+    return out;
+  }
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) { add(1, 'jobs-json', 'app-jobs.json must be an object: {"app_key", "jobs", "secrets"}.'); return out; }
+
+  // The app's objects and their fields, from app-objects.json.
+  let objectsDoc = null;
+  try { objectsDoc = JSON.parse(readFileSync(join(dir, 'app-objects.json'), 'utf8')); } catch { /* reported by checkInstall, or missing */ }
+  const key = doc.app_key;
+  if (!objectsDoc) {
+    add(lineOf('"app_key"'), 'jobs-app-key', 'app-jobs.json needs src/install/app-objects.json next to it. Jobs work only on the app\'s own custom objects.');
+  } else if (key !== objectsDoc.app_key) {
+    add(lineOf('"app_key"'), 'jobs-app-key', `"app_key" must be "${objectsDoc.app_key}", the same as in app-objects.json.`);
+  }
+  const objects = new Map();
+  for (const o of Array.isArray(objectsDoc?.objects) ? objectsDoc.objects : Array.isArray(objectsDoc) ? objectsDoc : []) {
+    if (o && typeof o.collection_id === 'string') {
+      const fields = o.schema && typeof o.schema === 'object' ? Object.keys(o.schema) : [];
+      objects.set(o.collection_id, fields.length ? new Set(fields) : null);
+    }
+  }
+
+  // Secrets: names and hosts only.
+  const secrets = new Map();
+  const secretList = doc.secrets ?? [];
+  if (!Array.isArray(secretList)) add(lineOf('"secrets"'), 'jobs-secrets', '"secrets" must be a list of {"name", "host", "label"}.');
+  for (const s of Array.isArray(secretList) ? secretList : []) {
+    const name = s?.name;
+    const line = lineOf(`"${name}"`);
+    if (typeof name !== 'string' || !SECRET_NAME.test(name)) { add(line, 'jobs-secrets', `Secret name ${JSON.stringify(name)}: use capital letters, digits and _, like SUPPLIER_API_KEY.`); continue; }
+    if (s && 'value' in s) add(line, 'jobs-secret-value', `Secret ${name} has a "value". Never put a secret value in a file. The company admin sets it in Ambivo.`);
+    const host = String(s?.host ?? '').toLowerCase();
+    if (!publicHttpsHost(`https://${host}/`) || /[/:]/.test(host)) add(line, 'jobs-secrets', `Secret ${name}: "host" must be the host name the secret is sent to, like api.example.com.`);
+    if (secrets.has(name)) add(line, 'jobs-secrets', `Secret ${name} is listed twice.`);
+    secrets.set(name, host);
+  }
+
+  const jobs = doc.jobs;
+  if (!Array.isArray(jobs) || !jobs.length) { add(lineOf('"jobs"'), 'jobs-list', '"jobs" must be a list of 1 to 20 jobs.'); return out; }
+  if (jobs.length > 20) add(lineOf('"jobs"'), 'jobs-list', `An app has at most 20 jobs; this file has ${jobs.length}.`);
+  const seen = new Set();
+  for (const job of jobs) {
+    const jk = job?.job_key;
+    const line = lineOf(jk ? `"${jk}"` : null);
+    const bad = (id, msg) => add(line, id, `${jk || 'A job'}: ${msg}`);
+    if (typeof jk !== 'string' || !JOB_KEY.test(jk)) bad('jobs-key', 'job_key is 2 to 40 lowercase letters, digits or _, starting with a letter.');
+    else if (seen.has(jk)) bad('jobs-key', 'this job_key is used twice.');
+    seen.add(jk);
+    if (!JOB_TYPES.includes(job?.job_type)) { bad('jobs-type', `job_type must be one of: ${JOB_TYPES.join(', ')}.`); continue; }
+    for (const p of scheduleProblems(job)) bad('jobs-schedule', p);
+    const cfg = job.config;
+    if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) { bad('jobs-config', 'config must be an object.'); continue; }
+    for (const p of configProblems(job.job_type, cfg, key, objects, secrets)) bad(p[0], p[1]);
+  }
+
+  // install.mjs must send the jobs.
+  const installPath = join(dir, 'install.mjs');
+  if (existsSync(installPath) && !/app_job\/app\//.test(readFileSync(installPath, 'utf8'))) {
+    out.push({ file: installPath, line: 1, id: 'install-sends-jobs', severity: 'error',
+      message: 'app-jobs.json exists, so install.mjs must send it with PUT /app_job/app/{app_key} after the objects. See the ambivo-app-jobs skill.' });
+  }
+  return out;
+}
+
+function scheduleProblems(job) {
+  const s = job.schedule ?? (job.every_minutes !== undefined ? { every_minutes: job.every_minutes } : null);
+  if (!s || typeof s !== 'object') return ['add a "schedule": {"every_minutes"}, {"daily_at"} or {"weekly"}.'];
+  const forms = ['every_minutes', 'daily_at', 'weekly'].filter((k) => s[k] !== undefined);
+  if (forms.length !== 1) return ['"schedule" takes exactly one of every_minutes, daily_at or weekly.'];
+  const out = [];
+  if (s.every_minutes !== undefined && !(Number.isInteger(s.every_minutes) && s.every_minutes >= 15 && s.every_minutes <= 10080)) {
+    out.push('every_minutes must be a whole number from 15 to 10080.');
+  }
+  if (s.daily_at !== undefined && !HHMM.test(String(s.daily_at))) out.push('daily_at must be a time like "08:00".');
+  if (s.weekly !== undefined) {
+    const w = s.weekly;
+    if (!w || !Array.isArray(w.days) || !w.days.length || w.days.some((d) => !DAYS.includes(d))) out.push(`weekly.days must list days from: ${DAYS.join(' ')}.`);
+    if (!HHMM.test(String(w?.at ?? ''))) out.push('weekly.at must be a time like "08:00".');
+  }
+  if (s.tz !== undefined && (typeof s.tz !== 'string' || !/^(UTC|[A-Z][A-Za-z_+-]*(\/[A-Za-z0-9_+-]+){1,2})$/.test(s.tz))) {
+    out.push('tz must be a time zone name like "America/Chicago", or "UTC".');
+  }
+  return out;
+}
+
+function configProblems(type, cfg, key, objects, secrets) {
+  const out = [];
+  const p = (id, m) => out.push([id, m]);
+  // The outside address, its headers and its secret headers.
+  if (['http_pull', 'http_push', 'app_webhook'].includes(type)) {
+    const host = publicHttpsHost(cfg.url);
+    if (!host) p('jobs-url', 'url must be an https address on a public host name, never an IP address, localhost, .local or .internal.');
+    const methods = type === 'http_pull' ? ['GET', 'POST'] : type === 'http_push' ? ['POST', 'PUT'] : null;
+    if (methods && cfg.method !== undefined && !methods.includes(String(cfg.method).toUpperCase())) p('jobs-config', `method must be ${methods.join(' or ')}.`);
+    const headers = cfg.headers ?? {};
+    if (typeof headers !== 'object' || Array.isArray(headers)) p('jobs-config', 'headers must be an object.');
+    else {
+      for (const [h, v] of Object.entries(headers)) {
+        if (/^(authorization|x-api-key|api-key|apikey|x-auth-token|cookie)$/i.test(h) || KEYLIKE.test(String(v))) {
+          p('jobs-header-secret', `headers.${h} looks like a key. Put it in secret_headers with a secret name, and list the secret in "secrets".`);
+        }
+      }
+    }
+    const sh = cfg.secret_headers ?? {};
+    if (typeof sh !== 'object' || Array.isArray(sh)) p('jobs-config', 'secret_headers must be an object of header: SECRET_NAME.');
+    else {
+      for (const [h, name] of Object.entries(sh)) {
+        if (!secrets.has(name)) p('jobs-secret-unknown', `secret_headers.${h} names ${JSON.stringify(name)}, which is not in "secrets".`);
+        else if (host && secrets.get(name) !== host) p('jobs-secret-host', `secret ${name} is for ${secrets.get(name)}, but the url's host is ${host}. They must be the same.`);
+      }
+    }
+  }
+  // The app's own object, and the fields named on it.
+  const objectOf = (field) => {
+    const c = cfg[field];
+    if (typeof c !== 'string' || !c) { p('jobs-object', `${field} is required.`); return null; }
+    if (key && !c.startsWith(`${key}_`)) { p('jobs-object', `${field} ${c} must start with "${key}_". Jobs work only on the app's own objects.`); return null; }
+    if (!objects.has(c)) { p('jobs-object', `${field} ${c} is not in app-objects.json.`); return null; }
+    return c;
+  };
+  const fieldsOn = (coll, names, what, { write = false } = {}) => {
+    if (!coll) return;
+    const known = objects.get(coll);
+    for (const f of names) {
+      if (typeof f !== 'string' || !f) { p('jobs-field', `${what}: a field name is missing.`); continue; }
+      if (write && reservedField(f)) { p('jobs-reserved-field', `${what}: ${f} is a field Ambivo sets itself. A job may not write it.`); continue; }
+      if (known && !known.has(f) && !reservedField(f)) p('jobs-field', `${what}: ${f} is not a field of ${coll}.`);
+    }
+  };
+  const filterOn = (coll) => {
+    const f = cfg.filter ?? [];
+    if (!Array.isArray(f)) { p('jobs-filter', 'filter must be a list of {"field", "op", "value"}.'); return; }
+    if (f.length > 10) p('jobs-filter', 'filter has at most 10 conditions.');
+    for (const c of f) if (!FILTER_OPS.includes(c?.op)) p('jobs-filter', `filter op ${JSON.stringify(c?.op)} must be one of: ${FILTER_OPS.join(' ')}.`);
+    fieldsOn(coll, f.map((c) => c?.field), 'filter');
+  };
+  if (type === 'http_pull') {
+    const t = objectOf('target_collection');
+    const fm = cfg.field_map;
+    if (!fm || typeof fm !== 'object' || Array.isArray(fm) || !Object.keys(fm).length) p('jobs-config', 'field_map must map the object\'s fields to paths in each fetched item.');
+    else {
+      fieldsOn(t, Object.keys(fm), 'field_map', { write: true });
+      if (!(cfg.upsert_key in fm)) p('jobs-config', 'upsert_key must be one of the field_map fields. It finds the record to update.');
+    }
+  } else if (type === 'http_push') {
+    const s = objectOf('source_collection');
+    if (!Array.isArray(cfg.fields) || !cfg.fields.length) p('jobs-config', 'fields must list the fields to send.');
+    else fieldsOn(s, cfg.fields, 'fields');
+    filterOn(s);
+  } else if (type === 'reminder') {
+    const s = objectOf('source_collection');
+    fieldsOn(s, [cfg.date_field], 'date_field');
+    if (!(Number.isInteger(cfg.days) && cfg.days >= -30 && cfg.days <= 30)) p('jobs-config', 'days must be a whole number from -30 to 30.');
+    const n = cfg.notify;
+    if (n === 'owner' || (n && typeof n === 'object' && n.role === 'admins')) { /* ok */ }
+    else if (n && typeof n === 'object' && typeof n.user_field === 'string') fieldsOn(s, [n.user_field], 'notify.user_field');
+    else if (n && typeof n === 'object' && Array.isArray(n.userids) && n.userids.length) { /* ok */ }
+    else p('jobs-recipients', 'notify must be "owner", {"user_field"}, {"userids"} or {"role": "admins"}: people in the company only.');
+    if (!Array.isArray(cfg.channels) || !cfg.channels.length || cfg.channels.some((c) => !['in_app', 'push', 'email'].includes(c))) {
+      p('jobs-config', 'channels must list in_app, push or email.');
+    }
+    filterOn(s);
+  } else if (type === 'email_digest') {
+    const s = objectOf('source_collection');
+    if (!Array.isArray(cfg.fields) || !cfg.fields.length) p('jobs-config', 'fields must list the columns of the email.');
+    else fieldsOn(s, cfg.fields, 'fields');
+    if (cfg.sort !== undefined) fieldsOn(s, [cfg.sort?.field], 'sort');
+    const to = cfg.to;
+    if (!(to && typeof to === 'object' && (to.role === 'admins' || (Array.isArray(to.userids) && to.userids.length)))) {
+      p('jobs-recipients', 'to must be {"userids": [...]} or {"role": "admins"}: people in the company only, never an email address.');
+    }
+    if (typeof cfg.subject !== 'string' || !cfg.subject.trim()) p('jobs-config', 'subject is required.');
+    filterOn(s);
+  } else if (type === 'housekeeping') {
+    const s = objectOf('source_collection');
+    if (cfg.action === 'set') {
+      if (!cfg.set || typeof cfg.set !== 'object' || Array.isArray(cfg.set) || !Object.keys(cfg.set).length) p('jobs-config', 'set must name the fields to change and their new values.');
+      else fieldsOn(s, Object.keys(cfg.set), 'set', { write: true });
+    } else if (cfg.action === 'delete') {
+      if (!Array.isArray(cfg.filter) || !cfg.filter.length) p('jobs-filter', 'a delete job needs a filter, so it never removes every record.');
+    } else p('jobs-config', 'action must be "set" or "delete".');
+    filterOn(s);
+  }
+  return out;
+}
+
 function walk(dir, acc = []) {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name.startsWith('.')) continue;
@@ -203,7 +423,7 @@ if (process.argv[2] === '--hook') {
     const inInstall = resolve(file).startsWith(join(root, 'src', 'install'));
     const own = inInstall || resolve(file).startsWith(join(root, 'src', 'app')) || resolve(file) === join(root, 'src', 'styles.scss');
     if (!own) process.exit(0);
-    const errors = (inInstall ? checkInstall(root) : [...checkFile(resolve(file)), ...checkInstall(root).filter((p) => p.file === resolve(file))])
+    const errors = (inInstall ? [...checkInstall(root), ...checkJobs(root)] : [...checkFile(resolve(file)), ...checkInstall(root).filter((p) => p.file === resolve(file))])
       .filter((p) => p.severity === 'error');
     if (!errors.length) process.exit(0);
     console.error(`Ambivo check found problems in the file you just wrote:\n${report(errors, root)}`);
@@ -217,7 +437,7 @@ if (process.argv[2] === '--hook') {
   }
   const files = walk(join(root, 'src', 'app'));
   if (existsSync(join(root, 'src', 'styles.scss'))) files.push(join(root, 'src', 'styles.scss'));
-  const problems = [...files.flatMap(checkFile), ...checkInstall(root)];
+  const problems = [...files.flatMap(checkFile), ...checkInstall(root), ...checkJobs(root)];
   // Other UI libraries added as dependencies, even if not imported yet.
   const pkgPath = join(root, 'package.json');
   if (existsSync(pkgPath)) {

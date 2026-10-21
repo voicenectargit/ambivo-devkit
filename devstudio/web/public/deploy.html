@@ -23,6 +23,7 @@
   ul.objects { margin: 8px 0 0; padding-left: 20px; }
   ul.objects li small { color: var(--muted); }
   label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; margin-top: 12px; }
+  .host { font-weight: 400; color: var(--muted); font-size: 13px; }
   input { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; width: 100%; background: #fff; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
   button { font: inherit; font-weight: 500; border: 0; border-radius: 20px; padding: 10px 18px; cursor: pointer; background: var(--primary); color: var(--on-primary); }
@@ -44,6 +45,11 @@
     <h2 id="listTitle"></h2>
     <ul class="objects" id="objects"></ul>
     <p class="muted">They start empty. The install changes nothing else in your company.</p>
+    <div id="jobsAbout" hidden>
+      <h2 id="jobsTitle"></h2>
+      <ul class="objects" id="jobs"></ul>
+      <p class="muted">An admin can turn each job off in Ambivo. Jobs need the Pro plan.</p>
+    </div>
   </div>
 
   <form class="card" id="signIn" hidden>
@@ -66,6 +72,11 @@
   <div class="card" id="ready" hidden>
     <h2>Ready to install</h2>
     <p id="readyText"></p>
+    <div id="secretsBox" hidden>
+      <h2>Keys for the jobs</h2>
+      <p class="muted">The jobs send these keys to the services below. Ambivo keeps each key and sends it only to its service. Dev Studio does not keep them, and the partner never sees them.</p>
+      <div id="secrets"></div>
+    </div>
     <p class="error" id="installErr" role="alert"></p>
     <div class="row"><button id="installBtn">Install</button><button type="button" class="text" id="cancelBtn">Cancel and sign out</button></div>
   </div>
@@ -102,10 +113,32 @@
       const sm = document.createElement('small'); sm.textContent = `(${o.id})`; li.append(sm);
       ul.append(li);
     }
+    const jobs = info.jobs || [];
+    $('#jobsAbout').hidden = !jobs.length;
+    $('#jobsTitle').textContent = jobs.length === 1 ? 'It adds 1 scheduled job:' : `It adds ${jobs.length} scheduled jobs:`;
+    const jl = $('#jobs'); jl.textContent = '';
+    for (const j of jobs) {
+      const li = document.createElement('li');
+      li.textContent = `${j.name}. ${j.typeName}. ${j.schedule}. `;
+      jl.append(li);
+    }
+    // One field for each key the jobs send. The host shows where it goes; it cannot be changed.
+    const box = $('#secrets'); box.textContent = '';
+    $('#secretsBox').hidden = !(info.secrets || []).length;
+    for (const s of info.secrets || []) {
+      const label = document.createElement('label');
+      label.append(document.createTextNode(s.label));
+      const host = document.createElement('span'); host.className = 'host'; host.textContent = `Sent only to ${s.host}`;
+      const input = document.createElement('input');
+      input.type = 'password'; input.autocomplete = 'off'; input.required = true; input.dataset.secret = s.name;
+      label.append(host, input);
+      box.append(label);
+    }
   }
 
   function ready(r) {
-    $('#readyText').textContent = `Signed in as ${r.email}, an admin of ${r.company}. Install adds the custom objects above to ${r.company}.`;
+    const withJobs = (info.jobs || []).length ? ' and the scheduled jobs' : '';
+    $('#readyText').textContent = `Signed in as ${r.email}, an admin of ${r.company}. Install adds the custom objects${withJobs} above to ${r.company}.`;
     $('#installErr').textContent = '';
     show('about', 'ready');
   }
@@ -150,7 +183,13 @@
     $('#installBtn').disabled = true; $('#cancelBtn').disabled = true;
     $('#installBtn').textContent = 'Installing…'; $('#installErr').textContent = '';
     try {
-      const r = await call('/install', {});
+      const secrets = {};
+      for (const i of document.querySelectorAll('#secrets input')) {
+        if (!i.value.trim()) { $('#installErr').textContent = 'Enter every key for the jobs, then click Install.'; i.focus(); return; }
+        secrets[i.dataset.secret] = i.value;
+      }
+      const r = await call('/install', { secrets });
+      for (const i of document.querySelectorAll('#secrets input')) i.value = '';
       const v = r.appVersion ? ` version ${r.appVersion}` : '';
       $('#doneText').textContent = `${info.appName}${v} is installed in ${r.company}.`;
       show('about', 'done');
