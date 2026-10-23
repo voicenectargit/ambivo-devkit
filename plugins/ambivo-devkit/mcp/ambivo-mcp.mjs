@@ -35163,7 +35163,7 @@ function visit(schema, fnOrHandlers) {
     return h ? h(node2, rewritten) : node2;
   };
   const cache = /* @__PURE__ */ new Map();
-  function run(s) {
+  function run2(s) {
     const cached2 = cache.get(s);
     if (cached2 === RESOLVING) {
       return new $ZodLazy({
@@ -35189,21 +35189,21 @@ function visit(schema, fnOrHandlers) {
         let changed = false;
         const newShape = {};
         for (const k of keys) {
-          const mapped = run(oldShape[k]);
+          const mapped = run2(oldShape[k]);
           if (mapped !== oldShape[k])
             changed = true;
           newShape[k] = mapped;
         }
         let newCatchall = def.catchall;
         if (def.catchall) {
-          newCatchall = run(def.catchall);
+          newCatchall = run2(def.catchall);
           if (newCatchall !== def.catchall)
             changed = true;
         }
         return changed ? clone(s, { ...def, shape: newShape, catchall: newCatchall }) : s;
       }
       case "array": {
-        const mapped = run(def.element);
+        const mapped = run2(def.element);
         return mapped === def.element ? s : clone(s, { ...def, element: mapped });
       }
       case "tuple": {
@@ -35211,14 +35211,14 @@ function visit(schema, fnOrHandlers) {
         let changed = false;
         const newItems = [];
         for (const item of oldItems) {
-          const mapped = run(item);
+          const mapped = run2(item);
           if (mapped !== item)
             changed = true;
           newItems.push(mapped);
         }
         let newRest = def.rest;
         if (def.rest) {
-          newRest = run(def.rest);
+          newRest = run2(def.rest);
           if (newRest !== def.rest)
             changed = true;
         }
@@ -35226,12 +35226,12 @@ function visit(schema, fnOrHandlers) {
       }
       case "record":
       case "map": {
-        const newKey = run(def.keyType);
-        const newVal = run(def.valueType);
+        const newKey = run2(def.keyType);
+        const newVal = run2(def.valueType);
         return newKey === def.keyType && newVal === def.valueType ? s : clone(s, { ...def, keyType: newKey, valueType: newVal });
       }
       case "set": {
-        const newVal = run(def.valueType);
+        const newVal = run2(def.valueType);
         return newVal === def.valueType ? s : clone(s, { ...def, valueType: newVal });
       }
       case "union": {
@@ -35239,7 +35239,7 @@ function visit(schema, fnOrHandlers) {
         let changed = false;
         const newOptions = [];
         for (const opt2 of oldOptions) {
-          const mapped = run(opt2);
+          const mapped = run2(opt2);
           if (mapped !== opt2)
             changed = true;
           newOptions.push(mapped);
@@ -35247,8 +35247,8 @@ function visit(schema, fnOrHandlers) {
         return changed ? clone(s, { ...def, options: newOptions }) : s;
       }
       case "intersection": {
-        const newLeft = run(def.left);
-        const newRight = run(def.right);
+        const newLeft = run2(def.left);
+        const newRight = run2(def.right);
         return newLeft === def.left && newRight === def.right ? s : clone(s, { ...def, left: newLeft, right: newRight });
       }
       case "optional":
@@ -35260,23 +35260,23 @@ function visit(schema, fnOrHandlers) {
       case "nonoptional":
       case "promise":
       case "success": {
-        const newInner = run(def.innerType);
+        const newInner = run2(def.innerType);
         return newInner === def.innerType ? s : clone(s, { ...def, innerType: newInner });
       }
       case "pipe": {
-        const newIn = run(def.in);
-        const newOut = run(def.out);
+        const newIn = run2(def.in);
+        const newOut = run2(def.out);
         return newIn === def.in && newOut === def.out ? s : clone(s, { ...def, in: newIn, out: newOut });
       }
       case "function": {
-        const newInput = run(def.input);
-        const newOutput = run(def.output);
+        const newInput = run2(def.input);
+        const newOutput = run2(def.output);
         return newInput === def.input && newOutput === def.output ? s : clone(s, { ...def, input: newInput, output: newOutput });
       }
       case "lazy": {
         const original = def.getter;
         const { _cachedInner, ...rest } = def;
-        return clone(s, { ...rest, getter: () => run(original()) });
+        return clone(s, { ...rest, getter: () => run2(original()) });
       }
       // A leaf by choice: `parts` are regex fragments, not data positions.
       case "template_literal":
@@ -35307,7 +35307,7 @@ function visit(schema, fnOrHandlers) {
       }
     }
   }
-  return run(schema);
+  return run2(schema);
 }
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
@@ -44108,6 +44108,7 @@ async function matchGet(concretePath) {
 
 // src/session.mjs
 import { readFileSync as readFileSync2, writeFileSync as writeFileSync2, mkdirSync as mkdirSync2, existsSync as existsSync2, rmSync, chmodSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { homedir as homedir2 } from "node:os";
 import { join as join2 } from "node:path";
 
@@ -44269,8 +44270,66 @@ var SESSION_FILE = join2(
   "ambivo-devkit",
   "session.json"
 );
+var SERVICE = "ambivo-devkit";
+var ACCOUNT = "session";
+var TOKEN_CHARS = /^[A-Za-z0-9._-]+$/;
 function withSlash2(u) {
   return u.endsWith("/") ? u : `${u}/`;
+}
+var run = (cmd, args, input2) => execFileSync(cmd, args, { input: input2, encoding: "utf8", stdio: ["pipe", "pipe", "ignore"], timeout: 1e4 });
+var keychain = {
+  name: "keychain",
+  label: "the macOS Keychain",
+  available: () => process.platform === "darwin" && existsSync2("/usr/bin/security"),
+  get: () => run("/usr/bin/security", ["find-generic-password", "-s", SERVICE, "-a", ACCOUNT, "-w"]).trim() || null,
+  set: (token) => {
+    run("/usr/bin/security", ["-i"], `add-generic-password -U -s ${SERVICE} -a ${ACCOUNT} -l "Ambivo dev kit session" -w "${token}"
+`);
+  },
+  remove: () => {
+    run("/usr/bin/security", ["delete-generic-password", "-s", SERVICE, "-a", ACCOUNT]);
+  }
+};
+var secretTool = {
+  name: "secret-tool",
+  label: "the Linux keyring",
+  available: () => {
+    if (process.platform !== "linux" || !process.env.DBUS_SESSION_BUS_ADDRESS) return false;
+    try {
+      run("secret-tool", ["--version"]);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  get: () => run("secret-tool", ["lookup", "service", SERVICE, "account", ACCOUNT]).trim() || null,
+  set: (token) => {
+    run("secret-tool", ["store", "--label=Ambivo dev kit session", "service", SERVICE, "account", ACCOUNT], token);
+  },
+  remove: () => {
+    run("secret-tool", ["clear", "service", SERVICE, "account", ACCOUNT]);
+  }
+};
+var STORES = [keychain, secretTool];
+var storeOverride;
+function tokenStore() {
+  if (storeOverride !== void 0) return storeOverride;
+  for (const s of STORES) {
+    try {
+      if (s.available()) return s;
+    } catch {
+    }
+  }
+  return null;
+}
+function storeByName(name) {
+  if (storeOverride !== void 0) return storeOverride && storeOverride.name === name ? storeOverride : null;
+  return STORES.find((x) => x.name === name) || null;
+}
+function writeFile(s) {
+  mkdirSync2(join2(SESSION_FILE, ".."), { recursive: true, mode: 448 });
+  writeFileSync2(SESSION_FILE, JSON.stringify(s, null, 2), { mode: 384 });
+  chmodSync(SESSION_FILE, 384);
 }
 function currentSession() {
   if (process.env.AMBIVO_TOKEN) {
@@ -44281,21 +44340,71 @@ function currentSession() {
     };
   }
   if (!existsSync2(SESSION_FILE)) return null;
+  let s;
   try {
-    const s = JSON.parse(readFileSync2(SESSION_FILE, "utf8"));
-    if (!s.token) return null;
-    if (s.expiresAt && Date.now() / 1e3 > s.expiresAt) return { ...s, expired: true };
-    return { ...s, apiUrl: withSlash2(s.apiUrl || DEFAULT_API), source: SESSION_FILE };
+    s = JSON.parse(readFileSync2(SESSION_FILE, "utf8"));
   } catch {
     return null;
   }
+  let token = s.token;
+  let source = SESSION_FILE;
+  if (s.token_store) {
+    const store = storeByName(s.token_store);
+    if (!store) return null;
+    try {
+      token = store.get();
+    } catch {
+      return null;
+    }
+    source = store.label;
+  } else if (token) {
+    const store = tokenStore();
+    if (store && TOKEN_CHARS.test(token)) {
+      try {
+        store.set(token);
+        if (store.get() === token) {
+          const { token: _drop, ...rest } = s;
+          writeFile({ ...rest, token_store: store.name });
+          source = store.label;
+        }
+      } catch {
+      }
+    }
+  }
+  if (!token) return null;
+  const { token_store: _store, ...details } = s;
+  if (details.expiresAt && Date.now() / 1e3 > details.expiresAt) return { ...details, token, expired: true };
+  return { ...details, token, apiUrl: withSlash2(details.apiUrl || DEFAULT_API), source };
 }
 function saveSession(s) {
-  mkdirSync2(join2(SESSION_FILE, ".."), { recursive: true, mode: 448 });
-  writeFileSync2(SESSION_FILE, JSON.stringify(s, null, 2), { mode: 384 });
-  chmodSync(SESSION_FILE, 384);
+  const { token, ...details } = s;
+  const store = tokenStore();
+  if (store && TOKEN_CHARS.test(String(token || ""))) {
+    try {
+      store.set(token);
+      if (store.get() === token) {
+        writeFile({ ...details, token_store: store.name });
+        return store.label;
+      }
+    } catch {
+    }
+  }
+  writeFile({ ...details, token });
+  return SESSION_FILE;
 }
 function clearSession() {
+  let s = null;
+  try {
+    s = existsSync2(SESSION_FILE) ? JSON.parse(readFileSync2(SESSION_FILE, "utf8")) : null;
+  } catch {
+  }
+  const store = s?.token_store ? storeByName(s.token_store) : null;
+  if (store) {
+    try {
+      store.remove();
+    } catch {
+    }
+  }
   if (existsSync2(SESSION_FILE)) rmSync(SESSION_FILE);
 }
 
@@ -44387,8 +44496,9 @@ function opt(args, name) {
   return i >= 0 ? args[i + 1] : void 0;
 }
 var NOT_A_PARTNER = "To become a development partner and get a sandbox company, write to dev-partner@ambivo.com.";
-function signedInLines(s, hours) {
-  const lines = [`Signed in as ${s.email}. The session lasts about ${hours} hours. Saved to ${SESSION_FILE}`];
+function signedInLines(s, hours, savedTo = SESSION_FILE) {
+  const lines = [`Signed in as ${s.email}. The session lasts about ${hours} hours.`];
+  lines.push(savedTo === SESSION_FILE ? `Saved to ${SESSION_FILE}. Only you can read this file. This computer has no keychain to keep it encrypted.` : `Saved in ${savedTo}, encrypted.`);
   if (!s.sandbox) {
     lines.push("This company is not a partner sandbox. Claude can read it and build apps for it, but it cannot add sample records here.");
     lines.push(NOT_A_PARTNER);
@@ -44415,13 +44525,13 @@ async function login(args) {
     return;
   }
   const s = step.session;
-  saveSession({ token: s.token, apiUrl, email: s.email, tenantId: s.tenantId || tenantId, expiresAt: s.expiresAt });
+  const savedTo = saveSession({ token: s.token, apiUrl, email: s.email, tenantId: s.tenantId || tenantId, expiresAt: s.expiresAt });
   const hours = Math.max(0, Math.round((s.expiresAt - Date.now() / 1e3) / 3600));
-  for (const line of signedInLines(s, hours)) console.log(line);
+  for (const line of signedInLines(s, hours, savedTo)) console.log(line);
 }
 function logout() {
   clearSession();
-  console.log(`Signed out. Removed ${SESSION_FILE}`);
+  console.log("Signed out. The saved session is removed.");
 }
 
 // src/sandbox.mjs

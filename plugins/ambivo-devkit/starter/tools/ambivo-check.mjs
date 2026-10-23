@@ -159,6 +159,15 @@ function checkInstall(root) {
   if (existsSync(installPath) && !/hosting_apps/.test(readFileSync(installPath, 'utf8'))) {
     add(installPath, 1, 'install-sends-hosting-apps', 'install.mjs must send hosting_apps: [app_key] on every object it creates or updates.');
   }
+  // Outside a partner sandbox Ambivo refuses an app's objects without its certificate (APP_CERTIFICATE_REQUIRED).
+  // Apps made before certificates existed have an install step that never sends one.
+  if (existsSync(installPath)) {
+    const code = codeOnly(readFileSync(installPath, 'utf8'));
+    if (/custom\/object\b/.test(code) && !(/ambivo-certificate\.json/.test(code) && /\bapp_certificate\b/.test(code))) {
+      add(installPath, 1, 'install-sends-certificate',
+        'install.mjs must read ambivo-certificate.json next to itself and send "app_certificate": <cert_id> on every POST and PUT /custom/object. Without it, installing in a client\'s company is refused.');
+    }
+  }
   for (const f of existsSync(join(root, 'src')) ? walk(join(root, 'src')) : []) {
     if (!/\.(m?js|ts)$/.test(f) || /\.spec\.ts$/.test(f) || f.includes(`${sep}ambivo${sep}`)) continue;
     const t = readFileSync(f, 'utf8');
