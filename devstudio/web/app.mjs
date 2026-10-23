@@ -1526,7 +1526,11 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         let out;
         if (!um[1] && req.method === 'POST') out = await reviews.upload(token, req, { project: url.searchParams.get('project') || '' });
         else if (um[1] && req.method === 'GET') out = await reviews.uploaded(token, um[1]);
-        else out = [405, { error: 'Not allowed' }];
+        else if (um[1] && req.method === 'POST' && url.searchParams.get('action') === 'withdraw') {
+          let body = {};
+          try { body = await readBody(req, 10000); } catch { body = {}; }
+          out = await reviews.uploadedWithdraw(token, um[1], body?.reason);
+        } else out = [405, { error: 'Not allowed' }];
         return json(res, out[0], out[1]);
       }
       if (!url.pathname.startsWith('/api/')) {
@@ -1594,7 +1598,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         if (!serverMode || !reviews || !isAdmin(user)) return json(res, 404, { error: 'Not found' });
         const [, rid, act] = rm;
         let out;
-        if (!rid && req.method === 'GET') out = await reviews.queue(url.searchParams.get('status') || 'ready', url.searchParams.get('page'));
+        if (!rid && req.method === 'GET') out = await reviews.queue(url.searchParams.get('status') || 'decide', url.searchParams.get('page'));
         else if (rid && !act && req.method === 'GET') out = await reviews.one(rid);
         else if (rid && act === 'decide' && req.method === 'POST') out = await reviews.decide(rid, user, await readBody(req));
         else out = [405, { error: 'Not allowed' }];
@@ -1743,6 +1747,13 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
       if (sub === 'jobs') { const [code, out] = await jobsRoute(id, p, req, url); return json(res, code, out); }
       if (sub === 'review') {
         if (req.method === 'GET') { const [code, out] = await reviews.forProject(p); return json(res, code, out); }
+        if (req.method === 'POST' && url.searchParams.get('withdraw')) {
+          if (!reviews.withdraw) return json(res, 404, { error: 'Withdraw this review in the Dev Studio that submitted it.' });
+          let body = {};
+          try { body = await readBody(req, 10000); } catch { body = {}; }
+          const [code, out] = await reviews.withdraw(p, user, url.searchParams.get('withdraw'), body?.reason);
+          return json(res, code, out);
+        }
         if (req.method === 'POST') {
           await prepare(id);
           const refused = await aboutRefusal(id, 'Submitting for review');

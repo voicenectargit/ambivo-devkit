@@ -35,6 +35,20 @@ const KIT = '/opt/ambivo-devkit';
 const TAR_MAX = 60 << 20;
 const STEP_MS = { untar: 120000, checks: 300000, agent: 40 * 60000, build: 20 * 60000 };
 const REVIEW_ID = /^[0-9a-f]{24}$/;
+const EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]+$/;
+// The staff page's lists: what each tab asks Ambivo for.
+export const STAFF_LISTS = {
+  decide: { status: 'in_review', stage: 'staff' },
+  deciding: { status: 'in_review', stage: 'deciding' },
+  checking: { status: 'in_review', stage: 'agent' },
+  submitted: { status: 'submitted' },
+  approved: { status: 'approved' },
+  rejected: { status: 'rejected' },
+  withdrawn: { status: 'withdrawn' },
+  failed: { status: 'failed' },
+};
+// How often a running review checks that it was not withdrawn.
+const WATCH_MS = 60000;
 
 // The frozen files, stored under their fingerprint BEFORE Ambivo records the review, so a runner on any
 // server finds them as soon as the review is queued.
@@ -280,7 +294,7 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
   // ---- the partner's side ---------------------------------------------------------------------------
 
   /** Fingerprint, store and record one submission. Answers [status, body]. */
-  async function record({ files, companyId, submittedBy, projectId }) {
+  async function record({ files, companyId, submittedBy, submitterEmail = '', projectId }) {
     let sub;
     try {
       sub = await submissionFrom(files);
@@ -293,7 +307,8 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
     }
     let out;
     try {
-      out = await core('POST', 'app_review/runner/submit', { ...sub, company_id: companyId, submitted_by: submittedBy, project_id: projectId });
+      out = await core('POST', 'app_review/runner/submit', { ...sub, company_id: companyId, submitted_by: submittedBy,
+        submitter_email: EMAIL.test(submitterEmail) ? submitterEmail : '', project_id: projectId });
     } catch (err) {
       // Refused: the stored files go, unless another review already uses the same code.
       try {
@@ -325,7 +340,9 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
       log(`project ${project.id}: review submit: ${err.message}`);
       return [500, { error: 'The app could not be read for the review. Try again.' }];
     }
-    const [code, body] = await record({ files, companyId, submittedBy: `github:${user.login}`, projectId: project.id });
+    // Review emails go to the person who submitted: their Ambivo sandbox email.
+    const submitterEmail = await sessionEmail(session.token);
+    const [code, body] = await record({ files, companyId, submittedBy: `github:${user.login}`, submitterEmail, projectId: project.id });
     if (code >= 300) return [code, body];
     const review = body.review;
     await app.update(project.id, (p) => {
@@ -337,6 +354,46 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
       ? `Submitted version ${review.app_version} for Ambivo's review. You will see the result here.`
       : `Version ${review.app_version} with this code is already ${review.status === 'approved' ? 'certified' : 'in review'}.` });
     return [code, body];
+  }
+
+  /** The email of the person an Ambivo session belongs to, or '' (the review still goes ahead without it). */
+  async function sessionEmail(token) {
+    try {
+      const r = await fetchImpl(new URL('user/data', config.ambivoApi), { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } });
+      const body = await r.json().catch(() => null);
+      const email = String(body?.user_data?.email || '').trim().toLowerCase();
+      return r.ok && body?.result === 1 && EMAIL.test(email) ? email : '';
+    } catch { return ''; }
+  }
+
+  async function withdrawIn(rid, companyId, by, reason) {
+    try {
+      const out = await core('POST', `app_review/runner/${rid}/withdraw`, { company_id: companyId, withdrawn_by: by,
+        reason: typeof reason === 'string' ? reason.trim().slice(0, 2000) : '' });
+      log(`review ${rid} withdrawn by ${by}`);
+      return [200, { review: partnerView(out.review) }];
+    } catch (err) { return [err.status, { error: err.message, code: err.code }]; }
+  }
+
+  /** Hosted Dev Studio: withdraw a review this project submitted, before staff decide. */
+  async function withdraw(project, user, rid, reason) {
+    if (!enabled) return [404, { error: 'Reviews work in the hosted Dev Studio only.' }];
+    if (!REVIEW_ID.test(String(rid)) || !(project.reviews ?? []).some((r) => r.review_id === rid)) return [404, { error: 'No such review.' }];
+    let got;
+    try { got = (await core('GET', `app_review/runner/${rid}`)).review; } catch (err) { return [err.status, { error: err.message }]; }
+    if (got.project_id !== project.id) return [404, { error: 'No such review.' }];
+    const out = await withdrawIn(rid, got.company_id, `github:${user.login}`, reason);
+    if (out[0] === 200) app.emit(project.id, { kind: 'note', text: `Version ${got.app_version} was withdrawn from Ambivo's review.` });
+    return out;
+  }
+
+  /** Hosted Dev Studio, for the Docker Dev Studio and the dev kit: withdraw one review of the caller's own company. */
+  async function uploadedWithdraw(token, rid, reason) {
+    if (!enabled) return [404, { error: 'Reviews work in the hosted Dev Studio only.' }];
+    if (!REVIEW_ID.test(String(rid))) return [404, { error: 'No such review.' }];
+    const who = await sessionOwner(token);
+    if (who.error) return who.error;
+    return withdrawIn(rid, who.companyId, `ambivo:${who.email || who.userid}`, reason);
   }
 
   /**
@@ -379,7 +436,7 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
     let files;
     try { files = parseTar(buf); } catch { return [400, { error: 'The upload is not a tar of the app.' }]; }
     const projectId = `kit-${String(project).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || who.userid}`;
-    return record({ files, companyId: who.companyId, submittedBy: `ambivo:${who.email || who.userid}`, projectId });
+    return record({ files, companyId: who.companyId, submittedBy: `ambivo:${who.email || who.userid}`, submitterEmail: who.email, projectId });
   }
 
   /** Hosted Dev Studio, for the Docker Dev Studio and the dev kit: one review of the caller's own company. */
@@ -415,8 +472,16 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
   function partnerView(r) {
     const rep = r.report || {};
     return {
-      ...Object.fromEntries(['review_id', 'status', 'app_key', 'app_name', 'app_version', 'code_sha256', 'submitted_at',
-        'reported_at', 'decided_at', 'decision_reason', 'cert_id', 'error'].map((k) => [k, r[k]])),
+      ...Object.fromEntries(['review_id', 'status', 'stage', 'app_key', 'app_name', 'app_version', 'code_sha256', 'submitted_at',
+        'in_review_at', 'reported_at', 'approved_at', 'rejected_at', 'withdrawn_at', 'withdraw_reason', 'failed_at',
+        'decided_at', 'decided_by', 'decision_reason', 'problems', 'cert_id'].map((k) => [k, r[k]])),
+      // The runner's error is for staff (it can carry build output).
+      error: r.status === 'failed' ? 'The review could not finish. Ambivo staff have been told. You can submit it again.' : undefined,
+      // Staff are named by their role, never as a person. The automated review is named as it is.
+      ...(r.decided_by && r.decided_by !== 'review agent' ? { decided_by: 'Ambivo staff' } : {}),
+      history: (r.history || []).map((e) => ({ status: e.status, stage: e.stage, at: e.at,
+        comment: e.status === 'failed' ? 'The review could not finish.' : e.comment,
+        by: ['approved', 'rejected'].includes(e.status) && e.by !== 'review agent' ? 'Ambivo staff' : e.by })),
       checks: (rep.checks || []).filter((c) => c.id !== 'agent').map(({ id, name, status, detail }) => ({ id, name, status, detail })),
       findings: (rep.findings || []).filter((f) => f.source === 'check'),
     };
@@ -450,6 +515,23 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
     if (!obj) throw new Error('The submitted files are missing on Dev Studio.');
     // The files must still be what was fingerprinted.
     if (fingerprint(parseTar(obj.body)) !== review.code_sha256) throw new Error('The stored files do not match the fingerprint.');
+    // A review withdrawn while it runs: its container goes, which ends the step that is running.
+    let withdrawn = false, ended = false;
+    const watch = setInterval(async () => {
+      try {
+        const now_ = (await core('GET', `app_review/runner/${rid}`)).review;
+        // The run may have ended while Ambivo answered: a new run of this review uses the same container name.
+        if (ended) return;
+        if (now_.status !== 'in_review' || now_.stage !== 'agent') {
+          withdrawn = true;
+          clearInterval(watch);
+          log(`review ${rid}: ${now_.status} while it ran; stopping it`);
+          await driver.remove(cid).catch(() => {});
+        }
+      } catch { /* next check */ }
+    }, WATCH_MS);
+    watch.unref?.();
+    const stopped = () => { if (withdrawn) throw new Error('The review was withdrawn.'); };
     try {
       // A container left by a run that stopped half way (a restart) goes first.
       await driver.remove(cid).catch(() => {});
@@ -461,7 +543,9 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
       { input: obj.body, timeoutMs: STEP_MS.untar, workdir: '/work' });
       if (untar.code !== 0) throw new Error(`The files could not be unpacked: ${untar.err.slice(-300)}`);
 
+      stopped();
       const fx = await step(cid, ['node', `${KIT}/scripts/ambivo-review-checks.mjs`, '/work/app'], { timeoutMs: STEP_MS.checks });
+      stopped();
       let fixed;
       try { fixed = JSON.parse(fx.out); } catch { throw new Error(`The fixed checks did not finish: ${fx.err.slice(-300)}`); }
 
@@ -495,6 +579,10 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
         if (!agent) agentError = a.code === 124 ? 'The review agent ran out of time.' : `The review agent gave no usable answer (exit ${a.code}).`;
       }
 
+      stopped();
+      // The agent not finishing is Ambivo's problem, never the app's: Ambivo runs it again (up to 3 times),
+      // then marks the review failed and tells staff. It never rejects the partner's version.
+      if (agentError) throw new Error(agentError);
       let build;
       const packagesOk = (fixed.checks || []).some((c) => c.id === 'packages' && c.status === 'pass');
       if (!packagesOk) build = { id: 'build', name: 'The app builds', status: 'skipped', detail: 'Not built: the package check failed.' };
@@ -507,9 +595,12 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
         { timeoutMs: STEP_MS.build });
         build = { id: 'build', name: 'The app builds', status: b.code === 0 ? 'pass' : 'fail', detail: b.code === 0 ? '' : clip(`${b.out}\n${b.err}`.trim(), 1500) };
       }
+      stopped();
       return buildReport({ fixed, agent, agentError, build, model: config.reviewModel,
         usage: { ...usage, seconds: Math.round((now() - started) / 1000) } });
     } finally {
+      ended = true;
+      clearInterval(watch);
       await driver.remove(cid).catch((err) => log(`review ${rid}: removing its container: ${err.message}`));
     }
   }
@@ -521,13 +612,13 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
     try {
       for (let i = 0; i < 20; i++) {
         let list;
-        try { list = await core('GET', `app_review/runner/list?page_size=1&match_filter_dict=${encodeURIComponent(JSON.stringify({ status: 'queued' }))}`); }
+        try { list = await core('GET', `app_review/runner/list?page_size=1&match_filter_dict=${encodeURIComponent(JSON.stringify({ status: 'submitted' }))}`); }
         catch (err) { log(`reviews: listing the queue: ${err.message}`); return; }
         let next = list.data_list?.[0];
         if (!next) {
-          // A review left "running" by a server that stopped: Ambivo hands it out again once its lease ran out.
+          // A review whose agent run was left by a server that stopped: Ambivo hands it out again once its lease ran out.
           try {
-            const stuck = await core('GET', `app_review/runner/list?page_size=5&match_filter_dict=${encodeURIComponent(JSON.stringify({ status: 'running' }))}`);
+            const stuck = await core('GET', `app_review/runner/list?page_size=5&match_filter_dict=${encodeURIComponent(JSON.stringify({ status: 'in_review', stage: 'agent' }))}`);
             for (const r of stuck.data_list || []) {
               if (Date.parse(r.started_at || 0) < now() - 91 * 60000) { next = r; break; }
             }
@@ -543,10 +634,10 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
         catch (err) { log(`review ${claimed.review_id}: failed: ${err.message}`); body = { error: clip(err.message, 1000) }; }
         try {
           const done = (await core('POST', `app_review/runner/${claimed.review_id}/finish`, { ...body, claim: claimed.claim })).review;
-          log(`review ${done.review_id}: ${done.status}${done.recommendation ? ` (agent and checks: ${done.recommendation})` : ''}`);
-          if (done.project_id && app.emit) app.emit(done.project_id, { kind: 'note', text: done.status === 'ready'
-            ? `The review of version ${done.app_version} is done. Ambivo staff will now decide.`
-            : `The review of version ${done.app_version} could not finish. Submit it again.` });
+          log(`review ${done.review_id}: ${done.status}${done.stage ? ` (${done.stage})` : ''}${done.recommendation ? ` (agent and checks: ${done.recommendation})` : ''}`);
+          const note = done.stage === 'staff' ? `The review of version ${done.app_version} is done. Ambivo staff will now decide.`
+            : done.status === 'failed' ? `The review of version ${done.app_version} could not finish. Submit it again.` : '';
+          if (note && done.project_id && app.emit) app.emit(done.project_id, { kind: 'note', text: note });
         } catch (err) { log(`review ${claimed.review_id}: reporting: ${err.message}`); }
       }
     } finally { running = false; }
@@ -554,11 +645,12 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
 
   // ---- staff -----------------------------------------------------------------------------------------
 
-  async function queue(status = 'ready', page = 1) {
+  async function queue(status = 'decide', page = 1) {
     if (!enabled) return [404, { error: 'Reviews work in the hosted Dev Studio only.' }];
-    if (!['queued', 'running', 'ready', 'approved', 'rejected', 'failed'].includes(status)) return [400, { error: 'Unknown status.' }];
+    const filter = STAFF_LISTS[status];
+    if (!filter) return [400, { error: 'Unknown status.' }];
     try {
-      const out = await core('GET', `app_review/runner/list?page_size=50&page_num=${Math.max(1, Number(page) || 1)}&match_filter_dict=${encodeURIComponent(JSON.stringify({ status }))}`);
+      const out = await core('GET', `app_review/runner/list?page_size=50&page_num=${Math.max(1, Number(page) || 1)}&match_filter_dict=${encodeURIComponent(JSON.stringify(filter))}`);
       return [200, { reviews: out.data_list, total: out.total_count }];
     } catch (err) { return [err.status, { error: err.message }]; }
   }
@@ -615,7 +707,7 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
     } catch (err) { return [err.status, { error: err.message }]; }
   }
 
-  return { enabled, submit, upload, uploaded, forProject, tick, run, queue, one, decide, relay, metrics };
+  return { enabled, submit, upload, uploaded, uploadedWithdraw, withdraw, forProject, tick, run, queue, one, decide, relay, metrics };
 }
 
 /**
@@ -628,11 +720,11 @@ export function createRemoteReviews({ config, fetchImpl = fetch, log = console.l
   const host = String(config.reviewHost || 'https://devstudio.ambivo.com').replace(/\/+$/, '');
   const signIn = 'Sign in to your Ambivo sandbox first: run `ambivo-start login` in a terminal (or the dev kit\'s login command).';
 
-  async function call(method, path, token, body) {
+  async function call(method, path, token, body, contentType = 'application/x-tar') {
     let r;
     try {
       r = await fetchImpl(`${host}${path}`, { method, headers: { Authorization: `Bearer ${token}`, Accept: 'application/json',
-        ...(body ? { 'Content-Type': 'application/x-tar' } : {}) }, ...(body ? { body } : {}) });
+        ...(body ? { 'Content-Type': contentType } : {}) }, ...(body ? { body } : {}) });
     } catch { return [502, { error: `The Ambivo review service (${host}) could not be reached. Try again in a few minutes.` }]; }
     const out = await r.json().catch(() => null);
     return [r.status, out || { error: `The review service answered with an error (${r.status}).` }];
@@ -686,5 +778,16 @@ export function createRemoteReviews({ config, fetchImpl = fetch, log = console.l
     return [200, { reviews: out, ...(written ? { certificateWritten: written } : {}) }];
   }
 
-  return { enabled: true, remote: true, submit, forProject, async tick() {} };
+  /** Withdraw a version this project sent, before Ambivo staff decide. */
+  async function withdraw(project, _user, rid, reason) {
+    if (!REVIEW_ID.test(String(rid)) || !(project.reviews ?? []).some((r) => r.review_id === rid)) return [404, { error: 'No such review.' }];
+    const s = app.session();
+    if (!s?.token) return [409, { error: signIn, signIn: true }];
+    const [code, out] = await call('POST', `/api/review-upload/${rid}?action=withdraw`, s.token,
+      JSON.stringify({ reason: typeof reason === 'string' ? reason.trim().slice(0, 2000) : '' }), 'application/json');
+    if (code === 200) app.emit(project.id, { kind: 'note', text: `Version ${out.review?.app_version || ''} was withdrawn from Ambivo's review.` });
+    return [code, out];
+  }
+
+  return { enabled: true, remote: true, submit, forProject, withdraw, async tick() {} };
 }

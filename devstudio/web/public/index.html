@@ -300,7 +300,8 @@
 <dialog class="am wide" id="reviewDialog">
   <form method="dialog" id="reviewForm">
     <h3>Ambivo review</h3>
-    <p>Ambivo reviews every app before a client can install it. A program and an assistant check the code, the services it calls and what it shows. Then Ambivo staff decide.</p>
+    <p>Ambivo reviews every app before a client can install it. A program and an assistant check the code, the services it calls and what it shows. If they find a problem, you get the list by email. If everything passes, Ambivo staff decide. We email you at each step.</p>
+    <p class="note">You can withdraw a version until staff decide.</p>
     <p class="note">Apps about gambling, sexual content, or content unsuitable for children are refused. Apps for children are welcome when everything in them suits children.</p>
     <p class="note">Each version is reviewed once. After any change, raise the version in src/install/app-objects.json and submit again.</p>
     <div id="reviewLists"></div>
@@ -1030,13 +1031,13 @@ async function showApp(appId) {
 
 // Ambivo staff (Dev Studio admins): the app review queue, each report in full, and the decision.
 // Everything a partner wrote (names, findings, file names) goes in as text, never as HTML.
-async function showReviews(status = 'ready') {
+async function showReviews(status = 'decide') {
   current = null; source?.close(); source = null;
   const main = $('#main');
   const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined && text !== null) e.textContent = String(text); if (cls) e.className = cls; return e; };
   const fmt = (t) => (t ? new Date(t).toLocaleString() : '');
-  const TABS = [['ready', 'Waiting for a decision'], ['queued', 'Waiting to run'], ['running', 'Running'],
-    ['approved', 'Approved'], ['rejected', 'Not approved'], ['failed', 'Did not finish']];
+  const TABS = [['decide', 'Waiting for a decision'], ['deciding', 'Decision stopped'], ['submitted', 'Submitted'], ['checking', 'Being checked'],
+    ['approved', 'Approved'], ['rejected', 'Not approved'], ['withdrawn', 'Withdrawn'], ['failed', 'Did not finish']];
   const header = el('header'); header.append(el('h2', 'App reviews'));
   const tabs = el('div', undefined, 'chips');
   for (const [k, label] of TABS) {
@@ -1075,13 +1076,27 @@ async function showReview(rid, backTo) {
   main.append(el('h2', `${r.app_name} ${r.app_version}`));
   const facts = el('dl');
   for (const [k, v] of [['App key', r.app_key], ['Made by', r.made_by], ['Support', r.support_email], ['Partner company', r.company_name || r.company_id],
-    ['Submitted', `${fmt(r.submitted_at)} by ${r.submitted_by}`], ['Code fingerprint', r.code_sha256], ['Status', r.status],
+    ['Submitted', `${fmt(r.submitted_at)} by ${r.submitted_by}${r.submitter_email ? ` (${r.submitter_email})` : ''}`],
+    ['Code fingerprint', r.code_sha256], ['Status', r.stage ? `${r.status} (${r.stage})` : r.status],
     ['Checks and agent say', rep.recommendation], ['Decided', r.decided_at ? `${fmt(r.decided_at)} by ${r.decided_by}` : ''],
-    ['Reason', r.decision_reason], ['Certificate', r.cert_id], ['Error', r.error]]) {
+    ['Comment', r.decision_reason], ['Withdrawn', r.withdrawn_at ? `${fmt(r.withdrawn_at)} by ${r.withdrawn_by}${r.withdraw_reason ? `: ${r.withdraw_reason}` : ''}` : ''],
+    ['Certificate', r.cert_id], ['Error', r.error]]) {
     if (!v) continue;
     facts.append(el('dt', k), el('dd', v));
   }
   main.append(facts);
+  if (r.problems?.length) {
+    main.append(el('h3', `Problems sent to the submitter (${r.problems.length})`));
+    const pl = el('ol');
+    for (const p of r.problems) pl.append(el('li', p, 'err'));
+    main.append(pl);
+  }
+  if (r.history?.length) {
+    main.append(el('h3', 'History'));
+    const hl = el('ul');
+    for (const h of r.history) hl.append(el('li', `${fmt(h.at)}: ${h.status}${h.stage ? ` (${h.stage})` : ''} by ${h.by}${h.comment ? `. ${h.comment}` : ''}`));
+    main.append(hl);
+  }
   if (rep.summary) { main.append(el('h3', 'What the review agent says'), el('p', rep.summary)); }
   if (rep.checks?.length) {
     main.append(el('h3', 'Checks'));
@@ -1103,18 +1118,17 @@ async function showReview(rid, backTo) {
   }
   main.append(ul);
   if (rep.usage) main.append(el('p', `Model ${rep.model || '?'}, ${rep.usage.input_tokens || 0} tokens in, ${rep.usage.output_tokens || 0} out, ${rep.usage.seconds || 0} seconds.`, 'hint'));
-  if (r.status !== 'ready') return;
-  const serious = rep.recommendation !== 'approve' || findings.some((f) => f.severity === 'critical') || (rep.checks || []).some((c) => c.status === 'fail');
+  if (r.status !== 'in_review' || !['staff', 'deciding'].includes(r.stage)) return;
   const form = el('form', undefined, 'decide');
   form.append(el('h3', 'Decide'));
-  if (serious) form.append(el('p', 'The report found problems. To approve anyway, write why.', 'err'));
-  const reason = el('textarea'); reason.rows = 3; reason.placeholder = 'Reason. The partner sees it.'; reason.maxLength = 2000;
+  form.append(el('p', 'Every check passed. Write a comment for the partner, then approve or reject.', 'hint'));
+  if (r.stage === 'deciding') form.append(el('p', 'A decision on this review stopped half way. After 10 minutes you can decide it again.', 'err'));
+  const reason = el('textarea'); reason.rows = 3; reason.placeholder = 'Comment. The partner sees it.'; reason.maxLength = 2000;
   const approve = el('button', 'Approve and issue the certificate'); approve.type = 'button';
   const reject = el('button', 'Do not approve', 'text'); reject.type = 'button';
   const go = async (decision) => {
     err.textContent = '';
-    if (decision === 'reject' && !reason.value.trim()) { err.textContent = 'Write why the app is not approved. The partner sees it.'; return; }
-    if (decision === 'approve' && serious && !reason.value.trim()) { err.textContent = 'Write why the app is approved despite the report.'; return; }
+    if (!reason.value.trim()) { err.textContent = 'Write a comment first. The partner sees it.'; return; }
     approve.disabled = reject.disabled = true;
     try { await api(`/api/reviews/${rid}/decide`, { method: 'POST', body: JSON.stringify({ decision, reason: reason.value.trim() }) }); await showReview(rid, backTo); }
     catch (e) { err.textContent = e.message; approve.disabled = reject.disabled = false; }
@@ -1485,14 +1499,15 @@ function reviewApp(id) {
   const fmt = (t) => (t ? new Date(t).toLocaleString() : '');
   const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
   const STATUS = {
-    queued: 'Waiting to be reviewed',
-    running: 'Being reviewed now',
-    ready: 'Reviewed. Waiting for Ambivo staff to decide.',
+    submitted: 'Submitted. The check starts in a few minutes.',
+    in_review: 'In review',
     approved: 'Approved',
     rejected: 'Not approved',
+    withdrawn: 'Withdrawn',
     failed: 'The review did not finish. Submit it again.',
     unknown: 'Could not be read right now',
   };
+  const STAGE = { agent: 'In review. The automated check is running.', staff: 'In review. Ambivo staff will decide.', deciding: 'In review. Ambivo staff are deciding.' };
   const CHECK = { pass: 'Passed', fail: 'Failed', warn: 'Check this', skipped: 'Not run' };
   async function load() {
     lists.textContent = '';
@@ -1502,11 +1517,32 @@ function reviewApp(id) {
     if (!st.reviews.length) { lists.append(el('p', 'No version of this app has been submitted yet.', 'note')); return; }
     for (const r of st.reviews) {
       const box = el('div', undefined, 'review');
-      box.append(el('h4', `Version ${r.app_version || '?'}: ${STATUS[r.status] || r.status}`));
+      box.append(el('h4', `Version ${r.app_version || '?'}: ${(r.status === 'in_review' && STAGE[r.stage]) || STATUS[r.status] || r.status}`));
       if (r.status === 'approved' && r.cert_id) box.append(el('p', `Certificate ${r.cert_id}. The About page shows it after your next build.`));
+      if (r.status === 'approved' && r.decision_reason) box.append(el('p', `Comment from Ambivo: ${r.decision_reason}`));
       if (r.status === 'rejected' && r.decision_reason) box.append(el('p', `Why: ${r.decision_reason}`, 'err'));
+      if (r.problems?.length) {
+        box.append(el('h5', `Problems to fix (${r.problems.length})`));
+        const ol = el('ol');
+        for (const p of r.problems) ol.append(el('li', p, 'err'));
+        box.append(ol);
+      }
       if (r.error) box.append(el('p', r.error, 'err'));
-      if (r.submitted_at) box.append(el('p', `Submitted ${fmt(r.submitted_at)}${r.decided_at ? `. Decided ${fmt(r.decided_at)}` : ''}.`, 'note'));
+      if (r.history?.length) {
+        const hl = el('ul', undefined, 'note');
+        for (const h of r.history) hl.append(el('li', `${fmt(h.at)}: ${STATUS[h.status]?.split('.')[0] || h.status}${h.comment ? `. ${h.comment}` : ''}`));
+        box.append(hl);
+      } else if (r.submitted_at) box.append(el('p', `Submitted ${fmt(r.submitted_at)}${r.decided_at ? `. Decided ${fmt(r.decided_at)}` : ''}.`, 'note'));
+      if (['submitted', 'in_review'].includes(r.status) && r.stage !== 'deciding') {
+        const wd = el('button', 'Withdraw this version', 'text'); wd.type = 'button';
+        wd.onclick = async () => {
+          if (!wd.dataset.sure) { wd.dataset.sure = '1'; wd.textContent = 'Click again to withdraw. This cannot be undone.'; return; }
+          wd.disabled = true; err.textContent = '';
+          try { await api(`/api/projects/${id}/review?withdraw=${encodeURIComponent(r.review_id)}`, { method: 'POST', body: JSON.stringify({ reason: '' }) }); await load(); }
+          catch (e) { err.textContent = e.message; wd.disabled = false; }
+        };
+        box.append(wd);
+      }
       if (r.checks?.length) {
         const ul = el('ul');
         for (const c of r.checks) ul.append(el('li', `${c.name}: ${CHECK[c.status] || c.status}${c.detail ? `. ${c.detail}` : ''}`, c.status === 'fail' ? 'err' : ''));

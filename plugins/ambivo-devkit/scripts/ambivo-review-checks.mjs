@@ -189,6 +189,8 @@ function eachMatch(list, re, fn) {
 {
   const AMBIVO = /(^|\.)ambivo\.com$/i;
   const ALWAYS = new Set(['fonts.googleapis.com', 'fonts.gstatic.com', 'localhost', '127.0.0.1', 'www.w3.org', 'angular.dev', 'angular.io']);
+  // Names reserved for examples (RFC 2606, RFC 6761): no one can own them, so a hint like name@example.com calls nothing.
+  const RESERVED = /(^|\.)(example|test|invalid|localhost)$|(^|\.)example\.(com|net|org)$/i;
   let declared = new Set();
   try {
     const jobs = JSON.parse(readFileSync(join(root, 'src', 'install', 'app-jobs.json'), 'utf8'));
@@ -196,6 +198,12 @@ function eachMatch(list, re, fn) {
     for (const j of jobs.jobs || []) { try { declared.add(new URL(j.config.url).hostname.toLowerCase()); } catch { /* none */ } }
   } catch { declared = new Set(); }
   const hosts = new Map();
+  // A link a person clicks (<a href="https://..."> or <a [href]="'https://...' + x">) opens a page; it sends
+  // nothing from the app. Listed for staff, never a failure. location.href = ... is a call, and still fails.
+  const LINK = /<a(?:\s[^<>]*?)?\s\[?href\]?\s*=\s*(?:"'|'"|"|')$/i;
+  // A file that clicks, dispatches or reads link addresses by code can use a "link" as a call.
+  const SCRIPTED = /\.click\s*\(|dispatchEvent\s*\(|\.href\b|dataset|getAttribute\s*\(|nativeElement|querySelector|ViewChild|createElement\s*\(/;
+  const links = new Map();
   const appCode = partnerTexts.filter((f) => !/\.spec\.ts$/.test(f.path) && !/\.md$/.test(f.path) && f.path !== 'package-lock.json');
   // Any scheme or a protocol-relative //host; the host is read the way a browser reads it (new URL), so
   // "https://ambivo.com@evil.io" is evil.io. Escaped slashes are unescaped first.
@@ -209,10 +217,16 @@ function eachMatch(list, re, fn) {
       if (!h || !/[a-z0-9]/i.test(h) || !/^(https?|wss?|ftp)?:?$/i.test(m[0].split('//')[0]) && !m[0].startsWith('//')) continue;
       const line = lineOf(f, m.index);
       if (!/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z][a-z0-9-]*[a-z0-9]$|^\d+\.\d+\.\d+\.\d+$|^localhost$/.test(h)) continue;
-      if (AMBIVO.test(h) || ALWAYS.has(h)) continue;
-      if (!hosts.has(h)) hosts.set(h, []);
-      hosts.get(h).push(`${f.path}:${line}`);
+      if (AMBIVO.test(h) || ALWAYS.has(h) || RESERVED.test(h)) continue;
+      const into = !SCRIPTED.test(t) && LINK.test(t.slice(Math.max(0, m.index - 300), m.index)) ? links : hosts;
+      if (!into.has(h)) into.set(h, []);
+      into.get(h).push(`${f.path}:${line}`);
     }
+  }
+  for (const [h, where] of links) {
+    if (hosts.has(h)) continue;
+    find('info', 'outside-link', `The app links to ${h} (a link a person clicks)`, where[0].split(':')[0], Number(where[0].split(':')[1]),
+      where.length > 1 ? `Also at ${where.slice(1, 6).join(', ')}` : '');
   }
   let undeclared = 0;
   for (const [h, where] of hosts) {

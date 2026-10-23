@@ -8,7 +8,7 @@ Without the plugin:
   https://apidocs.ambivo.com/openapi/<spec id> (YAML). Spec ids: https://apidocs.ambivo.com/api/specs
 - Where a step runs `ambivo-check.mjs`, run `npm run ambivo:check`.
 - To look at a screen, run `npm run ambivo:screenshot -- /route` (needs Chrome or Chromium).
-- Specs as of ambivo-api-docs 6017dcf.
+- Specs as of ambivo-api-docs f2b920b.
 
 ---
 
@@ -126,9 +126,11 @@ npm run ambivo:check
 Both must pass. Then tell the user how to run it (`npm start`) and how to package it: a zip of the folder without `node_modules`, `dist`, `.angular` and `.env*` files, or a push to their own GitHub repository.
 Before the app is installed in a client's company, it needs Ambivo's review: submit it with the `submit_app`
 tool (ask the user for the app name, who made it and the support email the first time), or Dev Studio's
-Review button. `review_status` shows the result; an approved version's certificate is written into the app,
-then run `npx ng build` again so the About page shows it. Any change after that is a new version and a new
-review.
+Review button. Any problem the automated review finds rejects the version, and the developer gets each problem
+by email; `review_status` lists them too. A version that passes every check goes to Ambivo staff, who approve or
+reject it with a comment. `review_status` shows each step with its time; an approved version's certificate is
+written into the app, then run `npx ng build` again so the About page shows it. `withdraw_app` takes a version
+back before staff decide (ask the developer first). Any change after approval is a new version and a new review.
 
 ---
 

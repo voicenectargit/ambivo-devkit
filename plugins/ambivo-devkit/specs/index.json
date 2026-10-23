@@ -1,6 +1,6 @@
 {
-  "docs_commit": "6017dcf",
-  "built_at": "2026-10-22",
+  "docs_commit": "f2b920b",
+  "built_at": "2026-10-23",
   "specs": [
     {
       "id": "esign",
@@ -72,7 +72,7 @@
       "id": "custom-objects",
       "title": "Custom Objects",
       "file": "ambivo-custom-objects.openapi.yaml",
-      "operations": 64
+      "operations": 65
     },
     {
       "id": "testing-data",

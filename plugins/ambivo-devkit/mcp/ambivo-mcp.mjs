@@ -45494,13 +45494,13 @@ function saveReviews(projectDir, reviews) {
   mkdirSync4(join4(projectDir, ".ambivo"), { recursive: true });
   writeFileSync4(join4(projectDir, REVIEWS_FILE), JSON.stringify({ reviews: reviews.slice(-30) }, null, 2) + "\n");
 }
-async function hosted(method, path, token, body, fetchImpl) {
+async function hosted(method, path, token, body, fetchImpl, contentType = "application/x-tar") {
   let r;
   try {
     r = await fetchImpl(`${reviewHost()}${path}`, { method, headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
-      ...body ? { "Content-Type": "application/x-tar" } : {}
+      ...body ? { "Content-Type": contentType } : {}
     }, ...body ? { body } : {}, signal: AbortSignal.timeout(12e4) });
   } catch {
     throw new AmbivoError(`The Ambivo review service (${reviewHost()}) could not be reached. Try again later.`, "UNREACHABLE");
@@ -45584,6 +45584,21 @@ async function reviewStatus(projectDir, { fetchImpl = fetch, session = currentSe
     certificate_written: wrote,
     ...wrote ? { next: "Run npx ng build so the About page shows the certificate. The install step sends it with every custom object." } : {}
   };
+}
+async function withdrawApp(projectDir, { review_id, reason = "" } = {}, { fetchImpl = fetch, session = currentSession() } = {}) {
+  if (!session?.token) throw new AmbivoError("Not signed in. In a terminal, run: node <plugin>/mcp/ambivo-mcp.mjs login", "NOT_SIGNED_IN");
+  const mine = readReviews(projectDir);
+  const r = review_id ? mine.find((x) => x.review_id === review_id) : mine[mine.length - 1];
+  if (!r) throw new AmbivoError(review_id ? "This app folder did not submit that review." : "This app folder has not submitted a version yet.", "NO_SUCH_REVIEW");
+  const out = await hosted(
+    "POST",
+    `/api/review-upload/${r.review_id}?action=withdraw`,
+    session.token,
+    JSON.stringify({ reason: String(reason || "").slice(0, 2e3) }),
+    fetchImpl,
+    "application/json"
+  );
+  return { review: out.review };
 }
 async function registerApp(projectDir, { app_id, app_name, app_key } = {}, { call = ambivo } = {}) {
   app_id = String(app_id || "").trim().toLowerCase();
@@ -45672,7 +45687,7 @@ function buildServer() {
   }, tool(async ({ project_dir, app_id, app_name, app_key }) => registerApp(resolve(project_dir), { app_id, app_name, app_key })));
   server.registerTool("submit_app", {
     title: "Submit the app for Ambivo's review",
-    description: "Send the app to Ambivo's review: a program checks the code, the services it calls and what it shows, an AI reviewer reads it, the app is built, then Ambivo staff decide. An approved version gets an Ambivo certificate; without one, Ambivo will not install the app's custom objects in a client's company. Each version is reviewed once: after any change, raise app_version in src/install/app-objects.json and submit again. Needs src/install/app-objects.json and the unchanged src/ambivo-about/ files. Ask the developer for the app name, who made it and the support email the first time; they are saved in src/install/app-about.json. The signed-in person must be an admin of their company.",
+    description: "Send the app to Ambivo's review: a program checks the code, the services it calls and what it shows, an AI reviewer reads it and the app is built. Any problem rejects the version, and the developer gets each problem by email (review_status lists them too). A version that passes every check goes to Ambivo staff, who approve or reject it with a comment. The developer is emailed at each step. An approved version gets an Ambivo certificate; without one, Ambivo will not install the app's custom objects in a client's company. Each version is reviewed once: after any change, raise app_version in src/install/app-objects.json and submit again. Needs src/install/app-objects.json and the unchanged src/ambivo-about/ files. Ask the developer for the app name, who made it and the support email the first time; they are saved in src/install/app-about.json. The signed-in person must be an admin of their company.",
     inputSchema: {
       project_dir: external_exports.string().describe("Absolute path of the app folder"),
       app_name: external_exports.string().optional().describe("The app name shown on the About page"),
@@ -45682,9 +45697,18 @@ function buildServer() {
   }, tool(async ({ project_dir, app_name, made_by, support_email }) => submitApp(resolve(project_dir), { app_name, made_by, support_email })));
   server.registerTool("review_status", {
     title: "Where the app's reviews are",
-    description: "The status of each version submitted with submit_app: waiting, being reviewed, waiting for Ambivo staff, approved (with its certificate) or not approved (with the reason and what to fix). When a version is approved and the app's code is still exactly what was reviewed, the certificate is written to src/install/ambivo-certificate.json; then run npx ng build so the About page shows it.",
+    description: "The status of each version submitted with submit_app: submitted, in_review (stage agent: being checked; stage staff: waiting for Ambivo staff), approved (with its certificate and staff's comment), rejected (with the comment and problems: each problem to fix), withdrawn or failed. Each has a history with the time of every step. When a version is approved and the app's code is still exactly what was reviewed, the certificate is written to src/install/ambivo-certificate.json; then run npx ng build so the About page shows it.",
     inputSchema: { project_dir: external_exports.string().describe("Absolute path of the app folder") }
   }, tool(async ({ project_dir }) => reviewStatus(resolve(project_dir))));
+  server.registerTool("withdraw_app", {
+    title: "Withdraw a version from Ambivo's review",
+    description: "Take back a version sent with submit_app, before Ambivo staff decide. Without review_id, the latest one. Ambivo's reviewers and the developer are emailed. Ask the developer first; give their reason if they gave one.",
+    inputSchema: {
+      project_dir: external_exports.string().describe("Absolute path of the app folder"),
+      review_id: external_exports.string().optional().describe("The review to withdraw, from review_status"),
+      reason: external_exports.string().optional().describe("Why, in the developer's words")
+    }
+  }, tool(async ({ project_dir, review_id, reason }) => withdrawApp(resolve(project_dir), { review_id, reason })));
   server.registerTool("whoami", {
     title: "Who the session belongs to",
     description: "The signed-in Ambivo user: name, email, tenant, whether they are an admin, and their module access. Check this before reading data, so you know which tenant you are looking at.",
