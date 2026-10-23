@@ -25,13 +25,14 @@ If you do not accept it, do not use the Software.
 
    (b) use the files of the starter application (the "starter" folders) under
        the MIT License in LICENSE-AMBIVO-STARTER.txt in those folders, instead
-       of this license. That file says which starter files it covers: AGENTS.md
-       and the tools/ folder are not among them, and stay under this license.
-       You may include AGENTS.md and the tools/ folder, with or without
-       changes, in Your Applications, and distribute Your Applications to your
-       own organization, to your clients and publicly, in source or compiled
-       form, as part of Your Applications, for use with Ambivo's products and
-       services.
+       of this license. That file says which starter files it covers: AGENTS.md,
+       the tools/ folder and the src/ambivo-about/ folder are not among them,
+       and stay under this license. You may include AGENTS.md and the tools/
+       folder, with or without changes, and the src/ambivo-about/ folder
+       without changes, in Your Applications, and distribute Your Applications
+       to your own organization, to your clients and publicly, in source or
+       compiled form, as part of Your Applications, for use with Ambivo's
+       products and services.
 
    (c) Ambivo also grants you a license under any patents Ambivo can license
        that are infringed by the Software, for the uses in this section 1.
@@ -54,7 +55,10 @@ If you do not accept it, do not use the Software.
        the Software;
    (d) use the Software in breach of any law, or of Ambivo's Terms of Use; or
    (e) use the Software to gain access to any Ambivo account, company or data
-       that you are not authorized to access.
+       that you are not authorized to access; or
+   (f) change, remove, hide or get around the About page in the starter's
+       src/ambivo-about/ folder in any of Your Applications. Every application
+       made with the Software shows that page as Ambivo wrote it.
 
 3. Your Applications
 

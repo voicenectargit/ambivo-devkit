@@ -62,8 +62,9 @@ export function createDockerDriver({ network = '', proxyUrl = '', docker = 'dock
     try { await run(docker, [kind, 'inspect', name]); return true; } catch { return false; }
   }
 
-  async function create(id, image) {
-    for (const v of [containerName(id), sessionVolume(id), 'ds-npm-cache']) await run(docker, ['volume', 'create', v]);
+  /** opts.npmCache: the npm cache volume (default ds-npm-cache, shared by projects; app reviews use their own). */
+  async function create(id, image, { npmCache = 'ds-npm-cache' } = {}) {
+    for (const v of [containerName(id), sessionVolume(id), npmCache]) await run(docker, ['volume', 'create', v]);
     const args = [
       'run', '-d', '--name', containerName(id),
       // 4 GB, plus up to 2 GB of host swap. At 3 GB a live preview, a production build and screenshots
@@ -72,7 +73,7 @@ export function createDockerDriver({ network = '', proxyUrl = '', docker = 'dock
       '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
       '-v', `${containerName(id)}:/work`,
       '-v', `${sessionVolume(id)}:/home/dev/.claude`,
-      '-v', 'ds-npm-cache:/home/dev/.npm',
+      '-v', `${npmCache}:/home/dev/.npm`,
       '--label', 'ambivo.devstudio=1',
     ];
     if (serverMode) {

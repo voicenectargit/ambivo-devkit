@@ -87,6 +87,11 @@ This copies the starter, names the app, and writes `public/runtime-config/localh
 each person seeing only their own company's data. For a one-client app, the deployment's own config may
 add `"tenantId"` to limit sign-in to that company.
 
+Then register the app with the `register_app` tool: its permanent app ID is the developer's company
+domain reversed plus the app's name, for example `com.yourcompany.<key>`. Propose it and confirm it
+with the user first, because it can never change. If the user is not signed in to Ambivo, register it
+later, before its first custom object.
+
 ## 5. Offer sample data
 
 Only when the signed-in company is the developer's partner sandbox (see the `ambivo-sample-data`
@@ -115,3 +120,8 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/ambivo-check.mjs .
 ```
 
 Both must pass. Then tell the user how to run it (`npm start`) and that `/ambivo-bundle` packages it.
+Before the app is installed in a client's company, it needs Ambivo's review: submit it with the `submit_app`
+tool (ask the user for the app name, who made it and the support email the first time), or Dev Studio's
+Review button. `review_status` shows the result; an approved version's certificate is written into the app,
+then run `npx ng build` again so the About page shows it. Any change after that is a new version and a new
+review.

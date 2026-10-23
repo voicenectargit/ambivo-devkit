@@ -24,6 +24,9 @@ import { parsePhases, PhasesError, newPhases, mergePhases, findPhase, cannotStar
   PHASE0, PHASES_FILE, PHASE_DOCS, PHASE_ID, handoffFile } from './phases.mjs';
 import { startSignIn, finishSignIn, signOut as ambivoSignOut, DEFAULT_API as AMBIVO_DEFAULT_API } from './ambivo-signin.mjs';
 import { createDeploy } from './deploy.mjs';
+import { aboutProblems, certificateProblem, projectReader } from './about.mjs';
+import { createReviews, createRemoteReviews, hiddenFiles, reviewTarKey } from './review.mjs';
+import { fingerprint } from './fingerprint.mjs';
 import { JOBS_FILE, JOB_ID, JobsError, cleanJobsDoc, coreCall, jobsForCore, objectsForJobs, secretProblem } from './appjobs.mjs';
 
 /** Exit codes that mean a run hit its container's memory cap (see the error emitted when a run ends). */
@@ -1317,6 +1320,95 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
     return [200, action === 'runs' ? { runs: r.body.data_list || [] } : { ok: true, job: r.body.app_job || null }];
   }
 
+  // ---- the fixed About page and its certificate (about.mjs) --------------------------------------
+  // Checked here, on Dev Studio's side, before anything leaves it: Share, Download for a client, Push, Deploy.
+  async function aboutRefusal(id, what) {
+    const r = projectReader((cmd) => driver.sh(id, cmd, { workdir: '/work' }));
+    const problems = await aboutProblems(r.read, r.listApp);
+    if (!problems.length) return null;
+    log(`project ${id}: ${what} refused, About page: ${problems.join(' | ')}`);
+    return [409, { error: `${what} is stopped until the app's About page is put right. Ask the assistant to fix it: ${problems.join(' ')}`,
+      about: problems }];
+  }
+  async function coreGet(path) {
+    const r = await fetchImpl(new URL(path, config.ambivoApi), { headers: { Accept: 'application/json' } });
+    const body = await r.json().catch(() => null);
+    return { ok: r.ok && body?.result === 1, body };
+  }
+  async function certificateRefusal(id, app) {
+    const r = projectReader((cmd) => driver.sh(id, cmd, { workdir: '/work' }));
+    // Files the fingerprint cannot see would make "the same code" mean less: refused here as at submit.
+    const odd = await hiddenFiles((cmd) => driver.sh(id, cmd, { workdir: '/work' }));
+    if (odd) return [409, { error: odd, certificate: true }];
+    // The fingerprint is computed here, from the files, the same way the review computed it.
+    let codeSha256;
+    try { codeSha256 = fingerprint(parseTar(await readAll(driver.exportTar(id).stdout, 60 << 20))); }
+    catch (err) { return [409, { error: `The app's files could not be read: ${err.message}`, certificate: true }]; }
+    const problem = await certificateProblem(r.read, { ...app, codeSha256 }, coreGet);
+    if (problem) log(`project ${id}: deploy link refused, certificate: ${problem}`);
+    return problem ? [409, { error: problem, certificate: true }] : { ok: true, codeSha256 };
+  }
+
+  /** The files of a reviewed version, from the frozen copy the review kept (reviews/code/<sha>.tar). */
+  async function reviewedFiles(codeSha256) {
+    const obj = await stateObjects.get(reviewTarKey(codeSha256));
+    if (!obj) return null;
+    const files = parseTar(obj.body);
+    return fingerprint(files) === codeSha256 ? files : null;
+  }
+
+  /**
+   * Run a reviewed version's install step for a client: in a NEW container from Ambivo's image holding only
+   * that frozen copy, never the partner's own container (where a process they started could read the client
+   * admin's session). The container is removed afterwards.
+   */
+  async function runReviewed(codeSha256, short, argv, env) {
+    const obj = await stateObjects.get(reviewTarKey(codeSha256));
+    if (!obj) return { code: 1, out: '', err: 'Error: The reviewed copy of this version is missing. Submit the app for review again.' };
+    const cid = `deploy-${short}`;
+    await driver.remove(cid).catch(() => {});
+    try {
+      await driver.create(cid, config.image, { npmCache: 'ds-review-npm-cache' });
+      const untar = await new Promise((resolve) => {
+        const c = driver.exec(cid, ['sh', '-c', 'mkdir -p /work/app && tar -xf - -C /work/app'], { workdir: '/work', interactive: true });
+        let err = '';
+        c.stderr?.on('data', (x) => { err += x; });
+        c.on('error', (e) => resolve({ code: 1, err: e.message }));
+        c.on('close', (code) => resolve({ code, err }));
+        c.stdin.end(obj.body);
+      });
+      if (untar.code !== 0) return { code: 1, out: '', err: `Error: The app could not be unpacked: ${String(untar.err).slice(-300)}` };
+      return await runIn(cid, argv, env);
+    } finally {
+      await driver.remove(cid).catch((e) => log(`deploy ${short}: removing its container: ${e.message}`));
+    }
+  }
+
+  // ---- app review: submit, the runner, staff decisions (review.mjs) ---------------------------------
+  const reviews = serverMode ? createReviews({
+    config, driver, stateObjects, fetchImpl, log,
+    app: {
+      isBusy: (pid) => busy.has(pid), ambivoSession, update, emit,
+      getProject: (pid) => store.get(pid), writeFile: (pid, path, text) => driver.writeFile(pid, path, text),
+      exportTar: (pid) => driver.exportTar(pid),
+      sh: (pid, cmd) => driver.sh(pid, cmd, { workdir: '/work' }),
+    },
+  }) : createRemoteReviews({
+    // The Docker Dev Studio: the hosted one reviews, with the maker's own Ambivo sandbox session.
+    config, fetchImpl, log,
+    app: {
+      isBusy: (pid) => busy.has(pid), update, emit, session: () => localAmbivoSession(),
+      writeFile: (pid, path, text) => driver.writeFile(pid, path, text),
+      exportTar: (pid) => driver.exportTar(pid),
+      sh: (pid, cmd) => driver.sh(pid, cmd, { workdir: '/work' }),
+    },
+  });
+  // Queued reviews run one at a time; a restart picks up what was queued.
+  if (reviews?.enabled) {
+    const t = setInterval(() => reviews.tick().catch((err) => log(`reviews: ${err.message}`)), 60000);
+    t.unref?.();
+  }
+
   // ---- deploy: a one-time link for a client's admin (deploy.mjs) ---------------------------------
   const deploy = serverMode && deploySessions && deployPending ? createDeploy({
     stateObjects, sessions: deploySessions, pending: deployPending, config, fetchImpl, log,
@@ -1325,6 +1417,8 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
       runIn, prepare,
       sh: (pid, cmd) => driver.sh(pid, cmd, { workdir: '/work' }),
       isBusy: (pid) => busy.has(pid),
+      aboutRefusal: (pid) => aboutRefusal(pid, 'The deploy link'),
+      certificateRefusal, reviewedFiles, runReviewed,
       setBusy: (pid, on) => { if (on) busy.add(pid); else { busy.delete(pid); touch(pid); } },
       update, emit, publicUrl: publicOrigin,
     },
@@ -1332,7 +1426,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
   const DEPLOY_ROUTE = /^\/deploy\/([A-Za-z0-9_-]{43})(?:\/(info|sign-in|verify|install|cancel))?$/;
 
   // ---- requests -----------------------------------------------------------------------------
-  const ROUTE = new RegExp(`^/api/projects(?:/(${ID}))?(?:/(events|messages|download|keys|preview|push|share|brief|phases|datamodel|settings|guide|teardown|deploy|jobs))?(?:/([a-z][a-z0-9-]{0,39})/(start|approve|reopen|screens))?$`);
+  const ROUTE = new RegExp(`^/api/projects(?:/(${ID}))?(?:/(events|messages|download|keys|preview|push|share|brief|phases|datamodel|settings|guide|teardown|deploy|jobs|review))?(?:/([a-z][a-z0-9-]{0,39})/(start|approve|reopen|screens))?$`);
 
   async function handler(req, res) {
     const url = new URL(req.url, 'http://x');
@@ -1371,8 +1465,12 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
       if (url.pathname === '/healthz') return json(res, 200, { ok: true });
 
       if (serverMode) {
-        // Changes must come from the Dev Studio page itself (no cross-site form posts).
-        if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== publicOrigin) {
+        // Changes must come from the Dev Studio page itself (no cross-site form posts). Two routes take no
+        // cookies and carry their own key instead, so a cross-site post gains nothing there: the review agent's
+        // relay (/review-llm/<one-time token>) and uploads from the Docker Dev Studio and the dev kit
+        // (/api/review-upload, with the partner's Ambivo session).
+        const tokenRoute = /^\/review-llm\/[A-Za-z0-9_-]{32}\/v1\//.test(url.pathname) || url.pathname === '/api/review-upload';
+        if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== publicOrigin && !tokenRoute) {
           return json(res, 403, { error: 'This request did not come from the Dev Studio page.' });
         }
         if (req.method === 'GET' && url.pathname === '/auth/login') return login(req, res);
@@ -1397,6 +1495,38 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         else if (act === 'cancel' && req.method === 'POST') out = await deploy.cancel(secret);
         else out = [405, { error: 'Not allowed' }];
         res.setHeader('Referrer-Policy', 'no-referrer');
+        return json(res, out[0], out[1]);
+      }
+      // The check page an app's About page links to. Public: anyone holding the app may check it.
+      const vm = url.pathname.match(/^\/verify\/(AMB-[0-9A-Z]{4}-[0-9A-Z]{4})(\.json)?$/);
+      if (vm && req.method === 'GET') {
+        if (!vm[2]) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY',
+            'Referrer-Policy': 'no-referrer' });
+          return res.end(readFileSync(join(HERE, 'public', 'verify.html')));
+        }
+        const sha = String(url.searchParams.get('sha256') || '');
+        let r;
+        try { r = await coreGet(`app_certificate/${vm[1]}${/^[0-9a-f]{64}$/i.test(sha) ? `?sha256=${sha}` : ''}`); }
+        catch { return json(res, 502, { error: 'Ambivo could not be reached. Try again in a few minutes.' }); }
+        if (!r.ok) {
+          const notFound = r.body?.error_code === 'APP_CERTIFICATE_NOT_FOUND';
+          return json(res, notFound ? 404 : 502, notFound ? { notFound: true } : { error: 'Ambivo could not check this certificate. Try again in a few minutes.' });
+        }
+        const { certificate, signature_valid, sha256_matches } = r.body;
+        return json(res, 200, { certificate, signature_valid, sha256_matches });
+      }
+      // The review agent's model calls (review.mjs relay): the one-time token in the path is the only key.
+      const lm = url.pathname.match(/^\/review-llm\/([A-Za-z0-9_-]{32})(\/v1\/[a-z_/]+)$/);
+      if (lm && serverMode && reviews?.relay) return await reviews.relay(req, res, lm[1], lm[2]);
+      // The Docker Dev Studio and the dev kit submit here with the partner's own Ambivo session (no cookies).
+      const um = url.pathname.match(/^\/api\/review-upload(?:\/([0-9a-f]{24}))?$/);
+      if (um && serverMode && reviews?.upload) {
+        const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+        let out;
+        if (!um[1] && req.method === 'POST') out = await reviews.upload(token, req, { project: url.searchParams.get('project') || '' });
+        else if (um[1] && req.method === 'GET') out = await reviews.uploaded(token, um[1]);
+        else out = [405, { error: 'Not allowed' }];
         return json(res, out[0], out[1]);
       }
       if (!url.pathname.startsWith('/api/')) {
@@ -1450,6 +1580,25 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
           if (err instanceof AccessError) return json(res, err.status, { error: err.message });
           throw err;
         }
+      }
+      // Ambivo staff: per-app metrics (installs, traffic, storage, cost). Dev Studio admins only.
+      const mm = url.pathname.match(/^\/api\/app-metrics(?:\/([a-z][a-z0-9.]{4,154}))?$/);
+      if (mm && req.method === 'GET') {
+        if (!serverMode || !reviews?.metrics || !isAdmin(user)) return json(res, 404, { error: 'Not found' });
+        const out = await reviews.metrics(mm[1] || '', url.searchParams.get('days'));
+        return json(res, out[0], out[1]);
+      }
+      // Ambivo staff review apps here (Dev Studio admins). To anyone else the page does not exist.
+      const rm = url.pathname.match(/^\/api\/reviews(?:\/([0-9a-f]{24}))?(?:\/(decide))?$/);
+      if (rm) {
+        if (!serverMode || !reviews || !isAdmin(user)) return json(res, 404, { error: 'Not found' });
+        const [, rid, act] = rm;
+        let out;
+        if (!rid && req.method === 'GET') out = await reviews.queue(url.searchParams.get('status') || 'ready', url.searchParams.get('page'));
+        else if (rid && !act && req.method === 'GET') out = await reviews.one(rid);
+        else if (rid && act === 'decide' && req.method === 'POST') out = await reviews.decide(rid, user, await readBody(req));
+        else out = [405, { error: 'Not allowed' }];
+        return json(res, out[0], out[1]);
       }
       if (url.pathname === '/api/ambivo' || url.pathname.startsWith('/api/ambivo/')) {
         if (!serverMode || !ambivoSessions) return json(res, 404, { error: 'Not found' });
@@ -1577,6 +1726,9 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
       if (sub === 'share' && driver.kind === 'local') return json(res, 404, { error: 'Share links work in the hosted Dev Studio only.' });
       if (sub === 'share' && req.method === 'POST') {
         if (busy.has(id)) return json(res, 409, { error: 'The assistant is working. Share the app when it finishes.' });
+        await prepare(id);
+        const refused = await aboutRefusal(id, 'Sharing');
+        if (refused) return json(res, ...refused);
         const [code, out] = await makeShare(id);
         return json(res, code, out);
       }
@@ -1589,6 +1741,17 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         return json(res, 405, { error: 'Not allowed' });
       }
       if (sub === 'jobs') { const [code, out] = await jobsRoute(id, p, req, url); return json(res, code, out); }
+      if (sub === 'review') {
+        if (req.method === 'GET') { const [code, out] = await reviews.forProject(p); return json(res, code, out); }
+        if (req.method === 'POST') {
+          await prepare(id);
+          const refused = await aboutRefusal(id, 'Submitting for review');
+          if (refused) return json(res, ...refused);
+          const [code, out] = await reviews.submit(p, user);
+          return json(res, code, out);
+        }
+        return json(res, 405, { error: 'Not allowed' });
+      }
       if (sub === 'teardown' && (req.method === 'GET' || req.method === 'POST')) {
         // What the app made in the partner's Ambivo sandbox: listed (GET), or removed (POST). It runs the
         // devkit's teardown in the project's container, as the partner, in their sandbox only.
@@ -1764,6 +1927,9 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         await prepare(id);   // stopped while idle, or on a server that has not run this project yet
         const fileName = p.name.replace(/[^a-z0-9-]+/gi, '-');
         if (url.searchParams.get('for') === 'client') {
+          // The developer's own copy is theirs to back up; a copy for a client carries the About page.
+          const refused = await aboutRefusal(id, 'The download for a client');
+          if (refused) return json(res, ...refused);
           // For a client: the same files without the developer ones (AGENTS.md, tools/, the brief, the dev
           // relay, the dev kit's package.json scripts). Filtered and zipped here; the project is untouched.
           const x = EXPORT_EXCLUDES.map((e) => `--exclude='${e}'`).join(' ');
@@ -1779,6 +1945,9 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
       if (sub === 'push' && req.method === 'POST') {
         if (!(serverMode && github) && !localGitHub) return json(res, 404, { error: 'Not found' });
         if (busy.has(id)) return json(res, 409, { error: 'The assistant is working. Push when it finishes.' });
+        await prepare(id);
+        const refused = await aboutRefusal(id, 'Pushing to GitHub');
+        if (refused) return json(res, ...refused);
         const body = await readBody(req);
         try {
           const [code, out] = await push(p, user, body.repo);

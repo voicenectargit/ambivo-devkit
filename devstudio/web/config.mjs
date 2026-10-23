@@ -103,6 +103,14 @@ export function loadConfig(env = process.env) {
     sessionMaxDays: Number(env.DEVSTUDIO_SESSION_MAX_DAYS || 7),
     // Where partners sign in to their Ambivo sandbox (server mode). Tests point it at a fake.
     ambivoApi: env.DEVSTUDIO_AMBIVO_API || 'https://ingress.ambivo.com/',
+    // App review (review.mjs), hosted only. The two keys to Ambivo's /app_review/runner routes (the second
+    // one only for staff decisions), and Ambivo's own Claude key for the review agent. Empty: no reviews.
+    reviewSecret: env.DEVSTUDIO_APP_REVIEW_SECRET || '',
+    reviewDecideSecret: env.DEVSTUDIO_APP_REVIEW_DECIDE_SECRET || '',
+    reviewAnthropicKey: env.DEVSTUDIO_REVIEW_ANTHROPIC_KEY || '',
+    reviewModel: env.DEVSTUDIO_REVIEW_MODEL || 'claude-opus-5-5',
+    // The Docker Dev Studio sends apps for review to this hosted Dev Studio.
+    reviewHost: env.DEVSTUDIO_REVIEW_HOST || 'https://devstudio.ambivo.com',
     // Who may sign in beyond the floor, read from the Partner Program app in Ambivo (partnersource.mjs).
     partnerProg: partnerProgConfig(env, env.DEVSTUDIO_AMBIVO_API || 'https://ingress.ambivo.com/', env.AWS_REGION || env.AWS_DEFAULT_REGION || 'us-east-1'),
     github: {

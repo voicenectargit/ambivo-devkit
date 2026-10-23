@@ -1,4 +1,6 @@
 // Copyright (c) 2026 Ambivo, Inc. Licensed under the MIT License. See LICENSE-AMBIVO-STARTER.txt.
+import { ABOUT_NAV_ITEM } from '../../ambivo-about/about';
+
 /** One entry of the left menu. `exact`: active only on this path, not on the paths under it. */
 export interface NavItem {
   path: string;
@@ -13,4 +15,6 @@ export interface NavItem {
  */
 export const NAV_ITEMS: NavItem[] = [
   { path: '/', label: $localize`Home`, icon: 'home', exact: true },
+  // Always last. Required in every Ambivo-made app.
+  ABOUT_NAV_ITEM,
 ];

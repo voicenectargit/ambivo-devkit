@@ -11,6 +11,14 @@ for every API call, and runtime config per host.
 
 ## Never edit these
 
+- `src/ambivo-about/**`: the About page every Ambivo-made app shows. Locked: never edit, move, rename,
+  restyle, translate or delete these files, and never wrap or hide the page. Ambivo compares their
+  SHA-256 with its own copy; a changed file fails `ambivo:check`, stops Share, Push and Deploy in Dev
+  Studio, and Ambivo will not certify the app or install it in a client's company. Keep the wiring:
+  `provideAmbivoAbout()` in `app.config.ts`, `<ambivo-about-link />` on the sign-in page and the home
+  page, and `ABOUT_NAV_ITEM` last in `NAV_ITEMS`. If a page needs another way to reach it, link to
+  `/about`. `src/install/ambivo-certificate.json` is written only after Ambivo approves the app's review
+  (the `review_status` tool, or Dev Studio). Never write it by hand.
 - `src/ambivo/**`: copied from Ambivo's own code. Changes are lost on the next sync.
 - `src/app/core/**` (API client, sign-in, session): change only to fix a bug, and say so.
 - The sign-in screens in `src/app/sign-in/`: wording only.
@@ -145,7 +153,8 @@ closes after a tap. It is not used until you wire it in:
    ```
 
 2. Add one `NAV_ITEMS` entry per top-level screen, in the order people use them: `path`, a
-   `$localize`-tagged `label`, a Material Symbols `icon`, and `exact: true` for `/`.
+   `$localize`-tagged `label`, a Material Symbols `icon`, and `exact: true` for `/`. `ABOUT_NAV_ITEM`
+   stays the last entry.
 3. Remove the `mat-toolbar` from `home.page.ts`: the shell has the top bar now.
 
 Detail pages (`projects/:id`) are child routes without a menu entry. Keep the menu to one level;

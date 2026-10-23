@@ -1,6 +1,6 @@
 {
-  "docs_commit": "4abcd67",
-  "built_at": "2026-10-21",
+  "docs_commit": "6017dcf",
+  "built_at": "2026-10-22",
   "specs": [
     {
       "id": "esign",
@@ -30,7 +30,7 @@
       "id": "crm",
       "title": "CRM",
       "file": "ambivo-crm.openapi.yaml",
-      "operations": 302
+      "operations": 315
     },
     {
       "id": "unified-model",
@@ -42,7 +42,7 @@
       "id": "autonomous-agents",
       "title": "Autonomous Agents",
       "file": "ambivo-autonomous-agents.openapi.yaml",
-      "operations": 63
+      "operations": 72
     },
     {
       "id": "third-party-integrations",
@@ -60,7 +60,7 @@
       "id": "workflows",
       "title": "Workflows",
       "file": "ambivo-workflows.openapi.yaml",
-      "operations": 65
+      "operations": 69
     },
     {
       "id": "custom-domains",
@@ -72,7 +72,7 @@
       "id": "custom-objects",
       "title": "Custom Objects",
       "file": "ambivo-custom-objects.openapi.yaml",
-      "operations": 49
+      "operations": 64
     },
     {
       "id": "testing-data",
@@ -102,7 +102,7 @@
       "id": "workforce",
       "title": "Workforce",
       "file": "ambivo-workforce.openapi.yaml",
-      "operations": 127
+      "operations": 128
     },
     {
       "id": "assetbase",

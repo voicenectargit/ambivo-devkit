@@ -155,6 +155,11 @@
   .jobform .checks label { flex-direction: row; align-items: center; gap: 6px; font-weight: 400; margin: 0; }
   .jobform .checks input { width: auto; }
   .jobform small { font-weight: 400; color: var(--muted); }
+  table.metrics { border-collapse: collapse; width: calc(100% - 32px); margin: 8px 16px 16px; background: var(--surface); font-size: 13px; }
+  table.metrics th, table.metrics td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+  table.metrics th { color: var(--muted); font-weight: 500; }
+  table.metrics .hint { color: var(--muted); font-size: 12px; }
+  #main > p, #main > h2, #main > button.text, #main > .err { margin-left: 16px; margin-right: 16px; }
   @media (max-width: 720px) { aside { display: none; } }
 </style>
 </head>
@@ -177,6 +182,8 @@
       <button class="text" id="ambSignOutBtn" type="button" hidden>Sign out of the sandbox</button>
     </div>
     <button class="text" id="accessBtn" type="button" hidden>Access: who may sign in</button>
+    <button class="text" id="reviewsBtn" type="button" hidden>App reviews</button>
+    <button class="text" id="appsBtn" type="button" hidden>Apps: installs and cost</button>
     <button class="text" id="signOutBtn" type="button" hidden>Sign out</button>
   </div>
 </aside>
@@ -287,6 +294,18 @@
     <label class="choice"><input type="radio" name="dlFor" value="dev" checked /><span>For developers (everything)<small>All the app's files, with the assistant's rules and the Ambivo check tools.</small></span></label>
     <label class="choice"><input type="radio" name="dlFor" value="client" /><span>For a client: leave out developer files<small>The app's code without AGENTS.md, the tools folder, the app brief, the phase plan and notes, the client brief file, your sandbox sample data files and the dev server settings.</small></span></label>
     <div class="row"><button type="button" class="text" id="dlCancel">Cancel</button><button id="dlGo">Download</button></div>
+  </form>
+</dialog>
+
+<dialog class="am wide" id="reviewDialog">
+  <form method="dialog" id="reviewForm">
+    <h3>Ambivo review</h3>
+    <p>Ambivo reviews every app before a client can install it. A program and an assistant check the code, the services it calls and what it shows. Then Ambivo staff decide.</p>
+    <p class="note">Apps about gambling, sexual content, or content unsuitable for children are refused. Apps for children are welcome when everything in them suits children.</p>
+    <p class="note">Each version is reviewed once. After any change, raise the version in src/install/app-objects.json and submit again.</p>
+    <div id="reviewLists"></div>
+    <div class="err" id="reviewErr" role="alert"></div>
+    <div class="row"><button type="button" class="text" id="reviewClose">Close</button><button id="reviewGo">Submit for review</button></div>
   </form>
 </dialog>
 
@@ -696,7 +715,7 @@ async function open(id) {
   if (seq !== openSeq) return;
   source?.close();
   $('#main').innerHTML = `
-    <header><h2></h2><a class="text" id="preview" target="_blank" rel="noopener">Preview</a><button class="text" id="model">Data model</button><button class="text" id="jobs">Jobs</button><button class="text" id="guide">User guide</button><button class="text" id="limits">Spending limit</button><button class="text" id="dl">Download zip</button>${me?.local ? '' : '<button class="text" id="share"></button>'}${me?.mode === 'server' ? '<button class="text" id="deploy">Deploy</button>' : ''}${me?.canPush ? '<button class="text" id="push">Push to GitHub</button>' : ''}<button class="text" id="del">Delete</button></header>
+    <header><h2></h2><a class="text" id="preview" target="_blank" rel="noopener">Preview</a><button class="text" id="model">Data model</button><button class="text" id="jobs">Jobs</button><button class="text" id="guide">User guide</button><button class="text" id="limits">Spending limit</button><button class="text" id="dl">Download zip</button><button class="text" id="review">Review</button>${me?.local ? '' : '<button class="text" id="share"></button>'}${me?.mode === 'server' ? '<button class="text" id="deploy">Deploy</button>' : ''}${me?.canPush ? '<button class="text" id="push">Push to GitHub</button>' : ''}<button class="text" id="del">Delete</button></header>
     <section id="phases" hidden></section>
     ${p.keyed ? '' : `<div class="banner">Dev Studio has no ${KEYS[providerOf(p)].name} for you. You will be asked for it when you send your next message, or <button class="text" id="rekey">Enter it now</button></div>`}
     <div id="log"></div>
@@ -715,6 +734,7 @@ async function open(id) {
   showShareButton();
   $('#share')?.addEventListener('click', () => shareApp(id));
   $('#deploy')?.addEventListener('click', () => deployApp(id));
+  $('#review')?.addEventListener('click', () => reviewApp(id));
   $('#rekey')?.addEventListener('click', async () => {
     try { await askForKey(providerOf(p)); } catch (e) { add({ kind: 'error', text: e.message }); }
   });
@@ -941,6 +961,170 @@ async function deleteApp(id, p) {
 
 // ---- access (Dev Studio admins) -----------------------------------------------------------
 // Who may sign in, beyond the list set at deploy time. A change takes effect within a minute.
+// Ambivo staff (Dev Studio admins): every registered app, where it is installed, its traffic, storage and cost.
+const fmtBytes = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(2)} GB` : n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n >= 1e3 ? `${Math.round(n / 1e3)} KB` : `${n} bytes`);
+const fmtMoney = (n, cur = 'USD') => {
+  const v = Number(n) || 0;
+  // Small amounts keep their cents: $0.002 a job run must not read as $0.00.
+  const digits = v !== 0 && Math.abs(v) < 1 ? 4 : 2;
+  try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur || 'USD', maximumFractionDigits: digits }).format(v); }
+  catch { return `${v.toFixed(digits)} ${cur || ''}`.trim(); }
+};
+const fmtCount = (n) => new Intl.NumberFormat().format(n || 0);
+
+async function showApps() {
+  current = null; source?.close(); source = null;
+  const main = $('#main');
+  const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined && text !== null) e.textContent = String(text); if (cls) e.className = cls; return e; };
+  const err = el('div', '', 'err'); err.setAttribute('role', 'alert');
+  const header = el('header'); header.append(el('h2', 'Apps: installs and cost'));
+  main.replaceChildren(header, err);
+  let d;
+  try { d = await api('/api/app-metrics?days=30'); } catch (e) { err.textContent = e.message; return; }
+  main.append(el('p', `The last ${d.days} days. Cost is an estimate from Ambivo's unit prices.`, 'hint'));
+  const table = el('table', undefined, 'metrics');
+  const head = el('tr');
+  for (const h of ['App', 'Owner', 'Status', 'Installs', 'Requests', 'Errors', 'Data sent', 'Stored', 'Estimated cost']) head.append(el('th', h));
+  table.append(head);
+  for (const a of d.apps) {
+    const tr = el('tr');
+    const link = el('button', a.app_name || a.app_key, 'text'); link.type = 'button'; link.onclick = () => showApp(a.app_id);
+    const first = el('td'); first.append(link, el('div', a.app_id, 'hint'));
+    tr.append(first, el('td', a.owner_company_name), el('td', a.status), el('td', fmtCount(a.installs)), el('td', fmtCount(a.requests)),
+      el('td', fmtCount(a.errors)), el('td', fmtBytes(a.bytes_sent)), el('td', a.stored_bytes ? fmtBytes(a.stored_bytes) : 'Not measured yet'),
+      el('td', fmtMoney(a.cost, d.prices?.currency)));
+    table.append(tr);
+  }
+  main.append(table);
+  main.append(el('p', 'Storage is measured when an app\'s page is opened. Open an app to measure it now.', 'hint'));
+}
+
+async function showApp(appId) {
+  const main = $('#main');
+  const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined && text !== null) e.textContent = String(text); if (cls) e.className = cls; return e; };
+  const err = el('div', '', 'err'); err.setAttribute('role', 'alert');
+  const back = el('button', 'Back to all apps', 'text'); back.type = 'button'; back.onclick = () => showApps();
+  main.replaceChildren(back, err, el('p', 'Measuring…', 'hint'));
+  let r;
+  try { r = (await api(`/api/app-metrics/${encodeURIComponent(appId)}?days=30`)).report; } catch (e) { err.textContent = e.message; return; }
+  main.replaceChildren(back, err);
+  main.append(el('h2', r.app_name || r.app_key), el('p', `${r.app_id} · ${r.owner_company_name || ''} · ${r.status}`, 'hint'));
+  const t = r.totals;
+  main.append(el('p', `Installed in ${fmtCount(r.installs)} companies. Last ${r.days} days: ${fmtCount(t.requests)} requests, ${fmtCount(t.errors)} errors, ${fmtBytes(t.bytes_sent)} sent, ${fmtCount(t.job_runs)} job runs. Stored: ${fmtCount(t.records)} records, ${fmtBytes(t.stored_bytes)}. Estimated cost: ${fmtMoney(t.cost, r.prices?.currency)}.`));
+  const table = el('table', undefined, 'metrics');
+  const head = el('tr');
+  for (const h of ['Company', 'Version', 'Installed', 'Requests', 'Errors', 'Data sent', 'Records', 'Stored', 'Job runs', 'Estimated cost']) head.append(el('th', h));
+  table.append(head);
+  for (const c of r.companies) {
+    const tr = el('tr');
+    const first = el('td'); first.append(el('div', c.company_name || c.tenant_id), el('div', c.installed ? `${c.objects.length} objects` : 'Not installed, used from its address', 'hint'));
+    tr.append(first, el('td', (c.versions || []).join(', ') || 'Before certificates'), el('td', c.first_installed_at || ''),
+      el('td', fmtCount(c.requests)), el('td', fmtCount(c.errors)), el('td', fmtBytes(c.bytes_sent)), el('td', fmtCount(c.records)),
+      el('td', c.installed === false ? 'Not installed' : fmtBytes(c.stored_bytes)), el('td', fmtCount(c.job_runs)), el('td', fmtMoney(c.cost, r.prices?.currency)));
+    table.append(tr);
+  }
+  main.append(table);
+  const p = r.prices || {};
+  main.append(el('p', `Unit prices: ${fmtMoney(p.per_million_requests, p.currency)} per million requests, ${fmtMoney(p.per_gb_sent, p.currency)} per GB sent, ${fmtMoney(p.per_gb_month_stored, p.currency)} per GB stored a month, ${fmtMoney(p.per_job_run, p.currency)} per job run.`, 'hint'));
+}
+
+// Ambivo staff (Dev Studio admins): the app review queue, each report in full, and the decision.
+// Everything a partner wrote (names, findings, file names) goes in as text, never as HTML.
+async function showReviews(status = 'ready') {
+  current = null; source?.close(); source = null;
+  const main = $('#main');
+  const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined && text !== null) e.textContent = String(text); if (cls) e.className = cls; return e; };
+  const fmt = (t) => (t ? new Date(t).toLocaleString() : '');
+  const TABS = [['ready', 'Waiting for a decision'], ['queued', 'Waiting to run'], ['running', 'Running'],
+    ['approved', 'Approved'], ['rejected', 'Not approved'], ['failed', 'Did not finish']];
+  const header = el('header'); header.append(el('h2', 'App reviews'));
+  const tabs = el('div', undefined, 'chips');
+  for (const [k, label] of TABS) {
+    const b = el('button', label, k === status ? 'chip on' : 'chip'); b.type = 'button';
+    b.onclick = () => showReviews(k);
+    tabs.append(b);
+  }
+  const body = el('div', undefined, 'reviews');
+  const err = el('div', '', 'err'); err.setAttribute('role', 'alert');
+  main.replaceChildren(header, tabs, err, body);
+  let list;
+  try { list = await api(`/api/reviews?status=${encodeURIComponent(status)}`); } catch (e) { err.textContent = e.message; return; }
+  if (!list.reviews.length) { body.append(el('p', 'Nothing here.', 'hint')); return; }
+  const ul = el('ul', undefined, 'review-list');
+  for (const r of list.reviews) {
+    const li = el('li');
+    const b = el('button', `${r.app_name || r.app_key} ${r.app_version} (${r.app_key}), from ${r.company_name || r.company_id}`, 'text'); b.type = 'button';
+    b.onclick = () => showReview(r.review_id, status);
+    li.append(b, el('span', ` Submitted ${fmt(r.submitted_at)} by ${r.submitted_by}.${r.recommendation ? ` Checks and agent say: ${r.recommendation}.` : ''}`, 'hint'));
+    ul.append(li);
+  }
+  body.append(ul);
+  if (list.total > list.reviews.length) body.append(el('p', `Showing ${list.reviews.length} of ${list.total}.`, 'hint'));
+}
+
+async function showReview(rid, backTo) {
+  const main = $('#main');
+  const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined && text !== null) e.textContent = String(text); if (cls) e.className = cls; return e; };
+  const fmt = (t) => (t ? new Date(t).toLocaleString() : '');
+  const err = el('div', '', 'err'); err.setAttribute('role', 'alert');
+  const back = el('button', 'Back to the list', 'text'); back.type = 'button'; back.onclick = () => showReviews(backTo);
+  main.replaceChildren(back, err);
+  let r;
+  try { r = (await api(`/api/reviews/${rid}`)).review; } catch (e) { err.textContent = e.message; return; }
+  const rep = r.report || {};
+  main.append(el('h2', `${r.app_name} ${r.app_version}`));
+  const facts = el('dl');
+  for (const [k, v] of [['App key', r.app_key], ['Made by', r.made_by], ['Support', r.support_email], ['Partner company', r.company_name || r.company_id],
+    ['Submitted', `${fmt(r.submitted_at)} by ${r.submitted_by}`], ['Code fingerprint', r.code_sha256], ['Status', r.status],
+    ['Checks and agent say', rep.recommendation], ['Decided', r.decided_at ? `${fmt(r.decided_at)} by ${r.decided_by}` : ''],
+    ['Reason', r.decision_reason], ['Certificate', r.cert_id], ['Error', r.error]]) {
+    if (!v) continue;
+    facts.append(el('dt', k), el('dd', v));
+  }
+  main.append(facts);
+  if (rep.summary) { main.append(el('h3', 'What the review agent says'), el('p', rep.summary)); }
+  if (rep.checks?.length) {
+    main.append(el('h3', 'Checks'));
+    const ul = el('ul');
+    for (const c of rep.checks) ul.append(el('li', `${c.name}: ${c.status}${c.detail ? `. ${c.detail}` : ''}`, c.status === 'fail' ? 'err' : ''));
+    main.append(ul);
+  }
+  const findings = rep.findings || [];
+  main.append(el('h3', `Findings (${findings.length})`));
+  if (!findings.length) main.append(el('p', 'None.', 'hint'));
+  const order = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+  const ul = el('ul');
+  for (const f of [...findings].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9))) {
+    const li = el('li', undefined, f.severity === 'critical' || f.severity === 'high' ? 'err' : '');
+    li.append(el('strong', `${f.severity} · ${f.category} · ${f.source === 'agent' ? 'agent' : 'fixed check'}: `), document.createTextNode(f.title));
+    if (f.file) li.append(el('div', `${String(f.file).replace(/^\/work\/app\//, '')}${f.line ? `:${f.line}` : ''}`, 'hint'));
+    if (f.detail) li.append(el('div', f.detail, 'hint'));
+    ul.append(li);
+  }
+  main.append(ul);
+  if (rep.usage) main.append(el('p', `Model ${rep.model || '?'}, ${rep.usage.input_tokens || 0} tokens in, ${rep.usage.output_tokens || 0} out, ${rep.usage.seconds || 0} seconds.`, 'hint'));
+  if (r.status !== 'ready') return;
+  const serious = rep.recommendation !== 'approve' || findings.some((f) => f.severity === 'critical') || (rep.checks || []).some((c) => c.status === 'fail');
+  const form = el('form', undefined, 'decide');
+  form.append(el('h3', 'Decide'));
+  if (serious) form.append(el('p', 'The report found problems. To approve anyway, write why.', 'err'));
+  const reason = el('textarea'); reason.rows = 3; reason.placeholder = 'Reason. The partner sees it.'; reason.maxLength = 2000;
+  const approve = el('button', 'Approve and issue the certificate'); approve.type = 'button';
+  const reject = el('button', 'Do not approve', 'text'); reject.type = 'button';
+  const go = async (decision) => {
+    err.textContent = '';
+    if (decision === 'reject' && !reason.value.trim()) { err.textContent = 'Write why the app is not approved. The partner sees it.'; return; }
+    if (decision === 'approve' && serious && !reason.value.trim()) { err.textContent = 'Write why the app is approved despite the report.'; return; }
+    approve.disabled = reject.disabled = true;
+    try { await api(`/api/reviews/${rid}/decide`, { method: 'POST', body: JSON.stringify({ decision, reason: reason.value.trim() }) }); await showReview(rid, backTo); }
+    catch (e) { err.textContent = e.message; approve.disabled = reject.disabled = false; }
+  };
+  approve.onclick = () => go('approve'); reject.onclick = () => go('reject');
+  const row = el('div', undefined, 'row'); row.append(reject, approve);
+  form.append(reason, row);
+  main.append(form);
+}
+
 async function showAccess() {
   current = null; source?.close(); source = null;
   const main = $('#main');
@@ -1295,6 +1479,61 @@ function shareApp(id) {
 }
 
 // Deploy: a one-time link that a client's Ambivo admin opens to install the app's custom objects.
+// Ambivo review: submit a version, and see where each one is. Partners see the fixed checks and the decision.
+function reviewApp(id) {
+  const dlg = $('#reviewDialog'), err = $('#reviewErr'), go = $('#reviewGo'), lists = $('#reviewLists');
+  const fmt = (t) => (t ? new Date(t).toLocaleString() : '');
+  const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
+  const STATUS = {
+    queued: 'Waiting to be reviewed',
+    running: 'Being reviewed now',
+    ready: 'Reviewed. Waiting for Ambivo staff to decide.',
+    approved: 'Approved',
+    rejected: 'Not approved',
+    failed: 'The review did not finish. Submit it again.',
+    unknown: 'Could not be read right now',
+  };
+  const CHECK = { pass: 'Passed', fail: 'Failed', warn: 'Check this', skipped: 'Not run' };
+  async function load() {
+    lists.textContent = '';
+    let st;
+    try { st = await api(`/api/projects/${id}/review`); } catch (e) { err.textContent = e.message; return; }
+    if (st.error) err.textContent = st.error;
+    if (!st.reviews.length) { lists.append(el('p', 'No version of this app has been submitted yet.', 'note')); return; }
+    for (const r of st.reviews) {
+      const box = el('div', undefined, 'review');
+      box.append(el('h4', `Version ${r.app_version || '?'}: ${STATUS[r.status] || r.status}`));
+      if (r.status === 'approved' && r.cert_id) box.append(el('p', `Certificate ${r.cert_id}. The About page shows it after your next build.`));
+      if (r.status === 'rejected' && r.decision_reason) box.append(el('p', `Why: ${r.decision_reason}`, 'err'));
+      if (r.error) box.append(el('p', r.error, 'err'));
+      if (r.submitted_at) box.append(el('p', `Submitted ${fmt(r.submitted_at)}${r.decided_at ? `. Decided ${fmt(r.decided_at)}` : ''}.`, 'note'));
+      if (r.checks?.length) {
+        const ul = el('ul');
+        for (const c of r.checks) ul.append(el('li', `${c.name}: ${CHECK[c.status] || c.status}${c.detail ? `. ${c.detail}` : ''}`, c.status === 'fail' ? 'err' : ''));
+        box.append(ul);
+      }
+      if (r.findings?.length) {
+        box.append(el('h5', 'What to fix'));
+        const ul = el('ul');
+        for (const f of r.findings.slice(0, 50)) ul.append(el('li', `${f.title}${f.file ? ` (${f.file.replace(/^\/work\/app\//, '')}${f.line ? `:${f.line}` : ''})` : ''}`));
+        box.append(ul);
+      }
+      lists.append(box);
+    }
+  }
+  err.textContent = ''; go.disabled = false;
+  dlg.showModal();
+  load();
+  $('#reviewClose').onclick = () => dlg.close();
+  $('#reviewForm').onsubmit = async (e) => {
+    e.preventDefault();
+    go.disabled = true; err.textContent = '';
+    try { await api(`/api/projects/${id}/review`, { method: 'POST' }); await load(); }
+    catch (e2) { err.textContent = e2.message; }
+    finally { go.disabled = false; }
+  };
+}
+
 function deployApp(id) {
   const dlg = $('#deployDialog'), err = $('#deployErr'), go = $('#deployGo'), lists = $('#deployLists');
   const fmt = (t) => new Date(t).toLocaleString();
@@ -2052,6 +2291,8 @@ function showMe() {
   }
   $('#signOutBtn').hidden = me.mode !== 'server';
   $('#accessBtn').hidden = !me.admin;
+  $('#reviewsBtn').hidden = !me.admin;
+  $('#appsBtn').hidden = !me.admin;
   // The trial note is for the hosted Dev Studio. On the maker's own computer, say where the apps are saved.
   if (me.local) {
     $('#localTip').textContent = 'Your apps are saved in the folder you started Dev Studio from. Each app has its own folder there.';
@@ -2106,6 +2347,8 @@ function showSetup(s) {
 }
 
 $('#accessBtn').onclick = () => showAccess();
+$('#reviewsBtn').onclick = () => showReviews();
+$('#appsBtn').onclick = () => showApps();
 $('#keyBtn').onclick = () => askForKey('claude');
 $('#oaKeyBtn').onclick = () => askForKey('openai');
 $('#oaDelKeyBtn').onclick = async () => {

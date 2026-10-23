@@ -14,6 +14,7 @@ import { DEFAULT_DIALOG_CONFIG, DialogConfig } from '@angular/cdk/dialog';
 import { routes } from './app.routes';
 import { APP_CONFIG, AppConfig } from './core/config/app-config';
 import { authInterceptor } from './core/auth/auth.interceptor';
+import { provideAmbivoAbout } from '../ambivo-about/about';
 
 export function appConfig(config: AppConfig): ApplicationConfig {
   return {
@@ -24,6 +25,8 @@ export function appConfig(config: AppConfig): ApplicationConfig {
       provideAnimationsAsync(),
       provideHttpClient(withInterceptors([authInterceptor])),
       provideRouter(routes, withComponentInputBinding()),
+      // The fixed About page every Ambivo-made app shows (/about). Required; see src/ambivo-about.
+      provideAmbivoAbout(),
       // Same icon font as Ambivo's apps.
       provideEnvironmentInitializer(() =>
         inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-outlined'),

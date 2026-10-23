@@ -3,9 +3,10 @@ MIT License
 Copyright (c) 2026 Ambivo, Inc.
 
 This license covers the starter application files that came with this app
-from the Ambivo Developer Kit. It does not cover AGENTS.md or the tools/
-folder, which stay under the Ambivo Developer Kit License, and it does not
-cover the code you write.
+from the Ambivo Developer Kit. It does not cover AGENTS.md, the tools/
+folder or the src/ambivo-about/ folder (the app's fixed About page), which
+stay under the Ambivo Developer Kit License, and it does not cover the code
+you write.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

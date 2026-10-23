@@ -3,11 +3,12 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { A11yModule } from '@angular/cdk/a11y';
 import { APP_CONFIG } from '../core/config/app-config';
+import { AmbivoAboutLink } from '../../ambivo-about/about';
 
 /** The card every sign-in screen sits in. Same look as Ambivo's own sign-in page. */
 @Component({
   selector: 'app-sign-in-layout',
-  imports: [RouterOutlet, A11yModule],
+  imports: [RouterOutlet, A11yModule, AmbivoAboutLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="wrapper">
@@ -20,6 +21,7 @@ import { APP_CONFIG } from '../core/config/app-config';
         <div class="card" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
           <router-outlet />
         </div>
+        <ambivo-about-link />
       </div>
     </div>
   `,

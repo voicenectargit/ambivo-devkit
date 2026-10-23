@@ -9,6 +9,8 @@
 // Only projects made from the Ambivo starter are checked (they have src/ambivo/SYNCED_FROM_NX.json).
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative, resolve, dirname, sep } from 'node:path';
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
 const PROVIDED_AM = new Set([
   '@am/crm/ui/layout',
@@ -121,6 +123,13 @@ function checkInstall(root) {
       return out;
     }
     const key = doc.app_key;
+    // The app's permanent app ID, registered with Ambivo (register_app): com.<company domain reversed>.<app>.
+    const appId = doc.app_id;
+    if (appId === undefined) {
+      add(objectsPath, 1, 'install-app-id', 'Register the app first with the register_app tool. It adds "app_id" (com.yourcompany.app) here; a review and a certificate need it.');
+    } else if (typeof appId !== 'string' || !/^[a-z][a-z0-9]{0,62}(\.[a-z][a-z0-9]{0,62}){2,}$/.test(appId) || appId.length > 155) {
+      add(objectsPath, firstLine(text, /"app_id"/) || 1, 'install-app-id', '"app_id" must look like com.yourcompany.app: lowercase letters and digits, parts joined by dots. Only register_app writes it.');
+    }
     if (typeof key !== 'string' || !/^[a-z][a-z0-9]{1,23}$/.test(key)) {
       add(objectsPath, firstLine(text, /"app_key"/) || 1, 'install-app-key',
         'Set "app_key" at the top of app-objects.json: 2 to 24 lowercase letters or digits. The install step sends it as hosting_apps on every object.');
@@ -381,6 +390,54 @@ function configProblems(type, cfg, key, objects, secrets) {
   return out;
 }
 
+// The fixed About page every Ambivo-made app shows (src/ambivo-about/). Its files must stay byte for byte
+// Ambivo's copy (SHA-256 of the bytes with CRLF turned into LF); Ambivo refuses to certify the app otherwise,
+// and without a certificate it refuses to install the app's custom objects in a client's company.
+// Same list as Dev Studio's about.mjs and the certify_app tool.
+const ABOUT_LOCK = {
+  'src/ambivo-about/about.page.ts': ['e7ab6a1067f731ac22e675c5decdab90eb6ea97ce91537ac41e08cfd22b0d1a6'],
+  'src/ambivo-about/about.ts': ['7d850408b4e4ac5703ef52dad47160d7eb3402767eba1b4fd99535cded14c331'],
+};
+const ABOUT_SOURCE = (() => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const plugin = join(here, '..', 'starter', 'src', 'ambivo-about');
+  return existsSync(plugin) ? plugin : "the dev kit's starter (starter/src/ambivo-about/)";
+})();
+const sha256Text = (text) => createHash('sha256').update(text.replace(/\r\n/g, '\n'), 'utf8').digest('hex');
+// Code lines only: comments and import lines do not count as showing the page.
+const codeOnly = (text) => text.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*|import\s)/.test(l)).join('\n');
+
+function checkAbout(root) {
+  const out = [];
+  const add = (rel, line, message) => out.push({ file: join(root, rel), line, id: 'about-page', severity: 'error', message });
+  for (const [rel, hashes] of Object.entries(ABOUT_LOCK)) {
+    const p = join(root, rel);
+    if (!existsSync(p)) add(rel, 1, `The About page file is missing. Copy it unchanged from ${ABOUT_SOURCE}.`);
+    else if (!hashes.includes(sha256Text(readFileSync(p, 'utf8')))) {
+      add(rel, 1, `This file is locked: the About page must stay as Ambivo wrote it. Put back the copy from ${ABOUT_SOURCE}. Never edit, move or delete src/ambivo-about/.`);
+    }
+  }
+  const certPath = join(root, 'src', 'install', 'ambivo-certificate.json');
+  if (!existsSync(certPath)) add('src/install/ambivo-certificate.json', 1, 'Missing. Write {"certificate": null} here, then run the certify_app tool.');
+  else {
+    try { const d = JSON.parse(readFileSync(certPath, 'utf8')); if (!d || !('certificate' in d)) throw new Error(); }
+    catch { add('src/install/ambivo-certificate.json', 1, 'Not valid. Only the certify_app tool writes this file; put back {"certificate": null} and certify again.'); }
+  }
+  const read = (rel) => (existsSync(join(root, rel)) ? codeOnly(readFileSync(join(root, rel), 'utf8')) : '');
+  if (!/provideAmbivoAbout\(\)/.test(read('src/app/app.config.ts'))) {
+    add('src/app/app.config.ts', 1, "Call provideAmbivoAbout() (from '../ambivo-about/about') in the providers, after provideRouter.");
+  }
+  const appFiles = existsSync(join(root, 'src', 'app')) ? walk(join(root, 'src', 'app')).filter((f) => /\.(ts|html)$/.test(f)) : [];
+  const signIn = join(root, 'src', 'app', 'sign-in') + sep;
+  if (!appFiles.some((f) => f.startsWith(signIn) && codeOnly(readFileSync(f, 'utf8')).includes('<ambivo-about-link'))) {
+    add('src/app/sign-in/sign-in-layout.component.ts', 1, 'The sign-in page must show <ambivo-about-link /> under the card (import AmbivoAboutLink).');
+  }
+  if (!appFiles.some((f) => !f.startsWith(signIn) && /\bABOUT_NAV_ITEM\b|<ambivo-about-link/.test(codeOnly(readFileSync(f, 'utf8'))))) {
+    add('src/app/shell/nav.ts', 1, 'Signed-in pages must reach the About page: ABOUT_NAV_ITEM last in NAV_ITEMS, or <ambivo-about-link /> on a page.');
+  }
+  return out;
+}
+
 function walk(dir, acc = []) {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name.startsWith('.')) continue;
@@ -421,9 +478,12 @@ if (process.argv[2] === '--hook') {
     // Only app code: never the copied Ambivo files.
     if (!root) process.exit(0);
     const inInstall = resolve(file).startsWith(join(root, 'src', 'install'));
-    const own = inInstall || resolve(file).startsWith(join(root, 'src', 'app')) || resolve(file) === join(root, 'src', 'styles.scss');
+    const inAbout = resolve(file).startsWith(join(root, 'src', 'ambivo-about'));
+    const own = inInstall || inAbout || resolve(file).startsWith(join(root, 'src', 'app')) || resolve(file) === join(root, 'src', 'styles.scss');
     if (!own) process.exit(0);
-    const errors = (inInstall ? [...checkInstall(root), ...checkJobs(root)] : [...checkFile(resolve(file)), ...checkInstall(root).filter((p) => p.file === resolve(file))])
+    const errors = (inAbout ? checkAbout(root)
+      : inInstall ? [...checkInstall(root), ...checkJobs(root), ...checkAbout(root)]
+        : [...checkFile(resolve(file)), ...checkInstall(root).filter((p) => p.file === resolve(file)), ...checkAbout(root)])
       .filter((p) => p.severity === 'error');
     if (!errors.length) process.exit(0);
     console.error(`Ambivo check found problems in the file you just wrote:\n${report(errors, root)}`);
@@ -437,7 +497,7 @@ if (process.argv[2] === '--hook') {
   }
   const files = walk(join(root, 'src', 'app'));
   if (existsSync(join(root, 'src', 'styles.scss'))) files.push(join(root, 'src', 'styles.scss'));
-  const problems = [...files.flatMap(checkFile), ...checkInstall(root), ...checkJobs(root)];
+  const problems = [...files.flatMap(checkFile), ...checkInstall(root), ...checkJobs(root), ...checkAbout(root)];
   // Other UI libraries added as dependencies, even if not imported yet.
   const pkgPath = join(root, 'package.json');
   if (existsSync(pkgPath)) {

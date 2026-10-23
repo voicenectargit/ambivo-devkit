@@ -8,11 +8,12 @@ import { APP_CONFIG } from '../core/config/app-config';
 import { AuthService } from '../core/auth/auth.service';
 import { indicate } from '@am/shared/utils/rxjs';
 import { errorText } from '../sign-in/sign-in-step';
+import { AmbivoAboutLink } from '../../ambivo-about/about';
 
 /** The first page after sign-in. Replace it with the app's own screens. */
 @Component({
   selector: 'app-home-page',
-  imports: [MatButtonModule, MatToolbarModule, InsetDirective, StackDirective, SurfaceDirective],
+  imports: [MatButtonModule, MatToolbarModule, InsetDirective, StackDirective, SurfaceDirective, AmbivoAboutLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <mat-toolbar>
@@ -48,6 +49,7 @@ import { errorText } from '../sign-in/sign-in-step';
           }
         </section>
       }
+      <ambivo-about-link />
     </main>
   `,
   styles: `

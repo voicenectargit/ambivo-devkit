@@ -8,7 +8,7 @@ Without the plugin:
   https://apidocs.ambivo.com/openapi/<spec id> (YAML). Spec ids: https://apidocs.ambivo.com/api/specs
 - Where a step runs `ambivo-check.mjs`, run `npm run ambivo:check`.
 - To look at a screen, run `npm run ambivo:screenshot -- /route` (needs Chrome or Chromium).
-- Specs as of ambivo-api-docs 4abcd67.
+- Specs as of ambivo-api-docs 6017dcf.
 
 ---
 
@@ -124,6 +124,11 @@ npm run ambivo:check
 ```
 
 Both must pass. Then tell the user how to run it (`npm start`) and how to package it: a zip of the folder without `node_modules`, `dist`, `.angular` and `.env*` files, or a push to their own GitHub repository.
+Before the app is installed in a client's company, it needs Ambivo's review: submit it with the `submit_app`
+tool (ask the user for the app name, who made it and the support email the first time), or Dev Studio's
+Review button. `review_status` shows the result; an approved version's certificate is written into the app,
+then run `npx ng build` again so the About page shows it. Any change after that is a new version and a new
+review.
 
 ---
 
@@ -322,6 +327,14 @@ for every API call, and runtime config per host.
 
 ### Never edit these
 
+- `src/ambivo-about/**`: the About page every Ambivo-made app shows. Locked: never edit, move, rename,
+  restyle, translate or delete these files, and never wrap or hide the page. Ambivo compares their
+  SHA-256 with its own copy; a changed file fails `ambivo:check`, stops Share, Push and Deploy in Dev
+  Studio, and Ambivo will not certify the app or install it in a client's company. Keep the wiring:
+  `provideAmbivoAbout()` in `app.config.ts`, `<ambivo-about-link />` on the sign-in page and the home
+  page, and `ABOUT_NAV_ITEM` last in `NAV_ITEMS`. If a page needs another way to reach it, link to
+  `/about`. `src/install/ambivo-certificate.json` is written only after Ambivo approves the app's review
+  (the `review_status` tool, or Dev Studio). Never write it by hand.
 - `src/ambivo/**`: copied from Ambivo's own code. Changes are lost on the next sync.
 - `src/app/core/**` (API client, sign-in, session): change only to fix a bug, and say so.
 - The sign-in screens in `src/app/sign-in/`: wording only.
@@ -456,7 +469,8 @@ closes after a tap. It is not used until you wire it in:
    ```
 
 2. Add one `NAV_ITEMS` entry per top-level screen, in the order people use them: `path`, a
-   `$localize`-tagged `label`, a Material Symbols `icon`, and `exact: true` for `/`.
+   `$localize`-tagged `label`, a Material Symbols `icon`, and `exact: true` for `/`. `ABOUT_NAV_ITEM`
+   stays the last entry.
 3. Remove the `mat-toolbar` from `home.page.ts`: the shell has the top bar now.
 
 Detail pages (`projects/:id`) are child routes without a menu entry. Keep the menu to one level;
@@ -634,13 +648,18 @@ HTTP 403 with an empty body. **Then the record:** a person may act on a record t
 The app never creates its objects while someone is using it. A separate install step does it, run once
 per client tenant by that tenant's admin:
 
-- `src/install/app-objects.json`: the `app_key` (the prefix of every object id, sent as `hosting_apps`), every
+- **Register the app first** with the `register_app` tool, before its first custom object. It gives the app a
+  permanent app ID, unique across Ambivo like an App Store bundle ID: the developer's company domain reversed,
+  then the app's name (`com.yourcompany.stockroom`, lowercase letters and digits). Propose it from their
+  domain and confirm it with them: it can never change. Its last part becomes the `app_key` unless you give
+  one. The tool writes `app_id` and `app_key` into `src/install/app-objects.json`; never edit them by hand.
+- `src/install/app-objects.json`: the `app_id`, the `app_key` (the prefix of every object id, sent as `hosting_apps`), every
   object the app needs, in creation order, plus an `app_version`,
   and `core_links`: for each object, the fields that hold an Ambivo record's id and which record. The
   install step does not send it; Dev Studio's data model diagram reads it.
 
   ```json
-  { "app_key": "lab", "app_version": "1.0.0",
+  { "app_id": "com.yourcompany.lab", "app_key": "lab", "app_version": "1.0.0",
     "objects": [ ... ],
     "core_links": { "lab_project": { "customer_account_id": "account", "lead_userid": "user" },
                     "lab_trial": { "stock_txn_ids": "inventory_txn" } } }
@@ -658,6 +677,15 @@ per client tenant by that tenant's admin:
   nothing outside `src/install`: Dev Studio's **Deploy** copies that folder and runs the copy in the
   client's company, with `AMBIVO_TOKEN` set to the client admin's session and `--tenant` set. A step that
   imports `../` cannot be deployed.
+- `src/install/ambivo-certificate.json`: the app's Ambivo certificate, written only after Ambivo approves
+  the app's review (Dev Studio's Review button, or the `submit_app` and `review_status` tools). install.mjs reads it next to itself and sends `"app_certificate": "<cert_id>"` in every
+  `POST` and `PUT /custom/object`. In a client's company Ambivo refuses an app's object without a valid
+  certificate for that `app_key` (`APP_CERTIFICATE_REQUIRED`, `APP_CERTIFICATE_INVALID`); a partner
+  sandbox needs none. When the file holds `{"certificate": null}`, install.mjs sends nothing and says
+  "Not certified: submit the app for Ambivo's review before installing in a client's company."
+  Certify again after every change to `app_version`, then rebuild: the About page shows the certificate.
+- `src/install/app-about.json`: the app name, who made it and the support email, for the certificate.
+  The `submit_app` tool asks for them once and saves them here.
 - `src/install/app-jobs.json` (only when the app has scheduled jobs): install.mjs sends it after the
   objects exist. See the `ambivo-app-jobs` skill.
 - **Single-client app:** run it once for that client.
@@ -670,6 +698,8 @@ per client tenant by that tenant's admin:
 - Each link has a chosen `on_delete`.
 - `data_access_dict` lets the app's users read, and `default_access_dict` matches who should see records.
 - `install.mjs` was run against the sandbox tenant twice, and the second run changed nothing.
+- install.mjs sends `app_certificate` from `ambivo-certificate.json` on every create and update, and
+  the current `app_version` was submitted for Ambivo's review (approval writes the certificate).
 
 ---
 

@@ -128,13 +128,18 @@ HTTP 403 with an empty body. **Then the record:** a person may act on a record t
 The app never creates its objects while someone is using it. A separate install step does it, run once
 per client tenant by that tenant's admin:
 
-- `src/install/app-objects.json`: the `app_key` (the prefix of every object id, sent as `hosting_apps`), every
+- **Register the app first** with the `register_app` tool, before its first custom object. It gives the app a
+  permanent app ID, unique across Ambivo like an App Store bundle ID: the developer's company domain reversed,
+  then the app's name (`com.yourcompany.stockroom`, lowercase letters and digits). Propose it from their
+  domain and confirm it with them: it can never change. Its last part becomes the `app_key` unless you give
+  one. The tool writes `app_id` and `app_key` into `src/install/app-objects.json`; never edit them by hand.
+- `src/install/app-objects.json`: the `app_id`, the `app_key` (the prefix of every object id, sent as `hosting_apps`), every
   object the app needs, in creation order, plus an `app_version`,
   and `core_links`: for each object, the fields that hold an Ambivo record's id and which record. The
   install step does not send it; Dev Studio's data model diagram reads it.
 
   ```json
-  { "app_key": "lab", "app_version": "1.0.0",
+  { "app_id": "com.yourcompany.lab", "app_key": "lab", "app_version": "1.0.0",
     "objects": [ ... ],
     "core_links": { "lab_project": { "customer_account_id": "account", "lead_userid": "user" },
                     "lab_trial": { "stock_txn_ids": "inventory_txn" } } }
@@ -152,6 +157,15 @@ per client tenant by that tenant's admin:
   nothing outside `src/install`: Dev Studio's **Deploy** copies that folder and runs the copy in the
   client's company, with `AMBIVO_TOKEN` set to the client admin's session and `--tenant` set. A step that
   imports `../` cannot be deployed.
+- `src/install/ambivo-certificate.json`: the app's Ambivo certificate, written only after Ambivo approves
+  the app's review (Dev Studio's Review button, or the `submit_app` and `review_status` tools). install.mjs reads it next to itself and sends `"app_certificate": "<cert_id>"` in every
+  `POST` and `PUT /custom/object`. In a client's company Ambivo refuses an app's object without a valid
+  certificate for that `app_key` (`APP_CERTIFICATE_REQUIRED`, `APP_CERTIFICATE_INVALID`); a partner
+  sandbox needs none. When the file holds `{"certificate": null}`, install.mjs sends nothing and says
+  "Not certified: submit the app for Ambivo's review before installing in a client's company."
+  Certify again after every change to `app_version`, then rebuild: the About page shows the certificate.
+- `src/install/app-about.json`: the app name, who made it and the support email, for the certificate.
+  The `submit_app` tool asks for them once and saves them here.
 - `src/install/app-jobs.json` (only when the app has scheduled jobs): install.mjs sends it after the
   objects exist. See the `ambivo-app-jobs` skill.
 - **Single-client app:** run it once for that client.
@@ -164,3 +178,5 @@ per client tenant by that tenant's admin:
 - Each link has a chosen `on_delete`.
 - `data_access_dict` lets the app's users read, and `default_access_dict` matches who should see records.
 - `install.mjs` was run against the sandbox tenant twice, and the second run changed nothing.
+- install.mjs sends `app_certificate` from `ambivo-certificate.json` on every create and update, and
+  the current `app_version` was submitted for Ambivo's review (approval writes the certificate).

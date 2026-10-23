@@ -13,9 +13,11 @@
 //     Ambivo, or comped), the same rule Ambivo enforces on partner apps;
 //   - it is not a partner sandbox (a sandbox is where the partner builds, not a client).
 //
-// The link installs the install step as it was when the link was made: src/install is copied to
-// /work/deploys/<short id>/ at that moment, so later edits in Dev Studio cannot change what the admin
-// approved. Links last 7 days and install once. Only a hash of the link's secret is stored.
+// The link installs the version Ambivo reviewed and certified: the frozen copy the review kept
+// (reviews/code/<code fingerprint>.tar), whose fingerprint the certificate signs. Install runs it in a NEW
+// container from Ambivo's image, never the partner's own container, so nothing the partner left running can
+// read the admin's session or change the step. Later edits cannot change what the admin approved. Links last
+// 7 days and install once. Only a hash of the link's secret is stored.
 //
 // An app with scheduled jobs (src/install/app-jobs.json) shows them too, with the secrets its jobs
 // send (an outside service's API key, say). The admin types each value on the page; Install sends it to
@@ -23,7 +25,7 @@
 //
 // State (stateObjects):
 //   deploylinks/<sha256 of secret>.json   { projectId, ownerId, ownerLogin, appName, appVersion,
-//                                           objects:[{id,name}], dir, created, exp, status, ... }
+//                                           objects:[{id,name}], codeSha256, created, exp, status, ... }
 //   ratelimit/deploy-sign-in/<hash>.json  sign-in tries for one link
 // Keystores (encrypted): the admin's session between sign-in and install, and the emailed-code step,
 // both keyed by the link hash and removed after the install or on cancel.
@@ -61,7 +63,8 @@ export const reachesOutside = (source) => /(['"`])\.\.\//.test(String(source));
 
 /**
  * @param deps.app  what Dev Studio lends: getProject(id), runIn(id, argv, env), prepare(id), sh(id, cmd),
- *                  isBusy(id), setBusy(id, on), update(id, fn), emit(id, event), publicUrl
+ *                  isBusy(id), setBusy(id, on), update(id, fn), emit(id, event), publicUrl,
+ *                  aboutRefusal(id), certificateRefusal(id, {appKey, appVersion}): [status, body] or null
  */
 export function createDeploy({ stateObjects, sessions, pending, config, fetchImpl = fetch, log = console.log, app }) {
   const readJson = async (key) => {
@@ -94,20 +97,33 @@ export function createDeploy({ stateObjects, sessions, pending, config, fetchImp
     if (jobsText !== null && (!jobs || !/^[a-z][a-z0-9]{1,23}$/.test(jobs.appKey))) {
       return [409, { error: 'The app\'s src/install/app-jobs.json cannot be read. Ask the assistant to fix it, then make the link.' }];
     }
-    if (reachesOutside(installSrc)) {
+    // The fixed About page, and a current Ambivo certificate for this app_key and version (about.mjs).
+    // Ambivo refuses to install the app's custom objects in a client's company without the certificate.
+    const aboutRefused = await app.aboutRefusal(id);
+    if (aboutRefused) return aboutRefused;
+    let appKey = '';
+    try { appKey = String(JSON.parse(cfgText).app_key || ''); } catch { /* checked above */ }
+    const cert = await app.certificateRefusal(id, { appKey, appVersion: parsed.appVersion });
+    if (!cert?.ok) return cert;
+    // Everything the link shows and installs comes from the reviewed copy, the bytes the certificate signs.
+    const files = await app.reviewedFiles(cert.codeSha256);
+    if (!files) return [409, { error: 'The reviewed copy of this version is missing on Dev Studio. Submit the app for review again.' }];
+    const at = (rel) => files.find((f) => f.path === rel)?.content.toString('utf8') ?? null;
+    const frozenCfg = at('src/install/app-objects.json'), frozenSrc = at('src/install/install.mjs'), frozenJobs = at('src/install/app-jobs.json');
+    const frozen = frozenCfg && frozenSrc && objectsFromInstallFile(frozenCfg);
+    if (!frozen) return [409, { error: 'The reviewed version has no install step. Ask the assistant to add it, then submit a new version.' }];
+    const frozenJobsParsed = frozenJobs === null ? null : jobsFromFile(frozenJobs);
+    if (reachesOutside(frozenSrc)) {
       return [409, { error: 'The install step uses files outside src/install, so it cannot be sent as a link. Ask the assistant to keep everything it needs in src/install.' }];
     }
     const secret = randomBytes(32).toString('base64url');
     const hash = hashOf(secret);
     const short = hash.slice(0, 16);
-    const dir = `/work/deploys/${short}`;
-    // A frozen copy: what the admin sees is what installs, whatever changes in the app afterwards.
-    await app.sh(id, `rm -rf ${dir} && mkdir -p /work/deploys && cp -R ${INSTALL_DIR} ${dir}`);
     const now = Date.now();
     const rec = {
       projectId: id, ownerId: String(user.id), ownerLogin: user.login || '', appName: project.name,
-      appVersion: parsed.appVersion, objects: parsed.objects, dir, created: now, exp: now + DEPLOY_LINK_MS, status: 'open',
-      ...(jobs ? { appKey: jobs.appKey, jobs: jobs.jobs, secrets: jobs.secrets } : {}),
+      appVersion: frozen.appVersion, objects: frozen.objects, codeSha256: cert.codeSha256, created: now, exp: now + DEPLOY_LINK_MS, status: 'open',
+      ...(frozenJobsParsed ? { appKey: frozenJobsParsed.appKey, jobs: frozenJobsParsed.jobs, secrets: frozenJobsParsed.secrets } : {}),
     };
     await putJson(linkKey(hash), rec, { ifNoneMatch: '*' });
     await app.update(id, (p) => {
@@ -318,7 +334,9 @@ export function createDeploy({ stateObjects, sessions, pending, config, fetchImp
         if (!c.ok) { refused = `Error: The ${sec.label || sec.name} was not saved: ${c.error}`; break; }
       }
       r = refused ? { code: 1, out: '', err: refused }
-        : await app.runIn(id, ['node', `${l.rec.dir}/install.mjs`, '--tenant', String(s.tenantId || '')], env);
+        : !l.rec.codeSha256
+          ? { code: 1, out: '', err: 'Error: This link was made before installs ran from the reviewed copy. Ask the partner for a new link.' }
+          : await app.runReviewed(l.rec.codeSha256, l.hash.slice(0, 16), ['node', '/work/app/src/install/install.mjs', '--tenant', String(s.tenantId || '')], env);
     } finally {
       app.setBusy(id, false);
       await forgetSession(l.hash);

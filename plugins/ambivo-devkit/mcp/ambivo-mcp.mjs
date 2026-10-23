@@ -8494,9 +8494,9 @@ ${indent}`) + "'";
         start = start.replace(/\n+/g, `$&${indent}`);
       }
       const indentSize = indent ? "2" : "1";
-      let header = (startWithSpace ? indentSize : "") + chomp;
+      let header2 = (startWithSpace ? indentSize : "") + chomp;
       if (comment) {
-        header += " " + commentString(comment.replace(/ ?[\r\n]+/g, " "));
+        header2 += " " + commentString(comment.replace(/ ?[\r\n]+/g, " "));
         if (onComment)
           onComment();
       }
@@ -8511,11 +8511,11 @@ ${indent}`) + "'";
         }
         const body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent, foldFlowLines.FOLD_BLOCK, foldOptions);
         if (!literalFallback)
-          return `>${header}
+          return `>${header2}
 ${indent}${body}`;
       }
       value = value.replace(/\n+/g, `$&${indent}`);
-      return `|${header}
+      return `|${header2}
 ${indent}${start}${value}${end}`;
     }
     function plainString(item, ctx, onComment, onChompKeep) {
@@ -11618,10 +11618,10 @@ var require_resolve_block_scalar = __commonJS({
     var Scalar = require_Scalar();
     function resolveBlockScalar(ctx, scalar, onError) {
       const start = scalar.offset;
-      const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
-      if (!header)
+      const header2 = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
+      if (!header2)
         return { value: "", type: null, comment: "", range: [start, start, start] };
-      const type = header.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
+      const type = header2.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
       const lines = scalar.source ? splitLines(scalar.source) : [];
       let chompStart = lines.length;
       for (let i = lines.length - 1; i >= 0; --i) {
@@ -11632,26 +11632,26 @@ var require_resolve_block_scalar = __commonJS({
           break;
       }
       if (chompStart === 0) {
-        const value2 = header.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
-        let end2 = start + header.length;
+        const value2 = header2.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
+        let end2 = start + header2.length;
         if (scalar.source)
           end2 += scalar.source.length;
-        return { value: value2, type, comment: header.comment, range: [start, end2, end2] };
+        return { value: value2, type, comment: header2.comment, range: [start, end2, end2] };
       }
-      let trimIndent = scalar.indent + header.indent;
-      let offset = scalar.offset + header.length;
+      let trimIndent = scalar.indent + header2.indent;
+      let offset = scalar.offset + header2.length;
       let contentStart = 0;
       for (let i = 0; i < chompStart; ++i) {
         const [indent, content] = lines[i];
         if (content === "" || content === "\r") {
-          if (header.indent === 0 && indent.length > trimIndent)
+          if (header2.indent === 0 && indent.length > trimIndent)
             trimIndent = indent.length;
         } else {
           if (indent.length < trimIndent) {
             const message = "Block scalars with more-indented leading empty lines must use an explicit indentation indicator";
             onError(offset + indent.length, "MISSING_CHAR", message);
           }
-          if (header.indent === 0)
+          if (header2.indent === 0)
             trimIndent = indent.length;
           contentStart = i;
           if (trimIndent === 0 && !ctx.atRoot) {
@@ -11678,7 +11678,7 @@ var require_resolve_block_scalar = __commonJS({
         if (crlf)
           content = content.slice(0, -1);
         if (content && indent.length < trimIndent) {
-          const src = header.indent ? "explicit indentation indicator" : "first line";
+          const src = header2.indent ? "explicit indentation indicator" : "first line";
           const message = `Block scalar lines must not be less indented than their ${src}`;
           onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message);
           indent = "";
@@ -11705,7 +11705,7 @@ var require_resolve_block_scalar = __commonJS({
           prevMoreIndented = false;
         }
       }
-      switch (header.chomp) {
+      switch (header2.chomp) {
         case "-":
           break;
         case "+":
@@ -11717,8 +11717,8 @@ var require_resolve_block_scalar = __commonJS({
         default:
           value += "\n";
       }
-      const end = start + header.length + scalar.source.length;
-      return { value, type, comment: header.comment, range: [start, end, end] };
+      const end = start + header2.length + scalar.source.length;
+      return { value, type, comment: header2.comment, range: [start, end, end] };
     }
     function parseBlockScalarHeader({ offset, props }, strict, onError) {
       if (props[0].type !== "block-scalar-header") {
@@ -12557,10 +12557,10 @@ var require_cst_scalar = __commonJS({
             type = "QUOTE_DOUBLE";
             break;
           case "block-scalar": {
-            const header = token.props[0];
-            if (header.type !== "block-scalar-header")
+            const header2 = token.props[0];
+            if (header2.type !== "block-scalar-header")
               throw new Error("Invalid block scalar header");
-            type = header.source[0] === ">" ? "BLOCK_FOLDED" : "BLOCK_LITERAL";
+            type = header2.source[0] === ">" ? "BLOCK_FOLDED" : "BLOCK_LITERAL";
             break;
           }
           default:
@@ -12592,10 +12592,10 @@ var require_cst_scalar = __commonJS({
       const head = source.substring(0, he);
       const body = source.substring(he + 1) + "\n";
       if (token.type === "block-scalar") {
-        const header = token.props[0];
-        if (header.type !== "block-scalar-header")
+        const header2 = token.props[0];
+        if (header2.type !== "block-scalar-header")
           throw new Error("Invalid block scalar header");
-        header.source = head;
+        header2.source = head;
         token.source = body;
       } else {
         const { offset } = token;
@@ -15422,10 +15422,10 @@ function isValidJWT(jwt2, alg) {
   if (!jwtRegex.test(jwt2))
     return false;
   try {
-    const [header] = jwt2.split(".");
-    if (!header)
+    const [header2] = jwt2.split(".");
+    if (!header2)
       return false;
-    const base643 = header.replace(/-/g, "+").replace(/_/g, "/").padEnd(header.length + (4 - header.length % 4) % 4, "=");
+    const base643 = header2.replace(/-/g, "+").replace(/_/g, "/").padEnd(header2.length + (4 - header2.length % 4) % 4, "=");
     const decoded = JSON.parse(atob(base643));
     if (typeof decoded !== "object" || decoded === null)
       return false;
@@ -21290,10 +21290,10 @@ function isValidJWT2(token, algorithm = null) {
     const tokensParts = token.split(".");
     if (tokensParts.length !== 3)
       return false;
-    const [header] = tokensParts;
-    if (!header)
+    const [header2] = tokensParts;
+    if (!header2)
       return false;
-    const parsedHeader = JSON.parse(atob(header));
+    const parsedHeader = JSON.parse(atob(header2));
     if ("typ" in parsedHeader && parsedHeader?.typ !== "JWT")
       return false;
     if (!parsedHeader.alg)
@@ -45274,7 +45274,7 @@ async function sandboxTeardown(a, { session = currentSession(), call = ambivo } 
     }
   }
   const coreList = [...core.values()].sort((x, y) => (entityDef(x.entity)?.rank ?? 99) - (entityDef(y.entity)?.rank ?? 99)).map(({ tags, ...r }) => r);
-  const fingerprint = planFingerprint(sandbox.tenantId, objects, coreList);
+  const fingerprint2 = planFingerprint(sandbox.tenantId, objects, coreList);
   const cannot = [
     "Stock movements: Ambivo keeps every movement, so the teardown keeps any product that has them.",
     "Ambivo records the app made without its tag, and records someone made by hand.",
@@ -45298,10 +45298,10 @@ async function sandboxTeardown(a, { session = currentSession(), call = ambivo } 
     lookup_problems: lookups,
     not_removed: cannot,
     notes,
-    fingerprint
+    fingerprint: fingerprint2
   };
   if (dryRun) return { dry_run: true, ...plan };
-  if (expected !== fingerprint) {
+  if (expected !== fingerprint2) {
     refuse("The list changed. Look at it again before deleting.", "PLAN_CHANGED");
   }
   const forget = (match) => {
@@ -45365,6 +45365,251 @@ async function isGone(call, session, r) {
   return !error62 && !byId.has(r.id);
 }
 
+// src/certify.mjs
+import { createHash as createHash3 } from "node:crypto";
+import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync4, readdirSync, lstatSync, mkdirSync as mkdirSync4 } from "node:fs";
+import { join as join4, basename } from "node:path";
+
+// ../devstudio/web/fingerprint.mjs
+import { createHash as createHash2 } from "node:crypto";
+var EXCLUDED_DIRS = ["node_modules", "dist", ".angular", ".git", ".ambivo", "coverage", ".claude", ".idea", ".vscode"];
+var CERTIFICATE_PATH = "src/install/ambivo-certificate.json";
+var sha = (buf) => createHash2("sha256").update(buf).digest("hex");
+var TEXT_FILE = /\.(ts|tsx|js|jsx|mjs|cjs|html|htm|css|scss|sass|less|json|md|txt|yaml|yml|svg|xml|webmanifest|map|csv|ini|conf|sh|gitignore|editorconfig|npmrc|browserslistrc)$|(^|\/)(\.[a-z]+rc|LICENSE[^/]*|README[^/]*)$/i;
+var lf = (buf, path) => TEXT_FILE.test(path) ? Buffer.from(buf.toString("latin1").replace(/\r\n/g, "\n"), "latin1") : buf;
+function cleanPath(p) {
+  const parts = String(p).replace(/\\/g, "/").split("/").filter((s) => s && s !== ".");
+  if (!parts.length || parts.includes("..")) return null;
+  return parts.join("/");
+}
+function counts(path) {
+  const parts = path.split("/");
+  if (parts.some((s) => EXCLUDED_DIRS.includes(s))) return false;
+  if (parts[parts.length - 1] === ".DS_Store") return false;
+  return path !== CERTIFICATE_PATH;
+}
+function codeFiles(files) {
+  const seen = /* @__PURE__ */ new Map();
+  for (const f of files) {
+    const path = cleanPath(f.path);
+    if (!path || !counts(path)) continue;
+    seen.set(path, { path, content: f.content, sha256: sha(lf(f.content, path)) });
+  }
+  return [...seen.values()].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+}
+function fingerprint(files) {
+  return sha(Buffer.from(codeFiles(files).map((f) => `${f.sha256} ${f.path}
+`).join(""), "utf8"));
+}
+function header(name, size, type = "0") {
+  const h = Buffer.alloc(512);
+  h.write(name.slice(0, 100), 0, "utf8");
+  h.write("0000644\0", 100);
+  h.write("0001750\0", 108);
+  h.write("0001750\0", 116);
+  h.write(size.toString(8).padStart(11, "0") + "\0", 124);
+  h.write("00000000000\0", 136);
+  h.write("        ", 148);
+  h.write(type, 156);
+  h.write("ustar\0", 257);
+  h.write("00", 263);
+  let sum = 0;
+  for (const b of h) sum += b;
+  h.write(sum.toString(8).padStart(6, "0") + "\0 ", 148);
+  return h;
+}
+var pad = (n) => Buffer.alloc((512 - n % 512) % 512);
+function tarOf(files) {
+  const out = [];
+  for (const f of codeFiles(files)) {
+    if (Buffer.byteLength(f.path) > 99) {
+      const rec = (len2) => `${len2} path=${f.path}
+`;
+      let len = Buffer.byteLength(rec(0));
+      while (Buffer.byteLength(rec(len)) !== len) len = Buffer.byteLength(rec(len));
+      const body = Buffer.from(rec(len), "utf8");
+      out.push(header("PaxHeader", body.length, "x"), body, pad(body.length));
+    }
+    out.push(header(f.path, f.content.length), f.content, pad(f.content.length));
+  }
+  out.push(Buffer.alloc(1024));
+  return Buffer.concat(out);
+}
+
+// src/certify.mjs
+var ABOUT_LOCK = {
+  "src/ambivo-about/about.page.ts": ["e7ab6a1067f731ac22e675c5decdab90eb6ea97ce91537ac41e08cfd22b0d1a6"],
+  "src/ambivo-about/about.ts": ["7d850408b4e4ac5703ef52dad47160d7eb3402767eba1b4fd99535cded14c331"]
+};
+var CERTIFICATE_FILE = CERTIFICATE_PATH;
+var ABOUT_INFO_FILE = "src/install/app-about.json";
+var REVIEWS_FILE = ".ambivo/reviews.json";
+var TAR_MAX = 60 << 20;
+var sha256Text = (text) => createHash3("sha256").update(String(text).replace(/\r\n/g, "\n"), "utf8").digest("hex");
+var reviewHost = () => String(process.env.AMBIVO_REVIEW_HOST || "https://devstudio.ambivo.com").replace(/\/+$/, "");
+function appFiles(projectDir) {
+  const files = [], odd = [];
+  let total = 0;
+  (function walk(rel) {
+    for (const name of readdirSync(join4(projectDir, rel))) {
+      const path = rel ? `${rel}/${name}` : name;
+      if (EXCLUDED_DIRS.includes(name)) continue;
+      const st = lstatSync(join4(projectDir, path));
+      if (st.isSymbolicLink()) {
+        odd.push(`${path} (link)`);
+        continue;
+      }
+      if (name.includes("\\")) {
+        odd.push(path);
+        continue;
+      }
+      if (st.isDirectory()) {
+        walk(path);
+        continue;
+      }
+      if (!st.isFile()) continue;
+      if (name.startsWith(".env") || name.endsWith(".zip")) {
+        odd.push(path);
+        continue;
+      }
+      if (name === ".DS_Store") continue;
+      if (st.size > 5 << 20) throw new AmbivoError(`${path} is larger than 5 MB. Remove it or make it smaller.`, "TOO_LARGE");
+      if (files.length >= 5e3) throw new AmbivoError("The app has more than 5,000 files without node_modules.", "TOO_LARGE");
+      total += st.size;
+      if (total > TAR_MAX) throw new AmbivoError("The app is larger than 60 MB without node_modules.", "TOO_LARGE");
+      files.push({ path, content: readFileSync4(join4(projectDir, path)) });
+    }
+  })("");
+  if (odd.length) throw new AmbivoError(`Remove these before submitting (links, names with a backslash, or .env files in src/): ${odd.slice(0, 5).join(", ")}`, "HIDDEN_FILES");
+  return files;
+}
+function readReviews(projectDir) {
+  try {
+    return JSON.parse(readFileSync4(join4(projectDir, REVIEWS_FILE), "utf8")).reviews || [];
+  } catch {
+    return [];
+  }
+}
+function saveReviews(projectDir, reviews) {
+  mkdirSync4(join4(projectDir, ".ambivo"), { recursive: true });
+  writeFileSync4(join4(projectDir, REVIEWS_FILE), JSON.stringify({ reviews: reviews.slice(-30) }, null, 2) + "\n");
+}
+async function hosted(method, path, token, body, fetchImpl) {
+  let r;
+  try {
+    r = await fetchImpl(`${reviewHost()}${path}`, { method, headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      ...body ? { "Content-Type": "application/x-tar" } : {}
+    }, ...body ? { body } : {}, signal: AbortSignal.timeout(12e4) });
+  } catch {
+    throw new AmbivoError(`The Ambivo review service (${reviewHost()}) could not be reached. Try again later.`, "UNREACHABLE");
+  }
+  const out = await r.json().catch(() => null);
+  if (!r.ok) throw new AmbivoError(out?.error || `The review service answered with an error (${r.status}).`, r.status === 401 ? "SESSION_EXPIRED" : `HTTP_${r.status}`, r.status);
+  return out;
+}
+async function submitApp(projectDir, info = {}, { fetchImpl = fetch, session = currentSession() } = {}) {
+  const at = (rel) => join4(projectDir, rel);
+  for (const [rel, hashes] of Object.entries(ABOUT_LOCK)) {
+    if (!existsSync4(at(rel))) throw new AmbivoError(`${rel} is missing. Put back the dev kit's copy of the About page.`, "APP_ABOUT_CHANGED");
+    if (!hashes.includes(sha256Text(readFileSync4(at(rel), "utf8")))) {
+      throw new AmbivoError(`${rel} was changed. Put back the dev kit's copy; the About page must stay as Ambivo wrote it.`, "APP_ABOUT_CHANGED");
+    }
+  }
+  if (!existsSync4(at("src/install/app-objects.json"))) {
+    throw new AmbivoError("Add src/install/app-objects.json with app_key and app_version first (ambivo-custom-objects skill).", "NO_APP_OBJECTS");
+  }
+  let saved = {};
+  try {
+    saved = existsSync4(at(ABOUT_INFO_FILE)) ? JSON.parse(readFileSync4(at(ABOUT_INFO_FILE), "utf8")) : {};
+  } catch {
+    saved = {};
+  }
+  const about = {
+    app_name: String(info.app_name || saved.app_name || "").trim(),
+    made_by: String(info.made_by || saved.made_by || "").trim(),
+    support_email: String(info.support_email || saved.support_email || "").trim()
+  };
+  const missing = Object.entries({ app_name: "the app name", made_by: "who made the app (the partner company)", support_email: "the support email" }).filter(([k]) => !about[k]).map(([, v]) => v);
+  if (missing.length) throw new AmbivoError(`Ask the developer for ${missing.join(", ")}, then submit again.`, "ABOUT_INFO_MISSING");
+  writeFileSync4(at(ABOUT_INFO_FILE), JSON.stringify(about, null, 2) + "\n");
+  if (!session?.token) throw new AmbivoError("Not signed in. In a terminal, run: node <plugin>/mcp/ambivo-mcp.mjs login", "NOT_SIGNED_IN");
+  if (session.expired) throw new AmbivoError("The Ambivo session has expired. In a terminal, run the login command again.", "SESSION_EXPIRED");
+  const files = appFiles(projectDir);
+  const out = await hosted("POST", `/api/review-upload?project=${encodeURIComponent(basename(projectDir))}`, session.token, tarOf(files), fetchImpl);
+  const review = out.review;
+  const list = readReviews(projectDir).filter((r) => r.review_id !== review.review_id);
+  list.push({ review_id: review.review_id, app_version: review.app_version, code_sha256: review.code_sha256, at: (/* @__PURE__ */ new Date()).toISOString() });
+  saveReviews(projectDir, list);
+  return { review, created: !!out.created, fingerprint: fingerprint(files) };
+}
+async function reviewStatus(projectDir, { fetchImpl = fetch, session = currentSession(), call = ambivo } = {}) {
+  if (!session?.token) throw new AmbivoError("Not signed in. In a terminal, run: node <plugin>/mcp/ambivo-mcp.mjs login", "NOT_SIGNED_IN");
+  const out = [];
+  let wrote = null;
+  for (const r of readReviews(projectDir).reverse().slice(0, 10)) {
+    let review;
+    try {
+      review = (await hosted("GET", `/api/review-upload/${r.review_id}`, session.token, null, fetchImpl)).review;
+    } catch (err) {
+      out.push({ review_id: r.review_id, app_version: r.app_version, status: "unknown", error: err.message });
+      continue;
+    }
+    out.push(review);
+    if (!wrote && review.status === "approved" && review.cert_id) {
+      const c = (await call("GET", `app_certificate/${review.cert_id}`, { anonymous: true })).certificate;
+      const s = c.statement || {};
+      if (c.status === "valid" && s.code_sha256 === fingerprint(appFiles(projectDir))) {
+        writeFileSync4(join4(projectDir, CERTIFICATE_FILE), JSON.stringify({ certificate: {
+          cert_id: c.cert_id,
+          sha256: c.sha256,
+          app_id: s.app_id || "",
+          app_key: s.app_key,
+          app_name: s.app_name,
+          app_version: s.app_version,
+          made_by: s.made_by,
+          support_email: s.support_email,
+          issued_at: s.issued_at,
+          key_id: c.key_id,
+          signature: c.signature,
+          statement: s
+        } }, null, 2) + "\n");
+        wrote = c.cert_id;
+      }
+    }
+  }
+  return {
+    reviews: out,
+    certificate_written: wrote,
+    ...wrote ? { next: "Run npx ng build so the About page shows the certificate. The install step sends it with every custom object." } : {}
+  };
+}
+async function registerApp(projectDir, { app_id, app_name, app_key } = {}, { call = ambivo } = {}) {
+  app_id = String(app_id || "").trim().toLowerCase();
+  const path = join4(projectDir, "src/install/app-objects.json");
+  let objects = {};
+  try {
+    objects = existsSync4(path) ? JSON.parse(readFileSync4(path, "utf8")) : {};
+  } catch {
+    throw new AmbivoError("src/install/app-objects.json is not valid JSON. Fix it first.", "BAD_APP_OBJECTS");
+  }
+  if (objects.app_id && objects.app_id !== app_id) {
+    throw new AmbivoError(`This app is already registered as ${objects.app_id}. An app ID never changes.`, "APP_ALREADY_REGISTERED");
+  }
+  const res = await call("POST", "app_registration", { body: {
+    app_id,
+    app_name,
+    ...app_key || objects.app_key ? { app_key: app_key || objects.app_key } : {},
+    ...process.env.DEVSTUDIO_PROJECT_ID ? { devstudio_project_id: process.env.DEVSTUDIO_PROJECT_ID } : {}
+  } });
+  const r = res?.registration;
+  if (!r?.app_id) throw new AmbivoError("Ambivo did not answer a registration.", "NO_REGISTRATION");
+  mkdirSync4(join4(projectDir, "src/install"), { recursive: true });
+  writeFileSync4(path, JSON.stringify({ ...objects, app_id: r.app_id, app_key: r.app_key }, null, 2) + "\n");
+  return { registration: r, created: !!res.created, file: "src/install/app-objects.json" };
+}
+
 // src/server.mjs
 import { resolve } from "node:path";
 var MAX_CHARS = 4e4;
@@ -45415,6 +45660,31 @@ function buildServer() {
       spec: external_exports.string().optional()
     }
   }, tool(({ method, path, spec }) => getOperation(method, path, spec)));
+  server.registerTool("register_app", {
+    title: "Register the app's permanent app ID",
+    description: "Register the app with Ambivo before building its custom objects. The app ID is permanent and unique across Ambivo, like an App Store bundle ID: it starts with the developer's company domain, reversed, then the app's name (com.yourcompany.stockroom; lowercase letters and digits). Its last part becomes the app key (the prefix of every custom object) unless app_key is given. Writes app_id and app_key into src/install/app-objects.json. Ask the developer for the app name; propose the ID from their company domain and confirm it, because it can never change.",
+    inputSchema: {
+      project_dir: external_exports.string().describe("Absolute path of the app folder"),
+      app_id: external_exports.string().describe("com.<company domain reversed>.<app name>"),
+      app_name: external_exports.string().describe("The app name people see"),
+      app_key: external_exports.string().optional().describe("Only when the app ID's last part is over 24 characters")
+    }
+  }, tool(async ({ project_dir, app_id, app_name, app_key }) => registerApp(resolve(project_dir), { app_id, app_name, app_key })));
+  server.registerTool("submit_app", {
+    title: "Submit the app for Ambivo's review",
+    description: "Send the app to Ambivo's review: a program checks the code, the services it calls and what it shows, an AI reviewer reads it, the app is built, then Ambivo staff decide. An approved version gets an Ambivo certificate; without one, Ambivo will not install the app's custom objects in a client's company. Each version is reviewed once: after any change, raise app_version in src/install/app-objects.json and submit again. Needs src/install/app-objects.json and the unchanged src/ambivo-about/ files. Ask the developer for the app name, who made it and the support email the first time; they are saved in src/install/app-about.json. The signed-in person must be an admin of their company.",
+    inputSchema: {
+      project_dir: external_exports.string().describe("Absolute path of the app folder"),
+      app_name: external_exports.string().optional().describe("The app name shown on the About page"),
+      made_by: external_exports.string().optional().describe("Who made the app: the partner company name"),
+      support_email: external_exports.string().optional().describe("Where the app's users get support")
+    }
+  }, tool(async ({ project_dir, app_name, made_by, support_email }) => submitApp(resolve(project_dir), { app_name, made_by, support_email })));
+  server.registerTool("review_status", {
+    title: "Where the app's reviews are",
+    description: "The status of each version submitted with submit_app: waiting, being reviewed, waiting for Ambivo staff, approved (with its certificate) or not approved (with the reason and what to fix). When a version is approved and the app's code is still exactly what was reviewed, the certificate is written to src/install/ambivo-certificate.json; then run npx ng build so the About page shows it.",
+    inputSchema: { project_dir: external_exports.string().describe("Absolute path of the app folder") }
+  }, tool(async ({ project_dir }) => reviewStatus(resolve(project_dir))));
   server.registerTool("whoami", {
     title: "Who the session belongs to",
     description: "The signed-in Ambivo user: name, email, tenant, whether they are an admin, and their module access. Check this before reading data, so you know which tenant you are looking at.",
