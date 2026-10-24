@@ -30,7 +30,7 @@ function partnerProgConfig(env, ambivoApi, region) {
     tenant: val('DEVSTUDIO_PARTNERPROG_TENANT'),
     email: val('DEVSTUDIO_PARTNERPROG_EMAIL'),
     api: api.endsWith('/') ? api : `${api}/`,
-    // The Partner Program app's address, for the link on the Access page. A deploy setting, so the code names no host.
+    // The Partner Program app's address. Unused since the Access page moved to that app; kept for old settings.
     url: val('DEVSTUDIO_PARTNERPROG_URL'),
     // The custom objects' collection ids. Overridable in case the app's objects are renamed.
     partnerCollection: val('DEVSTUDIO_PARTNERPROG_PARTNER_COLLECTION') || 'partnerprog_partner',
@@ -88,7 +88,7 @@ export function loadConfig(env = process.env) {
     proxyUrl: env.DEVSTUDIO_PROXY_URL || '',
     network: env.DEVSTUDIO_NETWORK || '',
     allowed: String(env.DEVSTUDIO_ALLOWED_GITHUB || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
-    // GitHub logins that see the Access page and change who may sign in.
+    // GitHub logins that see the link to the Partner Program app (/api/me admin). Staff pages live there.
     admins: String(env.DEVSTUDIO_ADMINS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
     kmsKeyId: env.DEVSTUDIO_KMS_KEY_ID || '',
     kmsEndpoint: env.DEVSTUDIO_KMS_ENDPOINT || '',   // tests only: a fake KMS
@@ -103,10 +103,9 @@ export function loadConfig(env = process.env) {
     sessionMaxDays: Number(env.DEVSTUDIO_SESSION_MAX_DAYS || 7),
     // Where partners sign in to their Ambivo sandbox (server mode). Tests point it at a fake.
     ambivoApi: env.DEVSTUDIO_AMBIVO_API || 'https://ingress.ambivo.com/',
-    // App review (review.mjs), hosted only. The two keys to Ambivo's /app_review/runner routes (the second
-    // one only for staff decisions), and Ambivo's own Claude key for the review agent. Empty: no reviews.
+    // App review (review.mjs), hosted only. The key to Ambivo's /app_review/runner routes, and Ambivo's own
+    // Claude key for the review agent. Empty: no reviews. Staff decide in the Partner Program app.
     reviewSecret: env.DEVSTUDIO_APP_REVIEW_SECRET || '',
-    reviewDecideSecret: env.DEVSTUDIO_APP_REVIEW_DECIDE_SECRET || '',
     reviewAnthropicKey: env.DEVSTUDIO_REVIEW_ANTHROPIC_KEY || '',
     reviewModel: env.DEVSTUDIO_REVIEW_MODEL || 'claude-opus-5-5',
     // The Docker Dev Studio sends apps for review to this hosted Dev Studio.

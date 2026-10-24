@@ -13,8 +13,8 @@
 //   2. the review agent: Claude Code with read-only tools (Read, Grep, Glob; no shell, no writes, no web),
 //      on Ambivo's key, told that everything in the app is untrusted data; it returns findings as JSON;
 //   3. the build, only when the package check passed, with install scripts off.
-// The container is removed. The report goes to Ambivo (finish). Staff decide (decide); approval issues
-// the certificate at Ambivo.
+// The container is removed. The report goes to Ambivo (finish). Staff decide in the Partner Program app;
+// approval issues the certificate at Ambivo, and forProject writes it into the hosted project.
 //
 // Hosted only: it needs DEVSTUDIO_APP_REVIEW_SECRET (Ambivo's APP_REVIEW_SECRET) and
 // DEVSTUDIO_REVIEW_ANTHROPIC_KEY. The partner never sees either.
@@ -30,23 +30,11 @@ const RELAY_MAX_TOKENS = 32000;
 // Uploads from the Docker Dev Studio and the kit held in memory at once.
 const MAX_UPLOADS = 3;
 export const SECRET_HEADER = 'X-AMBIVO-APP-REVIEW-SECRET';
-export const DECIDE_HEADER = 'X-AMBIVO-APP-REVIEW-DECIDE-SECRET';
 const KIT = '/opt/ambivo-devkit';
 const TAR_MAX = 60 << 20;
 const STEP_MS = { untar: 120000, checks: 300000, agent: 40 * 60000, build: 20 * 60000 };
 const REVIEW_ID = /^[0-9a-f]{24}$/;
 const EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]+$/;
-// The staff page's lists: what each tab asks Ambivo for.
-export const STAFF_LISTS = {
-  decide: { status: 'in_review', stage: 'staff' },
-  deciding: { status: 'in_review', stage: 'deciding' },
-  checking: { status: 'in_review', stage: 'agent' },
-  submitted: { status: 'submitted' },
-  approved: { status: 'approved' },
-  rejected: { status: 'rejected' },
-  withdrawn: { status: 'withdrawn' },
-  failed: { status: 'failed' },
-};
 // How often a running review checks that it was not withdrawn.
 const WATCH_MS = 60000;
 
@@ -263,13 +251,11 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
     } else res.end(Buffer.from(await up.arrayBuffer()));
   }
 
-  async function core(method, path, body, { decide = false } = {}) {
+  async function core(method, path, body) {
     let r;
     try {
       r = await fetchImpl(new URL(path, config.ambivoApi), {
-        method, headers: { [SECRET_HEADER]: config.reviewSecret, 'Content-Type': 'application/json', Accept: 'application/json',
-          // Only a staff decision sends the second key; the runner never does.
-          ...(decide ? { [DECIDE_HEADER]: config.reviewDecideSecret } : {}) },
+        method, headers: { [SECRET_HEADER]: config.reviewSecret, 'Content-Type': 'application/json', Accept: 'application/json' },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
     } catch { throw new ReviewError('Ambivo could not be reached. Try again in a few minutes.', 502); }
@@ -456,13 +442,24 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
   async function forProject(project) {
     if (!enabled) return [200, { reviews: [] }];
     const out = [];
+    let written = '';
     for (const r of [...(project.reviews ?? [])].reverse().slice(0, 10)) {
       try {
         const got = await core('GET', `app_review/runner/${r.review_id}`);
-        if (got.review.project_id === project.id) out.push(partnerView(got.review));
+        if (got.review.project_id !== project.id) continue;
+        out.push(partnerView(got.review));
+        // Staff decide in the Partner Program app, so an approved version's certificate goes into the app here:
+        // once per call, and only if the code is still what was reviewed.
+        const g = got.review;
+        if (g.status === 'approved' && g.cert_id && !written && app.writeFile && app.exportTar) {
+          try {
+            written = await installCertificate({ certificate: await publicCertificate(g.cert_id),
+              exportTar: () => app.exportTar(project.id), writeFile: (path, text) => app.writeFile(project.id, path, text) });
+          } catch (err) { log(`project ${project.id}: writing the certificate: ${err.message}`); }
+        }
       } catch (err) { out.push({ review_id: r.review_id, app_version: r.app_version, status: 'unknown', error: err.message }); }
     }
-    return [200, { reviews: out }];
+    return [200, { reviews: out, ...(written ? { certificateWritten: written } : {}) }];
   }
 
   /**
@@ -643,25 +640,6 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
     } finally { running = false; }
   }
 
-  // ---- staff -----------------------------------------------------------------------------------------
-
-  async function queue(status = 'decide', page = 1) {
-    if (!enabled) return [404, { error: 'Reviews work in the hosted Dev Studio only.' }];
-    const filter = STAFF_LISTS[status];
-    if (!filter) return [400, { error: 'Unknown status.' }];
-    try {
-      const out = await core('GET', `app_review/runner/list?page_size=50&page_num=${Math.max(1, Number(page) || 1)}&match_filter_dict=${encodeURIComponent(JSON.stringify(filter))}`);
-      return [200, { reviews: out.data_list, total: out.total_count }];
-    } catch (err) { return [err.status, { error: err.message }]; }
-  }
-
-  async function one(rid) {
-    if (!enabled) return [404, { error: 'Reviews work in the hosted Dev Studio only.' }];
-    if (!REVIEW_ID.test(String(rid))) return [404, { error: 'No such review.' }];
-    try { return [200, { review: (await core('GET', `app_review/runner/${rid}`)).review }]; }
-    catch (err) { return [err.status, { error: err.message }]; }
-  }
-
   async function publicCertificate(certId) {
     const r = await fetchImpl(new URL(`app_certificate/${certId}`, config.ambivoApi), { headers: { Accept: 'application/json' } });
     const out = await r.json().catch(() => null);
@@ -669,45 +647,7 @@ export function createReviews({ config, driver, stateObjects, fetchImpl = fetch,
     return out.certificate;
   }
 
-  async function decide(rid, staff, body) {
-    if (!enabled) return [404, { error: 'Reviews work in the hosted Dev Studio only.' }];
-    if (!REVIEW_ID.test(String(rid))) return [404, { error: 'No such review.' }];
-    const decision = body?.decision;
-    if (decision !== 'approve' && decision !== 'reject') return [400, { error: 'Choose approve or reject.' }];
-    const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 2000) : '';
-    try {
-      const out = await core('POST', `app_review/runner/${rid}/decide`, { decision, reason, decided_by: `github:${staff.login}` }, { decide: true });
-      log(`review ${rid}: ${out.review.status} by ${staff.login}${out.review.cert_id ? ` (certificate ${out.review.cert_id})` : ''}`);
-      const r = out.review;
-      let installed = '';
-      // A hosted project gets its certificate written in, if its code is still what was reviewed.
-      if (r.status === 'approved' && r.cert_id && r.project_id && app.getProject && await app.getProject(r.project_id)) {
-        try {
-          const cert = await publicCertificate(r.cert_id);
-          installed = await installCertificate({ certificate: cert, exportTar: () => app.exportTar(r.project_id),
-            writeFile: (path, text) => app.writeFile(r.project_id, path, text) });
-        } catch (err) { log(`review ${rid}: writing the certificate into project ${r.project_id}: ${err.message}`); }
-      }
-      if (r.project_id && app.emit) app.emit(r.project_id, { kind: 'note', text: r.status === 'approved'
-        ? (installed ? `Ambivo approved version ${r.app_version}. Certificate ${r.cert_id} is now in the app. Build it again so the About page shows it.`
-          : `Ambivo approved version ${r.app_version} (certificate ${r.cert_id}), but the app changed since it was submitted. Raise the version and submit it again.`)
-        : `Ambivo did not approve version ${r.app_version}: ${r.decision_reason}` });
-      return [200, { review: out.review }];
-    } catch (err) { return [err.status, { error: err.message, code: err.code }]; }
-  }
-
-  /** Staff: per-app metrics from Ambivo (/app_usage), read with Dev Studio's staff key. */
-  async function metrics(appId, days) {
-    if (!enabled) return [404, { error: 'App metrics work in the hosted Dev Studio only.' }];
-    const d = Math.max(1, Math.min(Number(days) || 30, 365));
-    if (appId && !/^[a-z][a-z0-9.]{4,154}$/.test(String(appId))) return [404, { error: 'No such app.' }];
-    try {
-      const out = await core('GET', appId ? `app_usage/app/${appId}?days=${d}` : `app_usage/apps?days=${d}`);
-      return [200, appId ? { report: out.report } : { apps: out.apps, days: out.days, prices: out.prices }];
-    } catch (err) { return [err.status, { error: err.message }]; }
-  }
-
-  return { enabled, submit, upload, uploaded, uploadedWithdraw, withdraw, forProject, tick, run, queue, one, decide, relay, metrics };
+  return { enabled, submit, upload, uploaded, uploadedWithdraw, withdraw, forProject, tick, run, relay };
 }
 
 /**

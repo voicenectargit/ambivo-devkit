@@ -18,8 +18,8 @@ import { createKeyStore } from './keystore.mjs';
 import { createLocalObjects } from './objects.mjs';
 import { checkBrief, docxText, BriefError, BRIEF_DIR, BRIEF_MAX } from './brief.mjs';
 import { dataModelView, OBJECTS_FILE, MODEL_DOC } from './datamodel.mjs';
-import { createAccess, AccessError, parseNames, names } from './access.mjs';
-import { createPartnerSource, PARTNERPROG_NAME } from './partnersource.mjs';
+import { createAccess, parseNames, names } from './access.mjs';
+import { createPartnerSource } from './partnersource.mjs';
 import { parsePhases, PhasesError, newPhases, mergePhases, findPhase, cannotStart, phasesView, openingPrompt, phase0Prompt,
   PHASE0, PHASES_FILE, PHASE_DOCS, PHASE_ID, handoffFile } from './phases.mjs';
 import { startSignIn, finishSignIn, signOut as ambivoSignOut, DEFAULT_API as AMBIVO_DEFAULT_API } from './ambivo-signin.mjs';
@@ -1565,44 +1565,6 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         if (req.method === 'POST') await checkSetup();
         else if (req.method !== 'GET') return json(res, 405, { error: 'Not allowed' });
         return json(res, 200, { ...(setup || {}), checking: !!setupRun });
-      }
-      if (url.pathname === '/api/access' || url.pathname.startsWith('/api/access/')) {
-        // Dev Studio admins only (DEVSTUDIO_ADMINS); to anyone else the page does not exist.
-        if (!serverMode || !isAdmin(user)) return json(res, 404, { error: 'Not found' });
-        const entryId = url.pathname.split('/')[3] || null;
-        try {
-          if (!entryId && req.method === 'GET') {
-            // A person's work email (Partner Program entries) stays on the server: only the access emails use it.
-            return json(res, 200, { entries: (await access.list({ fresh: true })).map(({ email, ...e }) => e), floor: config.allowed, admins: config.admins,
-              ...(partnerSource ? { managedBy: { name: PARTNERPROG_NAME, url: config.partnerProg?.url || undefined, ...partnerSource.status() } } : {}) });
-          }
-          if (!entryId && req.method === 'POST') { const e = await access.add(await readBody(req), user.login, { token: await userToken(user) }); log(`access: ${user.login} added ${e.github} (${e.partner})`); return json(res, 201, { entry: e }); }
-          if (entryId && req.method === 'PATCH') { const e = await access.update(entryId, await readBody(req), user.login, { token: await userToken(user) }); log(`access: ${user.login} set ${e.github} ${e.status}`); return json(res, 200, { entry: e }); }
-          if (entryId && req.method === 'DELETE') { await access.remove(entryId); log(`access: ${user.login} removed ${entryId}`); return json(res, 200, { removed: entryId }); }
-          return json(res, 405, { error: 'Not allowed' });
-        } catch (err) {
-          if (err instanceof AccessError) return json(res, err.status, { error: err.message });
-          throw err;
-        }
-      }
-      // Ambivo staff: per-app metrics (installs, traffic, storage, cost). Dev Studio admins only.
-      const mm = url.pathname.match(/^\/api\/app-metrics(?:\/([a-z][a-z0-9.]{4,154}))?$/);
-      if (mm && req.method === 'GET') {
-        if (!serverMode || !reviews?.metrics || !isAdmin(user)) return json(res, 404, { error: 'Not found' });
-        const out = await reviews.metrics(mm[1] || '', url.searchParams.get('days'));
-        return json(res, out[0], out[1]);
-      }
-      // Ambivo staff review apps here (Dev Studio admins). To anyone else the page does not exist.
-      const rm = url.pathname.match(/^\/api\/reviews(?:\/([0-9a-f]{24}))?(?:\/(decide))?$/);
-      if (rm) {
-        if (!serverMode || !reviews || !isAdmin(user)) return json(res, 404, { error: 'Not found' });
-        const [, rid, act] = rm;
-        let out;
-        if (!rid && req.method === 'GET') out = await reviews.queue(url.searchParams.get('status') || 'decide', url.searchParams.get('page'));
-        else if (rid && !act && req.method === 'GET') out = await reviews.one(rid);
-        else if (rid && act === 'decide' && req.method === 'POST') out = await reviews.decide(rid, user, await readBody(req));
-        else out = [405, { error: 'Not allowed' }];
-        return json(res, out[0], out[1]);
       }
       if (url.pathname === '/api/ambivo' || url.pathname.startsWith('/api/ambivo/')) {
         if (!serverMode || !ambivoSessions) return json(res, 404, { error: 'Not found' });

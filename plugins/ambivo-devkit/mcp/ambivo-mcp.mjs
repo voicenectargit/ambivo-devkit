@@ -20747,10 +20747,10 @@ var Doc = class {
   compile() {
     const F = Function;
     const content = this?.content ?? [``];
-    const factory = new F(...Object.keys(this.closed), `return function (${this.args.join(", ")}) {
+    const factory2 = new F(...Object.keys(this.closed), `return function (${this.args.join(", ")}) {
 ${content.join("\n")}
 };`);
-    return factory(...Object.values(this.closed));
+    return factory2(...Object.values(this.closed));
   }
 };
 
@@ -31188,8 +31188,8 @@ ${code}
 }`;
   let fn;
   try {
-    const factory = new F(...constantNames, factoryCode);
-    fn = factory(...constantValues);
+    const factory2 = new F(...constantNames, factoryCode);
+    fn = factory2(...constantValues);
   } catch (err) {
     throw new ZodCompileUnsupportedError(`this schema (generated code failed to evaluate: ${err.message})`);
   }
@@ -45735,6 +45735,155 @@ async function registerApp(projectDir, { app_id, app_name, app_key } = {}, { cal
   return { registration: r, created: !!res.created, file: "src/install/app-objects.json" };
 }
 
+// src/website.mjs
+var APP_FACTORY_URL = process.env.AMBIVO_APP_FACTORY_URL || "https://apps.ambivo.com/";
+var cmsSessions = /* @__PURE__ */ new Map();
+var CMS_SESSION_MS = 11 * 3600 * 1e3;
+function detail(json2, status) {
+  const d = json2?.detail;
+  if (typeof d === "string") return d;
+  if (d && typeof d === "object") return d.message || JSON.stringify(d);
+  return `HTTP ${status}`;
+}
+async function factory(method, path, { body, auth = "ambivo", session = currentSession(), fetchImpl = fetch } = {}) {
+  if (!session) throw new AmbivoError("Not signed in. In a terminal, run: node <plugin>/mcp/ambivo-mcp.mjs login", "NOT_SIGNED_IN");
+  if (session.expired) throw new AmbivoError("The Ambivo session has expired. Sign in again.", "SESSION_EXPIRED");
+  const token = auth === "ambivo" ? session.token : auth;
+  const headers = { Accept: "application/json", Authorization: `Bearer ${token}` };
+  if (body !== void 0) headers["Content-Type"] = "application/json";
+  const res = await fetchImpl(new URL(String(path).replace(/^\/+/, ""), APP_FACTORY_URL).toString(), {
+    method,
+    headers,
+    body: body === void 0 ? void 0 : JSON.stringify(body),
+    signal: AbortSignal.timeout(12e4)
+  });
+  const text = await res.text();
+  let json2;
+  try {
+    json2 = JSON.parse(text);
+  } catch {
+    json2 = void 0;
+  }
+  if (!res.ok) throw new AmbivoError(detail(json2, res.status), `HTTP_${res.status}`, res.status);
+  if (json2 === void 0) throw new AmbivoError(`App Factory answered HTTP ${res.status} with something other than JSON.`, "NOT_JSON", res.status);
+  return json2;
+}
+async function cms(projectId, deps, fresh2 = false) {
+  const hit = cmsSessions.get(projectId);
+  if (!fresh2 && hit && Date.now() - hit.at < CMS_SESSION_MS) return hit;
+  const res = await factory("POST", `cms/admin/${projectId}/session-from-ambivo`, deps);
+  const entry = { token: res.token, preview: res.preview_token, role: res.user?.role, at: Date.now() };
+  cmsSessions.set(projectId, entry);
+  return entry;
+}
+async function cmsCall(projectId, method, path, deps, body) {
+  let s = await cms(projectId, deps);
+  try {
+    return await factory(method, `cms/admin/${projectId}/${path}`, { ...deps, auth: s.token, body });
+  } catch (e) {
+    if (e.status !== 401) throw e;
+    s = await cms(projectId, deps, true);
+    return factory(method, `cms/admin/${projectId}/${path}`, { ...deps, auth: s.token, body });
+  }
+}
+var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function websiteCreate({ template_id = "web_blank" } = {}, deps = {}) {
+  const made = await factory("POST", "factory/create-from-template", { ...deps, body: { template_id } });
+  const id = made.project_id;
+  let p = {};
+  for (let i = 0; i < (deps.polls ?? 40); i++) {
+    p = await factory("GET", `factory/projects/${id}`, deps);
+    if (p.status === "live" || p.status === "failed") break;
+    await sleep(deps.pollMs ?? 3e3);
+  }
+  if (p.status === "failed") throw new AmbivoError(`The website could not be created: ${p.error_message || "unknown error"}`, "CREATE_FAILED");
+  return {
+    project_id: id,
+    status: p.status,
+    preview_url: p.deployed_url,
+    next: "Edit pages with website_page_save, check them with website_preview_link, then website_publish."
+  };
+}
+async function websiteList(_args = {}, deps = {}) {
+  const res = await factory("GET", "factory/projects?project_type=website", deps);
+  const rows = Array.isArray(res) ? res : res.projects || res.items || [];
+  return rows.map((p) => ({ project_id: p.id, name: p.display_name || p.name || "", status: p.status, url: p.deployed_url }));
+}
+async function websitePages({ project_id }, deps = {}) {
+  const res = await cmsCall(project_id, "GET", "pages", deps);
+  const rows = Array.isArray(res) ? res : res.pages || res.items || [];
+  return rows.map((p) => ({
+    page_id: p.id || p._id,
+    slug: p.slug,
+    title: p.title,
+    status: p.status,
+    blocks: (p.blocks || []).length
+  }));
+}
+async function websitePageGet({ project_id, page_id }, deps = {}) {
+  return cmsCall(project_id, "GET", `pages/${page_id}`, deps);
+}
+var SAVED_FIELDS = ["slug", "title", "nav_label", "show_in_nav", "status", "blocks", "seo"];
+var same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+async function websitePageSave({ project_id, page_id, page }, deps = {}) {
+  const body = {};
+  for (const k of SAVED_FIELDS) if (page[k] !== void 0) body[k] = page[k];
+  if (!body.title) throw new AmbivoError("A page needs a title.", "BAD_PAGE");
+  const saved = page_id ? await cmsCall(project_id, "PUT", `pages/${page_id}`, deps, body) : await cmsCall(project_id, "POST", "pages", deps, body);
+  const id = page_id || saved.id || saved._id;
+  const back = await cmsCall(project_id, "GET", `pages/${id}`, deps);
+  const wrong = Object.keys(body).filter((k) => k !== "slug" && !same(back[k], body[k]));
+  if (wrong.length) {
+    throw new AmbivoError(`Saved, but reading it back shows different ${wrong.join(", ")}. Nothing was published. Save again.`, "READ_BACK_DIFFERS");
+  }
+  return { page_id: id, slug: back.slug, status: back.status, read_back: "matches what was sent" };
+}
+async function websiteSettings({ project_id, settings }, deps = {}) {
+  if (!settings) return cmsCall(project_id, "GET", "settings", deps);
+  return cmsCall(project_id, "PUT", "settings", deps, settings);
+}
+async function websitePreviewLink({ project_id, slug = "" }, deps = {}) {
+  const s = await cms(project_id, deps);
+  const path = `cms/admin/${project_id}/preview/${encodeURIComponent(slug || "").replace(/%2F/g, "/")}?token=${encodeURIComponent(s.preview)}`;
+  return {
+    url: new URL(path, APP_FACTORY_URL).toString(),
+    note: "Shows drafts too. For you and the people you share it with; it is never indexed."
+  };
+}
+async function websitePublish({ project_id }, deps = {}) {
+  const before = await cmsCall(project_id, "GET", "publish-state", deps);
+  const res = await cmsCall(project_id, "POST", "publish", deps);
+  return {
+    url: res.url,
+    restore_point: res.version?.id || res.version?._id || res.version || null,
+    changes_published: (before.changes || []).length,
+    note: "On the preview address the site stays out of search until its own domain is connected."
+  };
+}
+async function websiteDomain({ project_id, action = "status", domain: domain2 }, deps = {}) {
+  if (action === "connect") {
+    if (!domain2) throw new AmbivoError("Say which domain, e.g. www.theirbusiness.com.", "BAD_DOMAIN");
+    return factory("POST", `factory/projects/${project_id}/domain`, { ...deps, body: { domain: domain2 } });
+  }
+  if (action === "disconnect") return factory("DELETE", `factory/projects/${project_id}/domain`, deps);
+  return factory("GET", `factory/projects/${project_id}/domain`, deps);
+}
+async function websiteHandover({ project_id, new_tenant_id, new_owner_email, confirm }, deps = {}) {
+  if (confirm !== true) {
+    throw new AmbivoError("Handing a site over moves it out of your company for good. Ask the user, then call again with confirm: true.", "CONFIRM");
+  }
+  const res = await factory("POST", `factory/projects/${project_id}/transfer`, { ...deps, body: {
+    new_tenant_id,
+    new_owner_email,
+    widgets: "clear",
+    form_entries: "delete",
+    history: "clear",
+    confirm: true
+  } });
+  cmsSessions.delete(project_id);
+  return { ...res, note: "The client is charged the $10 setup fee and then $10 a month. Their owner gets an invite to the site editor." };
+}
+
 // src/server.mjs
 import { resolve } from "node:path";
 var MAX_CHARS = 4e4;
@@ -45918,6 +46067,78 @@ function buildServer() {
       expect_fingerprint: external_exports.string().optional().describe("The fingerprint the dry run returned. Needed when dry_run is false. The removal refuses if the list changed since.")
     }
   }, tool((a) => sandboxTeardown(a)));
+  const pid = external_exports.string().describe("The website project id (from website_create or website_list)");
+  server.registerTool("website_create", {
+    title: "Create a website",
+    description: "Create a CMS website in the signed-in company (a partner builds in their sandbox and hands it over later). Starts from a template (web_blank: home, about, services, contact) and publishes it to a preview address that is kept out of search. Waits until it is live. You then write the pages yourself; this never uses an AI service of Ambivo's.",
+    inputSchema: { template_id: external_exports.string().optional().describe("Template id; default web_blank") }
+  }, tool((a) => websiteCreate(a)));
+  server.registerTool("website_list", {
+    title: "List websites",
+    description: "The websites of the signed-in company.",
+    inputSchema: {}
+  }, tool((a) => websiteList(a)));
+  server.registerTool("website_pages", {
+    title: "List a website's pages",
+    description: "Pages of a website: id, slug, title, status, number of blocks.",
+    inputSchema: { project_id: pid }
+  }, tool((a) => websitePages(a)));
+  server.registerTool("website_page_get", {
+    title: "Read a website page",
+    description: "One page with its blocks and SEO fields, as the editor stores it.",
+    inputSchema: { project_id: pid, page_id: external_exports.string() }
+  }, tool((a) => websitePageGet(a)));
+  server.registerTool("website_page_save", {
+    title: "Create or replace a website page",
+    description: 'Save a page (no page_id = new page). The page is read back and compared; a difference is an error. Blocks: [{type, data}] with types hero, features, cta, rich_text {markdown}, image, form, spacer, html {html}. status "draft" stays off the site; "published" goes live at the next website_publish. Follow the ambivo-website skill.',
+    inputSchema: {
+      project_id: pid,
+      page_id: external_exports.string().optional().describe("Omit to create a page"),
+      page: external_exports.object({
+        slug: external_exports.string().optional().describe('URL path without slashes; "" is the home page'),
+        title: external_exports.string(),
+        nav_label: external_exports.string().optional(),
+        show_in_nav: external_exports.boolean().optional(),
+        status: external_exports.enum(["draft", "published"]).optional(),
+        blocks: external_exports.array(external_exports.object({ type: external_exports.string(), data: external_exports.record(external_exports.string(), external_exports.unknown()) })).optional(),
+        seo: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("title, description, og_image, noindex")
+      })
+    }
+  }, tool((a) => websitePageSave(a)));
+  server.registerTool("website_settings", {
+    title: "Read or change website settings",
+    description: "Without settings: read them. With settings: change site_name, logo_url, favicon_url, active_theme, design_tokens, nav, seo, blog_enabled, redirects.",
+    inputSchema: { project_id: pid, settings: external_exports.record(external_exports.string(), external_exports.unknown()).optional() }
+  }, tool((a) => websiteSettings(a)));
+  server.registerTool("website_preview_link", {
+    title: "Preview link for a page",
+    description: "A link that shows a page as it will look, drafts included.",
+    inputSchema: { project_id: pid, slug: external_exports.string().optional().describe('Page slug; "" or omitted = home') }
+  }, tool((a) => websitePreviewLink(a)));
+  server.registerTool("website_publish", {
+    title: "Publish the website",
+    description: "Put every published page and setting live and save a restore point. Ask the user before publishing.",
+    inputSchema: { project_id: pid }
+  }, tool((a) => websitePublish(a)));
+  server.registerTool("website_domain", {
+    title: "Connect the client's own domain",
+    description: "connect: start connecting a domain (returns the one DNS record to add). status: where it stands; the site goes live on the domain, and into search, once DNS and the certificate are ready. disconnect: back to the preview address. Needs a company admin of the company that owns the site (usually the client, after handover).",
+    inputSchema: {
+      project_id: pid,
+      action: external_exports.enum(["connect", "status", "disconnect"]).optional(),
+      domain: external_exports.string().optional().describe("e.g. www.theirbusiness.com")
+    }
+  }, tool((a) => websiteDomain(a)));
+  server.registerTool("website_handover", {
+    title: "Hand a website over to the client",
+    description: "Move a finished site from the partner's sandbox to the client's company. The client is then charged $10 once and $10 a month. Cannot be undone by you. Ask the user, then call with confirm: true.",
+    inputSchema: {
+      project_id: pid,
+      new_tenant_id: external_exports.string().describe("The client company id"),
+      new_owner_email: external_exports.string().describe("The client person who will own the site; they need an Ambivo account in that company"),
+      confirm: external_exports.boolean().optional()
+    }
+  }, tool((a) => websiteHandover(a)));
   return server;
 }
 async function main() {

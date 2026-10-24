@@ -246,7 +246,7 @@ export function createNotifier({ notify, objects, send, log = console.log, now =
       lastRunAt = now(); lastRunError = null;
       const p = problems.join('\n');
       if (p !== lastProblemsLogged) {
-        if (problems.length) log(`partner program notify: ${problems.length} people can sign in but get no access email (see the Access page)`);
+        if (problems.length) log(`partner program notify: ${problems.length} people can sign in but get no access email (listed in config/partnerprog-notified.json)`);
         lastProblemsLogged = p;
       }
     } catch (err) {

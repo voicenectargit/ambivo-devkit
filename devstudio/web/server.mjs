@@ -58,13 +58,13 @@ const files = objects ? createProjectFiles({ objects, driver, image: config.imag
 // First start with S3: copy this host's records up before serving, so nobody sees an empty list.
 const migration = objects ? await migrateRecords({ dataDir: config.data, objects }) : null;
 
-// Who may sign in beyond DEVSTUDIO_ALLOWED_GITHUB: kept with the state (S3), edited on the Access page.
+// Who may sign in beyond DEVSTUDIO_ALLOWED_GITHUB: kept with the state (S3); staff manage it in the Partner Program app.
 // Entries carry each GitHub account's numeric id, looked up when saved; older entries get theirs here.
 // With DEVSTUDIO_PARTNERPROG_* set, the list comes from the Partner Program app instead (read every 5 minutes).
 const partnerSource = config.partnerProg.on
   ? createPartnerSource({ config, objects: objects || createLocalObjects(config.data), lookup: github ? (name) => github.lookup(name) : null, credentials })
   : null;
-if (partnerSource) console.log(`access: from the Partner Program (tenant ${config.partnerProg.tenant}, ${config.partnerProg.key ? 'with a service key' : `user ${config.partnerProg.email}`}); the Access page is read-only`);
+if (partnerSource) console.log(`access: from the Partner Program (tenant ${config.partnerProg.tenant}, ${config.partnerProg.key ? 'with a service key' : `user ${config.partnerProg.email}`})`);
 if (partnerSource) console.log(config.partnerProg.notify.on
   ? `access: emails each person whose access turns active, from ${config.partnerProg.notify.from} through SES (${config.partnerProg.notify.region})`
   : 'access: no access emails (DEVSTUDIO_PARTNERPROG_NOTIFY is not on)');

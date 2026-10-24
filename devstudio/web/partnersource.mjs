@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
 // Who may sign in to Dev Studio beyond the floor list, read from the Partner Program app in Ambivo.
 // On when DEVSTUDIO_PARTNERPROG_TENANT is set with _KEY, or with _EMAIL and _PASSWORD
-// (config.partnerProg.on); the Access page is then read-only and access.mjs takes its entries from here.
+// (config.partnerProg.on); access.mjs then takes its entries from here and refuses writes.
 //
 // With DEVSTUDIO_PARTNERPROG_KEY (an Ambivo service key, amb_sk_…) every read sends the key and Dev
 // Studio never signs in. The key reads only the two collections, as the person it names. Without a

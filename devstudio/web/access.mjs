@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Ambivo, Inc. Licensed under the Ambivo Developer Kit License. See LICENSE.
 // Who may sign in to Dev Studio, beyond the floor list set at deploy time (DEVSTUDIO_ALLOWED_GITHUB).
-// Staff add and pause partners on the Access page; the list lives in the state bucket (or, on a laptop,
-// a file under DEVSTUDIO_DATA) and takes effect within a minute, with no deploy and no restart.
+// Staff add and pause partners in the Partner Program app (partnersource.mjs). Without it, the list lives in
+// the state bucket (or, on a laptop, a file under DEVSTUDIO_DATA); Dev Studio has no page that edits it.
 //
 //   list()               -> entries (cached for CACHE_MS)
 //   add(entry, by)       -> the new entry           an entry: { id, github, kind, partner, status, note, ... }
