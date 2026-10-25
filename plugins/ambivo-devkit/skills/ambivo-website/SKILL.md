@@ -29,11 +29,15 @@ owns the site, so it usually happens after the handover, by the client.
 1. Ask what the site is for, who it is for, the pages, the tone, and the contact details. Give your
    recommendation with each question, as `/ambivo-new-app` does.
 2. `website_create` (template `web_blank`: home, about, services, contact). Note the `project_id`.
-3. `website_settings` with `site_name`, and `logo_url` / `favicon_url` if the user has them.
-4. For each page, `website_page_save`. Blocks: `hero` (heading, subheading, cta_text, cta_link),
-   `features` (heading, items [{title, description}]), `cta` (heading, text, button_text, button_link),
-   `rich_text` (markdown), `image` (url, alt), `form` (the contact form), `spacer`, `html` (html).
-   Read the existing page with `website_page_get` first and keep its block shapes. Set `seo.title` and
+3. `website_settings` with `site_name`, and `logo_url` / `favicon_url` if the user has them. Each
+   key you send replaces that whole key (`seo`, `nav`...): read the settings first and send it whole.
+4. Read `reference.md` before saving a page. It sits beside this file (`skills/ambivo-website/` in
+   the ambivo-devkit plugin) and lists every block type with its exact field names, the page and
+   settings fields, navigation, forms, images and limits. Block data is not checked on save: a wrong
+   field name is stored and shows nothing.
+   For each page, `website_page_get`, change it, then `website_page_save` the whole page back
+   (`slug`, `title`, `nav_label`, `show_in_nav`, `status`, `blocks`, `seo`). A field left out is
+   reset: no `status` makes the page a draft, no `slug` aims it at the home page. Set `seo.title` and
    `seo.description` on every page. The home page has slug `""`.
    A save that reads back differently is an error: save again, never assume it worked.
 5. `website_preview_link` for each page; give the links to the user and ask for changes.

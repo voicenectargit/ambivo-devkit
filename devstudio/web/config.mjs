@@ -35,6 +35,7 @@ function partnerProgConfig(env, ambivoApi, region) {
     // The custom objects' collection ids. Overridable in case the app's objects are renamed.
     partnerCollection: val('DEVSTUDIO_PARTNERPROG_PARTNER_COLLECTION') || 'partnerprog_partner',
     personCollection: val('DEVSTUDIO_PARTNERPROG_PERSON_COLLECTION') || 'partnerprog_person',
+    applicationCollection: val('DEVSTUDIO_PARTNERPROG_APPLICATION_COLLECTION') || 'partnerprog_application',
   };
   const secret = (k) => (String(env[k] || '') === SECRET_PLACEHOLDER ? '' : String(env[k] || ''));
   Object.defineProperty(out, 'password', { value: secret('DEVSTUDIO_PARTNERPROG_PASSWORD'), enumerable: false });
@@ -51,6 +52,14 @@ function partnerProgConfig(env, ambivoApi, region) {
     configurationSet: or('DEVSTUDIO_SES_CONFIGURATION_SET', 'ambivo-prod'),
     region,
     sesEndpoint: String(env.DEVSTUDIO_SES_ENDPOINT || ''),   // tests only: a fake SES
+  };
+  // People who are not on the list may apply to become a partner, or to join one (apply.mjs). Only with
+  // the source on: applications are Partner Program records. The key needs partnerprog_application on
+  // both its collections and its write_collections.
+  out.apply = {
+    on: out.on && String(env.DEVSTUDIO_PARTNER_APPLY || '').trim().toLowerCase() === 'on',
+    staffTo: or('DEVSTUDIO_APPLY_NOTIFY_TO', 'dev-partner@ambivo.com'),
+    reviewUrl: (val('DEVSTUDIO_PARTNERPROG_URL') || 'https://devpartner.ambivo.com').replace(/\/+$/, ''),
   };
   return out;
 }

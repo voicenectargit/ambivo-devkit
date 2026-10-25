@@ -20,7 +20,8 @@ import { checkBrief, docxText, BriefError, BRIEF_DIR, BRIEF_MAX } from './brief.
 import { dataModelView, OBJECTS_FILE, MODEL_DOC } from './datamodel.mjs';
 import { createAccess, parseNames, names } from './access.mjs';
 import { createPartnerSource } from './partnersource.mjs';
-import { parsePhases, PhasesError, newPhases, mergePhases, findPhase, cannotStart, phasesView, openingPrompt, phase0Prompt,
+import { createApply } from './apply.mjs';
+import { parsePhases, PhasesError, newPhases, mergePhases, findPhase, cannotStart, phasesView, openingPrompt, phase0Prompt, websitePrompt,
   PHASE0, PHASES_FILE, PHASE_DOCS, PHASE_ID, handoffFile } from './phases.mjs';
 import { startSignIn, finishSignIn, signOut as ambivoSignOut, DEFAULT_API as AMBIVO_DEFAULT_API } from './ambivo-signin.mjs';
 import { createDeploy } from './deploy.mjs';
@@ -263,6 +264,9 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
     ? createPartnerSource({ config, fetchImpl, objects: objects || keys?.store || createLocalObjects(config.data), lookup: github ? (name) => github.lookup(name) : null, log })
     : null);
   partnerSource?.start();
+  // People not on the list ask for access (apply.mjs). Only in server mode, with the Partner Program.
+  const apply = config.serverMode && partnerSource && config.partnerProg?.apply?.on
+    ? createApply({ config, source: partnerSource, fetchImpl, log }) : null;
   const access = accessIn ?? createAccess({ objects: null, dataDir: config.data, lookup: github ? (name, token) => github.lookup(name, token) : null, source: partnerSource });
   // DEVSTUDIO_ADMINS is "login:id"; with the id, a renamed account keeps the right and the freed name gets nothing.
   const admins = parseNames(config.admins || []);
@@ -949,6 +953,10 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
     const decision = await access.decide(who, config.allowed);
     if (!decision.ok) {
       log(`sign-in refused: ${who.login}${decision.paused ? ' (paused)' : ''}`);
+      if (apply && !decision.paused) {
+        res.writeHead(303, { Location: '/apply', 'Cache-Control': 'no-store', 'Set-Cookie': [clearState, apply.startCookie(who)] });
+        return res.end();
+      }
       const why = decision.paused ? 'Your access to Dev Studio is paused. Ask your Ambivo contact.' : 'Ask your Ambivo contact to add your account or your organisation.';
       return page(res, 403, 'Not allowed', `<h2>Your GitHub account cannot use Dev Studio yet</h2><p>You signed in as ${esc(who.login)}. ${esc(why)}</p>`, { 'Set-Cookie': clearState });
     }
@@ -1488,6 +1496,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== publicOrigin && !tokenRoute) {
           return json(res, 403, { error: 'This request did not come from the Dev Studio page.' });
         }
+        if (apply && await apply.handle(req, res, url)) return;
         if (req.method === 'GET' && url.pathname === '/auth/login') return login(req, res);
         if (req.method === 'GET' && url.pathname === '/auth/callback') return await callback(req, res, url);
         if (req.method === 'POST' && url.pathname === '/auth/logout') return await logout(req, res);
@@ -1559,7 +1568,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
       }
 
       const user = currentUser(req);
-      if (!user) return json(res, 401, { error: 'Sign in to continue.', signIn: true, sessionEnded: true });
+      if (!user) return json(res, 401, { error: 'Sign in to continue.', signIn: true, sessionEnded: true, ...(apply ? { canApply: true } : {}) });
       if (serverMode && !(await access.stillAllowed(user.signed, config.allowed))) {
         return json(res, 401, { error: 'Your access to Dev Studio is paused. Ask your Ambivo contact.', signIn: true, sessionEnded: true, paused: true });
       }
@@ -1656,6 +1665,8 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         }
         if (!name || (!description && !brief)) return json(res, 400, { error: 'Give the app a name and describe what it should do.' });
         const assistant = body.assistant === 'codex' ? 'codex' : 'claude';
+        // A website is an App Factory CMS site, built with the website_* tools; an app is an Angular app.
+        const website = body.kind === 'website';
         if (assistant === 'codex' && driver.kind === 'local') return json(res, 400, { error: 'Codex works in the hosted Dev Studio only. Choose Claude Code.' });
         if (notReady()) return json(res, 409, { error: notReady(), notReady: true });
         const provider = assistant === 'codex' ? 'openai' : 'claude';
@@ -1668,11 +1679,11 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         const newId = randomBytes(6).toString('hex');
         // With a brief file the app is built in phases, and this first conversation is phase 0.
         await store.create({ id: newId, name, created: Date.now(), owner: { id: user.id, login: user.login }, ...(assistant === 'codex' ? { assistant } : {}),
-          ...(brief ? { phases: newPhases('working') } : {}) });
+          ...(website ? { kind: 'website' } : brief ? { phases: newPhases('working') } : {}) });
         // A token typed in for a project is laptop-only. On the server the stored, sandbox-checked
         // session is the only way in, so a page cannot hand the assistant another company's token.
         if (body.ambivoToken && !serverMode) ambivoTokens.set(newId, String(body.ambivoToken));
-        emit(newId, { kind: 'user', text: description || `Build the app in the brief: ${brief.info.name}` });
+        emit(newId, { kind: 'user', text: description || (website ? `Build the website in the brief: ${brief.info.name}` : `Build the app in the brief: ${brief.info.name}`) });
         emit(newId, { kind: 'status', text: 'Setting up the project…' });
         (async () => {
           await driver.create(newId, config.image, { name });
@@ -1685,7 +1696,8 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
             briefs = [entry];
           }
           const codex = assistant === 'codex';
-          await turn(newId, brief ? phase0Prompt({ description, briefs, codex })
+          await turn(newId, website ? websitePrompt({ description, briefs, codex })
+            : brief ? phase0Prompt({ description, briefs, codex })
             : codex ? codexNewAppPrompt(description)
             : 'Start a new app with the ambivo-new-app skill from the ambivo-devkit plugin. ' +
             'You are talking to a partner through a web page, not a terminal: ask your questions in plain words, ' +

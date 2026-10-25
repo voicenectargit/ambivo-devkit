@@ -190,3 +190,21 @@ export function phase0Prompt({ description, briefs = [], codex = false }) {
     ...(description ? ['', `The partner's description:\n${description}`] : []),
   ].join('\n');
 }
+
+/**
+ * The first message of a website project: the ambivo-website skill (Claude Code loads it; Codex reads its
+ * file), with the brief files when there are any. A website is never built in phases.
+ */
+export function websitePrompt({ description = '', briefs = [], codex = false } = {}) {
+  const files = briefs.map((b) => `- /work/brief/${b.text || b.name}`);
+  return [
+    codex
+      ? 'Build a website. First read /opt/ambivo-devkit/skills/ambivo-website/SKILL.md in full and follow its steps and rules, with the ambivo MCP server\'s website_* tools.'
+      : 'Build a website with the ambivo-website skill from the ambivo-devkit plugin, as /ambivo-new-website does. Follow its steps and rules.',
+    'It is an Ambivo website (App Factory CMS), not an Angular app: do not create /work/app.',
+    ...(files.length ? ['', 'The client\'s brief is in these files. Read them in full before you ask anything:', ...files, ''] : []),
+    'You are talking to a partner through a web page, not a terminal: ask your questions in plain words, a few at a time, each with your recommendation, then stop and wait for the answers.',
+    'Do not publish or hand over the site until the partner says so.',
+    ...(description ? ['', `The partner's description:\n${description}`] : []),
+  ].join('\n');
+}

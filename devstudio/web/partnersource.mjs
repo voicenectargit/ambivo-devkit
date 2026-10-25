@@ -11,6 +11,12 @@
 //   refresh()   reads every partner and person (with the key, or signed in), builds the entries
 //   entries()   the entries of the last good read, in access.mjs's shape
 //   status()    { configured, lastSuccessAt, lastError, lastErrorAt, problems, count, nextTryAt, notify? }
+//   partnerForEmail(email)   the active partner whose email domain this is, or null (apply.mjs)
+//   applications(githubId)   the Partner Program applications this GitHub account made, newest first
+//   addApplication(data)     adds one application; returns its id
+//
+// A partner's email domains are its website's host and the domains of its people's work emails, less
+// free mail (gmail.com and the like). Read with the list, and kept in the snapshot.
 //
 // A sign-in refusal that trying again cannot fix (expired temporary password, wrong password, blocked,
 // verification on, wrong account), or a refused key, pauses the reads for 60 minutes; a restart tries at once.
@@ -48,6 +54,22 @@ const SESSION_ENDED = /SESSION|TOKEN|NOT_AUTHENTICATED|UNAUTHORI[SZ]ED|LOGIN_REQ
 
 export class PartnerSourceError extends Error {
   constructor(message, code = null, { signIn = false } = {}) { super(message); this.code = code; this.signIn = signIn; }
+}
+
+// Domains anyone can get an address at: they never identify a company.
+export const FREE_MAIL = new Set(['gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'msn.com',
+  'yahoo.com', 'ymail.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com', 'pm.me',
+  'gmx.com', 'gmx.net', 'gmx.de', 'web.de', 'mail.com', 'yandex.com', 'yandex.ru', 'mail.ru', 'qq.com', '163.com',
+  '126.com', 'zoho.com', 'zohomail.com', 'fastmail.com', 'hey.com', 'tutanota.com', 'rediffmail.com']);
+
+/** The lowercase domain of an email address, or ''. */
+export const emailDomain = (email) => { const m = String(email ?? '').trim().toLowerCase().match(/^[^\s@]+@([a-z0-9.-]+\.[a-z]{2,})$/); return m ? m[1] : ''; };
+
+/** The host of a website address, less "www.", or ''. */
+export function websiteDomain(site) {
+  const t = String(site ?? '').trim();
+  if (!t) return '';
+  try { return new URL(/^[a-z]+:\/\//i.test(t) ? t : `https://${t}`).hostname.toLowerCase().replace(/^www\./, ''); } catch { return ''; }
 }
 
 const lower = (s) => String(s ?? '').trim().toLowerCase().replace(/^@/, '');
@@ -118,6 +140,18 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
     // A short-lived token is renewed at half its life.
     const life = payload.exp ? payload.exp * 1000 - now() : Infinity;
     tokenUntil = now() + life - Math.min(RENEW_BEFORE_MS, life / 2);
+  }
+
+  /** POST with the key, or signed in (one retry when the session has ended). Returns the reply. */
+  async function post(path, body) {
+    for (let i = 0; ; i++) {
+      if (!pp.key && (!token || now() >= tokenUntil)) await signIn();
+      const { status, j } = pp.key ? await call('POST', path, body, null, pp.key) : await call('POST', path, body, token);
+      const code = j?.error_code || j?.error?.error_code || '';
+      if (!pp.key && i === 0 && (status === 401 || (j?.result === 2 && SESSION_ENDED.test(code)))) { token = null; continue; }
+      if (status !== 200 || j?.result !== 1) throw new PartnerSourceError(`Ambivo did not save the record (${code || `HTTP ${status}`}).`, code || `HTTP_${status}`);
+      return j;
+    }
   }
 
   /** GET with the service key. A refused key pauses the reads, like a refused sign-in. */
@@ -241,6 +275,19 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
       cands.push({ id: `pp-person-${x.id}`, kind: 'user', github: g, status: ok ? 'active' : 'paused', partner: company, note: who, source: SOURCE, label: who || g, name: who, email });
     }
 
+    // Email domain -> active partner. A domain two active partners share names neither.
+    const domains = {};
+    const shared = new Set();
+    const claim = (d, p) => {
+      if (!d || FREE_MAIL.has(d) || p?.status !== 'active') return;
+      const v = { partner_id: String(p.id), company: String(p.company_name || '').trim() };
+      if (domains[d] && domains[d].partner_id !== v.partner_id) shared.add(d);
+      else domains[d] = v;
+    };
+    for (const p of partners) claim(websiteDomain(p.website), p);
+    for (const x of people) claim(emailDomain(x.work_email), byId.get(String(x.partner_id ?? '')));
+    for (const d of shared) { delete domains[d]; problems.push(`More than one active partner uses the email domain ${d}. Dev Studio matches it to none of them.`); }
+
     // One entry per GitHub account and kind. An active record wins: one active record is enough.
     const seen = new Map();
     for (const c of cands.sort((a, b) => (a.status === b.status ? a.id.localeCompare(b.id) : a.status === 'active' ? -1 : 1))) {
@@ -267,7 +314,7 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
       const { label, ...e } = c;
       entries.push({ ...e, github_id: String(r.id) });
     }
-    return { entries, problems, active, people: people.length, partners: partners.length };
+    return { entries, problems, active, domains, people: people.length, partners: partners.length };
   }
 
   async function loadStored() {
@@ -282,7 +329,7 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
     if (now() < pausedUntil) return;   // keeps the last error and the last good list
     try {
       const b = await build();
-      snapshot = { at: now(), entries: b.entries, problems: b.problems };
+      snapshot = { at: now(), entries: b.entries, problems: b.problems, domains: b.domains };
       lastError = null; lastErrorAt = null;
       try { await objects.put(SNAPSHOT_KEY, JSON.stringify(snapshot, null, 2), { contentType: 'application/json' }); }
       catch (err) { log(`partner program: storing the list: ${err.message}`); }
@@ -299,6 +346,24 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
   }
 
   return {
+    /** The active partner whose email domain this is (or a parent domain of it), or null. */
+    partnerForEmail(email) {
+      const map = snapshot?.domains || {};
+      for (let d = emailDomain(email); d.includes('.'); d = d.slice(d.indexOf('.') + 1)) if (map[d]) return { domain: d, ...map[d] };
+      return null;
+    },
+    /** This GitHub account's applications, newest first. Throws PartnerSourceError when Ambivo does not answer. */
+    async applications(githubId) {
+      const q = `collection_id=${encodeURIComponent(pp.applicationCollection)}&match_filter_dict=${encodeURIComponent(JSON.stringify({ github_id: String(githubId) }))}`
+        + `&sort_dict=${encodeURIComponent(JSON.stringify({ created_ts: -1 }))}&page_size=20&page_num=1`;
+      const j = await get(`custom/object/data?${q}`);
+      return Array.isArray(j.data_list) ? j.data_list : [];
+    },
+    /** Adds one application. Returns its id. */
+    async addApplication(data) {
+      const j = await post('custom/object/data', { collection_id: pp.applicationCollection, data });
+      return String(j.id ?? j.data?.id ?? '');
+    },
     /** Read the Partner Program now. Waits for a read in progress, then reads again. Never throws. */
     refresh() { queue = queue.then(run, run); return queue; },
     /** Resolves once the stored snapshot has been read (or found missing). */

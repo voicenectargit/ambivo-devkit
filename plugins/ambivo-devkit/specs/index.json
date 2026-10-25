@@ -1,6 +1,6 @@
 {
-  "docs_commit": "ceace18",
-  "built_at": "2026-10-24",
+  "docs_commit": "27eef13",
+  "built_at": "2026-10-25",
   "specs": [
     {
       "id": "esign",
@@ -120,7 +120,7 @@
       "id": "messaging",
       "title": "Messaging",
       "file": "ambivo-messaging.openapi.yaml",
-      "operations": 95
+      "operations": 97
     }
   ]
 }
