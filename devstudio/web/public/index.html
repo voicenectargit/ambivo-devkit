@@ -149,6 +149,10 @@
   .jobform .checks label { flex-direction: row; align-items: center; gap: 6px; font-weight: 400; margin: 0; }
   .jobform .checks input { width: auto; }
   .jobform small { font-weight: 400; color: var(--muted); }
+  .jobform .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin: 4px 0 12px; }
+  .jobform .presets button { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: transparent; color: inherit; font-weight: 500; }
+  .jobform .presets button:hover, .jobform .presets button:focus-visible { border-color: var(--accent, #6b4bd8); }
+  .jobform .presets button span { font-weight: 400; font-size: 13px; color: var(--muted); }
   #main > p, #main > h2, #main > button.text, #main > .err { margin-left: 16px; margin-right: 16px; }
   @media (max-width: 720px) { aside { display: none; } }
 </style>
@@ -1539,11 +1543,47 @@ function showJobs(id) {
     return (doc.secrets || []).filter((s) => used.has(s.name) || !names.includes(s.name));
   }
 
-  // ---- the Add job form ---------------------------------------------------------------------
-  function openForm(index = -1) {
+  // ---- Add job: pick a ready-made job or start blank -----------------------------------------
+  // The presets come from Dev Studio, built from the app's own objects (appjobs.mjs jobPresets).
+  function choosePreset() {
     err.textContent = '';
+    const presets = st.presets || [];
+    if (!presets.length) { openForm(-1); return; }
+    edit.replaceChildren();
+    $('#jobsHeading').textContent = 'Add job';
+    mode(true);
+    $('#jobsSave').hidden = true;
+    $('#jobsBack').onclick = () => { $('#jobsHeading').textContent = 'Jobs'; mode(false); };
+    edit.append(el('p', 'Start from a ready-made job, then change what you need. Or start from a blank job.', 'tip'));
+    const grid = el('div', null, 'presets');
+    for (const p of presets) {
+      const b = el('button', p.title); b.type = 'button';
+      b.append(el('span', p.text));
+      b.onclick = () => openForm(-1, p.job);
+      grid.append(b);
+    }
+    const blank = el('button', 'Start from a blank job'); blank.type = 'button';
+    blank.append(el('span', 'Pick what the job does and fill in every setting yourself.'));
+    blank.onclick = () => openForm(-1);
+    grid.append(blank);
+    edit.append(grid);
+  }
+
+  // A preset's key, made unique in this app: pull_records, then pull_records_2 and so on.
+  function freeKey(k) {
+    const used = new Set((docOf().jobs || []).map((j) => j.job_key));
+    if (!used.has(k)) return k;
+    for (let n = 2; ; n++) { const c = `${k.slice(0, 37)}_${n}`; if (!used.has(c)) return c; }
+  }
+
+  // ---- the Add job form ---------------------------------------------------------------------
+  function openForm(index = -1, preset = null) {
+    err.textContent = '';
+    $('#jobsSave').hidden = false;
     const doc = docOf();
-    const job = index >= 0 ? structuredClone(doc.jobs[index]) : { job_key: '', name: '', job_type: 'http_pull', schedule: { every_minutes: 720 }, config: {} };
+    const job = index >= 0 ? structuredClone(doc.jobs[index])
+      : preset ? { ...structuredClone(preset), job_key: freeKey(preset.job_key) }
+      : { job_key: '', name: '', job_type: 'http_pull', schedule: { every_minutes: 720 }, config: {} };
     const cfg = job.config || {};
     const objects = st.objects || [];
     const fieldsOf = (oid) => objects.find((o) => o.id === oid)?.fields || [];
@@ -1854,7 +1894,7 @@ function showJobs(id) {
   problems = null;
   mode(false);
   $('#jobsClose').onclick = () => dlg.close();
-  $('#jobsAdd').onclick = () => openForm(-1);
+  $('#jobsAdd').onclick = () => choosePreset();
   $('#jobsSend').onclick = async () => {
     err.textContent = ''; $('#jobsSend').disabled = true;
     try {

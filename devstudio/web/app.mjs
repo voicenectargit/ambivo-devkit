@@ -27,7 +27,7 @@ import { createDeploy } from './deploy.mjs';
 import { aboutProblems, certificateProblem, projectReader } from './about.mjs';
 import { createReviews, createRemoteReviews, hiddenFiles, reviewTarKey } from './review.mjs';
 import { fingerprint } from './fingerprint.mjs';
-import { JOBS_FILE, JOB_ID, JobsError, cleanJobsDoc, coreCall, jobsForCore, objectsForJobs, secretProblem } from './appjobs.mjs';
+import { JOBS_FILE, JOB_ID, JobsError, cleanJobsDoc, coreCall, jobsForCore, objectsForJobs, secretProblem, jobPresets } from './appjobs.mjs';
 
 /** Exit codes that mean a run hit its container's memory cap (see the error emitted when a run ends). */
 const OUT_OF_MEMORY_CODES = new Set([134, 137]);
@@ -1250,7 +1250,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
       const text = await readText(id, JOBS_FILE);
       let doc = null, fileError = null;
       if (text !== null) { try { doc = JSON.parse(text); } catch (err) { fileError = `src/install/app-jobs.json is not valid JSON: ${err.message}`; } }
-      const out = { appKey, objects, doc, fileError, hasObjects: objectsText !== null, live: null, liveError: null, signIn: false };
+      const out = { appKey, objects, presets: jobPresets(objects), doc, fileError, hasObjects: objectsText !== null, live: null, liveError: null, signIn: false };
       const s = await session();
       if (!s) return [200, { ...out, signIn: true, liveError: signInText }];
       if (!appKey) return [200, out];

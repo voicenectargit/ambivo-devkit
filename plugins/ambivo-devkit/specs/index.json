@@ -1,6 +1,6 @@
 {
-  "docs_commit": "29f7c95",
-  "built_at": "2026-10-23",
+  "docs_commit": "3fcc0a0",
+  "built_at": "2026-10-24",
   "specs": [
     {
       "id": "esign",
@@ -30,7 +30,7 @@
       "id": "crm",
       "title": "CRM",
       "file": "ambivo-crm.openapi.yaml",
-      "operations": 315
+      "operations": 298
     },
     {
       "id": "unified-model",
@@ -72,7 +72,7 @@
       "id": "custom-objects",
       "title": "Custom Objects",
       "file": "ambivo-custom-objects.openapi.yaml",
-      "operations": 65
+      "operations": 68
     },
     {
       "id": "testing-data",
@@ -96,7 +96,7 @@
       "id": "security-qa",
       "title": "Questionnaires & KnowledgeBase",
       "file": "ambivo-security-qa.openapi.yaml",
-      "operations": 101
+      "operations": 100
     },
     {
       "id": "workforce",
@@ -115,6 +115,12 @@
       "title": "Local Gateway",
       "file": "ambivo-local-gateway.openapi.yaml",
       "operations": 12
+    },
+    {
+      "id": "messaging",
+      "title": "Messaging",
+      "file": "ambivo-messaging.openapi.yaml",
+      "operations": 95
     }
   ]
 }

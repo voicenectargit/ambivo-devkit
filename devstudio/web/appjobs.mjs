@@ -98,18 +98,125 @@ export function jobsForCore(doc) {
   return (doc.jobs || []).map((j) => ({ ...j, ...(j.schedule?.every_minutes !== undefined ? { every_minutes: j.schedule.every_minutes } : {}) }));
 }
 
-/** The app's objects and their fields, from app-objects.json, for the form's pickers. */
+/**
+ * The app's objects and their fields, from app-objects.json, for the form's pickers. `types` is each
+ * field's bsonType; `userFields` are the fields `core_links` points at `user` (they hold a user id).
+ */
 export function objectsForJobs(text) {
   let raw;
   try { raw = JSON.parse(text); } catch { return { appKey: '', objects: [] }; }
   const list = Array.isArray(raw) ? raw : Array.isArray(raw?.objects) ? raw.objects : [];
+  const links = raw?.core_links && typeof raw.core_links === 'object' ? raw.core_links : {};
   return {
     appKey: typeof raw?.app_key === 'string' ? raw.app_key : '',
-    objects: list.filter((o) => o && typeof o.collection_id === 'string').map((o) => ({
-      id: o.collection_id, name: typeof o.name === 'string' && o.name ? o.name : o.collection_id,
-      fields: o.schema && typeof o.schema === 'object' ? Object.keys(o.schema) : [],
-    })),
+    objects: list.filter((o) => o && typeof o.collection_id === 'string').map((o) => {
+      const schema = o.schema && typeof o.schema === 'object' ? o.schema : {};
+      const types = {};
+      for (const [f, d] of Object.entries(schema)) {
+        const t = Array.isArray(d?.bsonType) ? d.bsonType.find((x) => x !== 'null') : d?.bsonType;
+        if (typeof t === 'string') types[f] = t;
+      }
+      const own = links[o.collection_id] && typeof links[o.collection_id] === 'object' ? links[o.collection_id] : {};
+      return {
+        id: o.collection_id, name: typeof o.name === 'string' && o.name ? o.name : o.collection_id,
+        fields: Object.keys(schema), types,
+        userFields: Object.keys(schema).filter((f) => own[f] === 'user'),
+      };
+    }),
   };
+}
+
+const SYSTEM_FIELDS = new Set(['id', 'tenant_id', 'userid', 'updated_by_userid', 'created_by', 'created_by_userid',
+  'updated_by', 'created_ts', 'updated_ts', 'access_dict', 'comments', 'file_ids_list', 'deleted']);
+const ownFields = (o) => (o.fields || []).filter((f) => !SYSTEM_FIELDS.has(f) && !f.startsWith('_'));
+const DATE_NAME = /(^|_)(date|due|deadline|expir\w*|end|ends|until|renew\w*)(_|$)|_(at|on)$/;
+const LABEL_NAME = /^(name|title|label|subject|summary)$/;
+const STATUS_NAME = /^(status|stage|state)$/;
+
+/** The object's date fields: bsonType date first, then names that read like a date. */
+function dateFields(o) {
+  const typed = ownFields(o).filter((f) => o.types?.[f] === 'date');
+  return typed.length ? typed : ownFields(o).filter((f) => DATE_NAME.test(f) && (!o.types?.[f] || o.types[f] === 'string'));
+}
+const labelField = (o) => ownFields(o).find((f) => LABEL_NAME.test(f)) || ownFields(o).find((f) => o.types?.[f] === 'string');
+// due_date -> due date, lead_userid -> lead: how a field reads in a sentence.
+const words = (f) => f.replace(/_?(userid|user_id|_id)$/, '').replace(/_/g, ' ').trim() || f;
+const statusField = (o) => ownFields(o).find((f) => STATUS_NAME.test(f) && (!o.types?.[f] || o.types[f] === 'string'));
+
+/**
+ * Ready-made jobs for the Add job form, built from the app's own objects. Each one is a starting point
+ * the maker changes before saving: an address, a mapping or a value it cannot know is left empty, and
+ * the save check names it. A preset is offered only when the app has an object it fits.
+ *
+ * No time zone is set: the form fills in the maker's own, which they change to the client's.
+ */
+export function jobPresets(objects) {
+  const list = (objects || []).filter((o) => o && o.id);
+  if (!list.length) return [];
+  const first = list[0];
+  const out = [];
+  const add = (id, title, text, job) => out.push({ id, title, text, job });
+
+  add('pull_api', 'Get records from an API every 12 hours',
+    `Calls an outside address and adds or updates ${first.name} records. You enter the address, the key and which value goes in which field.`,
+    { job_key: 'pull_records', name: `Get ${first.name.toLowerCase()} from an outside service`, job_type: 'http_pull',
+      schedule: { every_minutes: 720 },
+      config: { url: '', method: 'GET', headers: { Accept: 'application/json' }, target_collection: first.id, field_map: {}, upsert_key: '' } });
+
+  add('push_changes', 'Send new and changed records to an API every hour',
+    `Sends ${first.name} records added or changed since the last run to an outside address. You enter the address and the key.`,
+    { job_key: 'push_changes', name: `Send changed ${first.name.toLowerCase()} to an outside service`, job_type: 'http_push',
+      schedule: { every_minutes: 60 },
+      config: { url: '', method: 'POST', headers: {}, source_collection: first.id, fields: ownFields(first),
+        filter: [], changed_since_last_run: true, batch_size: 100 } });
+
+  const dated = list.find((o) => dateFields(o).length);
+  if (dated) {
+    const date = dateFields(dated)[0];
+    const label = labelField(dated);
+    const who = dated.userFields?.length ? { user_field: dated.userFields[0] } : 'owner';
+    const whoText = dated.userFields?.length ? `the ${words(dated.userFields[0])} of each record` : 'the record\'s owner';
+    const what = label ? `{${label}}` : dated.name;
+    const day = words(date);
+    add('remind_before', `Remind people 3 days before the ${day}`,
+      `Every morning, tells ${whoText} about ${dated.name} records whose ${day} is 3 days away.`,
+      { job_key: `remind_${date}`.slice(0, 40), name: `Remind before the ${day}`, job_type: 'reminder',
+        schedule: { daily_at: '08:00' },
+        config: { source_collection: dated.id, date_field: date, days: -3, notify: who, channels: ['in_app', 'email'],
+          title: `${dated.name}: ${day} in 3 days`, message: `${what}: the ${day} is {${date}}.`, filter: [] } });
+    add('remind_after', `Tell people the day after the ${day} passes`,
+      `Every morning, tells ${whoText} about ${dated.name} records whose ${day} was yesterday.`,
+      { job_key: `overdue_${date}`.slice(0, 40), name: `Tell when the ${day} has passed`, job_type: 'reminder',
+        schedule: { daily_at: '08:00' },
+        config: { source_collection: dated.id, date_field: date, days: 1, notify: who, channels: ['in_app', 'email'],
+          title: `${dated.name}: ${day} has passed`, message: `${what}: the ${day} was {${date}}.`, filter: [] } });
+  }
+
+  const digestFields = ownFields(first).slice(0, 6);
+  add('daily_digest', `Email the admins a list of ${first.name} every morning`,
+    `At 08:00 every day, emails the company's admins the newest ${first.name} records, with a CSV file. Nothing is sent when there are none.`,
+    { job_key: 'daily_list', name: `Daily list of ${first.name.toLowerCase()}`, job_type: 'email_digest',
+      schedule: { daily_at: '08:00' },
+      config: { source_collection: first.id, filter: [], fields: digestFields, sort: { field: 'created_ts', dir: 'desc' },
+        max_rows: 200, to: { role: 'admins' }, subject: `${first.name}: today's list`, attach_csv: true, skip_when_empty: true } });
+  add('weekly_digest', `Email the admins a list of ${first.name} every Monday`,
+    `At 08:00 on Mondays, emails the company's admins the ${first.name} records, with a CSV file.`,
+    { job_key: 'weekly_list', name: `Weekly list of ${first.name.toLowerCase()}`, job_type: 'email_digest',
+      schedule: { weekly: { days: ['mon'], at: '08:00' } },
+      config: { source_collection: first.id, filter: [], fields: digestFields, sort: { field: 'created_ts', dir: 'desc' },
+        max_rows: 500, to: { role: 'admins' }, subject: `${first.name}: this week's list`, attach_csv: true, skip_when_empty: true } });
+
+  const withStatus = list.find((o) => statusField(o));
+  if (withStatus) {
+    const status = statusField(withStatus);
+    add('archive_old', `Mark ${withStatus.name} not changed in 90 days`,
+      `Every night, sets ${words(status)} to archived on ${withStatus.name} records nobody has changed in 90 days. Change the value to one your app uses.`,
+      { job_key: 'archive_old', name: `Archive old ${withStatus.name.toLowerCase()}`, job_type: 'housekeeping',
+        schedule: { daily_at: '02:00' },
+        config: { source_collection: withStatus.id, action: 'set', set: { [status]: 'archived' },
+          filter: [{ field: 'updated_ts', op: 'older_than_days', value: 90 }, { field: status, op: 'ne', value: 'archived' }] } });
+  }
+  return out;
 }
 
 /** A secret entered by a person, checked before it goes to Ambivo. Returns the problem, or null. */
