@@ -1227,7 +1227,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
   // ---- jobs: the app's scheduled jobs (appjobs.mjs) -----------------------------------------------
   /**
    * The Jobs dialog. GET: the project's app-jobs.json and the app's objects, and the jobs as they run in
-   * the maker's sandbox. PUT: save the file. POST ?action=install|enable|run|secret|runs: Core's
+   * the maker's sandbox. PUT: save the file. POST ?action=install|enable|run|secret|runs|try: Core's
    * /app_job routes, as the maker, in their sandbox only. Answers [status, body].
    */
   async function jobsRoute(id, p, req, url) {
@@ -1308,6 +1308,21 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
       if (!r.ok) return fail(r);
       log(`project ${id}: sandbox secret ${name} set for ${host}`);
       return [200, { set: name, host }];
+    }
+    if (action === 'try') {
+      // Core calls the address once from the sandbox, with the sandbox's keys, and says what came back.
+      if (!appKey) return [409, { error: 'The app has no custom objects yet (src/install/app-objects.json).' }];
+      const config = body.config && typeof body.config === 'object' ? body.config : {};
+      const r = await coreCall(s, 'POST', `app_job/try/${encodeURIComponent(appKey)}`, { config });
+      if (!r.ok) {
+        const name = /: (\S+)\.$/.exec(r.error || '')?.[1];
+        if (r.code === 'APP_JOB_SECRET_MISSING') return [409, { error: `Save the job, then enter the value of ${name || 'the key'} under Keys the jobs send. Then try again.`, code: r.code }];
+        if (r.code === 'APP_JOB_SECRET_WRONG_HOST') return [409, { error: `${r.error} Save the key again for this address, then try again.`, code: r.code }];
+        return fail(r);
+      }
+      let host = ''; try { host = new URL(String(config.url)).host; } catch { /* not logged */ }
+      log(`project ${id}: tried a call to ${host} -> ${r.body.data?.http_status}`);
+      return [200, { result: r.body.data || {} }];
     }
     const job = String(url.searchParams.get('job') || '');
     if (!JOB_ID.test(job)) return [404, { error: 'No such job.' }];

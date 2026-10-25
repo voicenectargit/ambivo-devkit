@@ -84,10 +84,12 @@ One of:
 "schedule": { "every_minutes": 720 }
 "schedule": { "daily_at": "08:00", "tz": "America/Chicago" }
 "schedule": { "weekly": { "days": ["mon", "thu"], "at": "08:00" }, "tz": "Europe/Istanbul" }
+"schedule": { "monthly": { "day": 1, "at": "08:00" }, "tz": "America/Chicago" }
 ```
 
 - `every_minutes`: 15 to 10080 (one week).
-- `daily_at` and `weekly.at`: `HH:MM`, 24-hour. `tz`: an IANA time zone name; `UTC` when left out.
+- `monthly.day`: 1 to 31, or `"last"`. A day the month does not have (31 in April) runs on its last day.
+- `daily_at`, `weekly.at` and `monthly.at`: `HH:MM`, 24-hour. `tz`: an IANA time zone name; `UTC` when left out.
   Ask the user which time zone the client works in.
 - `days`: `mon tue wed thu fri sat sun`.
 

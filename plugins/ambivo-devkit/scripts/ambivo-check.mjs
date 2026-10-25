@@ -279,9 +279,9 @@ function checkJobs(root) {
 
 function scheduleProblems(job) {
   const s = job.schedule ?? (job.every_minutes !== undefined ? { every_minutes: job.every_minutes } : null);
-  if (!s || typeof s !== 'object') return ['add a "schedule": {"every_minutes"}, {"daily_at"} or {"weekly"}.'];
-  const forms = ['every_minutes', 'daily_at', 'weekly'].filter((k) => s[k] !== undefined);
-  if (forms.length !== 1) return ['"schedule" takes exactly one of every_minutes, daily_at or weekly.'];
+  if (!s || typeof s !== 'object') return ['add a "schedule": {"every_minutes"}, {"daily_at"}, {"weekly"} or {"monthly"}.'];
+  const forms = ['every_minutes', 'daily_at', 'weekly', 'monthly'].filter((k) => s[k] !== undefined);
+  if (forms.length !== 1) return ['"schedule" takes exactly one of every_minutes, daily_at, weekly or monthly.'];
   const out = [];
   if (s.every_minutes !== undefined && !(Number.isInteger(s.every_minutes) && s.every_minutes >= 15 && s.every_minutes <= 10080)) {
     out.push('every_minutes must be a whole number from 15 to 10080.');
@@ -291,6 +291,11 @@ function scheduleProblems(job) {
     const w = s.weekly;
     if (!w || !Array.isArray(w.days) || !w.days.length || w.days.some((d) => !DAYS.includes(d))) out.push(`weekly.days must list days from: ${DAYS.join(' ')}.`);
     if (!HHMM.test(String(w?.at ?? ''))) out.push('weekly.at must be a time like "08:00".');
+  }
+  if (s.monthly !== undefined) {
+    const m = s.monthly;
+    if (!(m?.day === 'last' || (Number.isInteger(m?.day) && m.day >= 1 && m.day <= 31))) out.push('monthly.day must be a whole number from 1 to 31, or "last".');
+    if (!HHMM.test(String(m?.at ?? ''))) out.push('monthly.at must be a time like "08:00".');
   }
   if (s.tz !== undefined && (typeof s.tz !== 'string' || !/^(UTC|[A-Z][A-Za-z_+-]*(\/[A-Za-z0-9_+-]+){1,2})$/.test(s.tz))) {
     out.push('tz must be a time zone name like "America/Chicago", or "UTC".');

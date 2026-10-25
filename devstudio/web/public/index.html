@@ -145,6 +145,9 @@
   .jobform .rows > div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
   .jobform .rows input, .jobform .rows select { width: auto; flex: 1 1 140px; padding: 6px 8px; }
   .jobform .rows button { padding: 4px 10px; }
+  .jobform .try-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+  .jobform .try-chips button.chip { padding: 4px 10px; font-size: 13px; max-width: 100%; background: none; color: var(--text); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jobform .try-out pre { max-height: 30vh; }
   .jobform .checks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
   .jobform .checks label { flex-direction: row; align-items: center; gap: 6px; font-weight: 400; margin: 0; }
   .jobform .checks input { width: auto; }
@@ -1384,6 +1387,7 @@ function jobSchedule(job) {
   }
   if (s.daily_at) return `Every day at ${s.daily_at} (${tz})`;
   if (s.weekly) return `${(s.weekly.days || []).map((d) => DAY_LABEL[d] || d).join(', ')} at ${s.weekly.at} (${tz})`;
+  if (s.monthly) return `${s.monthly.day === 'last' ? 'Last day' : `Day ${s.monthly.day}`} of each month at ${s.monthly.at} (${tz})`;
   return 'No schedule';
 }
 
@@ -1612,7 +1616,7 @@ function showJobs(id) {
       const list = el('div');
       for (const r of rows) add(r);
       box.append(list, btn(addText, () => add()));
-      box.list = list;
+      box.list = list; box.add = add;
       return box;
     };
     const objectOptions = objects.map((o) => [o.id, `${o.name} (${o.id})`]);
@@ -1632,20 +1636,29 @@ function showJobs(id) {
     // Schedule.
     const sch = job.schedule || {};
     const sg = group('When it runs');
-    const kind = select('Repeat', [['every', 'Every few hours'], ['daily', 'Every day at a time'], ['weekly', 'On some days of the week']],
-      sch.daily_at ? 'daily' : sch.weekly ? 'weekly' : 'every');
-    const hours = input('Every how many hours', sch.every_minutes ? String(sch.every_minutes / 60) : '12', { type: 'number', hint: 'From 0.25 (15 minutes) to 168 (one week).', attrs: { min: 0.25, max: 168, step: 0.25 } });
-    const at = input('At', sch.daily_at || sch.weekly?.at || '08:00', { type: 'time' });
+    const inHours = !sch.every_minutes || sch.every_minutes % 60 === 0;
+    const kind = select('Repeat', [['minutes', 'Every few minutes'], ['every', 'Every few hours'], ['daily', 'Every day at a time'],
+      ['weekly', 'On some days of the week'], ['monthly', 'Once a month']],
+      sch.daily_at ? 'daily' : sch.weekly ? 'weekly' : sch.monthly ? 'monthly' : inHours ? 'every' : 'minutes');
+    const minutes = input('Every how many minutes', sch.every_minutes && !inHours ? String(sch.every_minutes) : '30', { type: 'number', hint: 'From 15 to 1440 (one day).', attrs: { min: 15, max: 1440, step: 1 } });
+    const hours = input('Every how many hours', sch.every_minutes && inHours ? String(sch.every_minutes / 60) : '12', { type: 'number', hint: 'From 1 to 168 (one week).', attrs: { min: 1, max: 168, step: 1 } });
+    const monthDay = select('Day of the month', [...Array.from({ length: 31 }, (_, i) => [String(i + 1), String(i + 1)]), ['last', 'Last day']],
+      String(sch.monthly?.day ?? '1'));
+    const at = input('At', sch.daily_at || sch.weekly?.at || sch.monthly?.at || '08:00', { type: 'time' });
     const days = el('div', null, 'checks');
     const dayBoxes = JOB_DAYS.map((d) => { const c = check(DAY_LABEL[d], (sch.weekly?.days || ['mon']).includes(d)); c.input.value = d; days.append(c); return c.input; });
     let browserTz = 'UTC'; try { browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { /* UTC */ }
     const tz = input('Time zone', sch.tz || browserTz, { hint: 'Like America/Chicago or Europe/Istanbul. Use the client\'s time zone.' });
-    const schGrid = el('div', null, 'grid'); schGrid.append(kind, hours, at, tz);
-    sg.append(schGrid, days);
+    const schGrid = el('div', null, 'grid'); schGrid.append(kind, minutes, hours, monthDay, at, tz);
+    const shortMonth = el('p', 'If a month has fewer days, the job runs on its last day.', 'hint');
+    sg.append(schGrid, days, shortMonth);
     const showSchedule = () => {
-      const k = kind.input.value;
-      hours.hidden = k !== 'every'; at.hidden = k === 'every'; tz.hidden = k === 'every'; days.hidden = k !== 'weekly';
+      const k = kind.input.value, repeats = k === 'every' || k === 'minutes';
+      minutes.hidden = k !== 'minutes'; hours.hidden = k !== 'every'; at.hidden = repeats; tz.hidden = repeats;
+      days.hidden = k !== 'weekly'; monthDay.hidden = k !== 'monthly';
+      shortMonth.hidden = k !== 'monthly' || !['29', '30', '31'].includes(monthDay.input.value);
     };
+    monthDay.input.onchange = showSchedule;
     kind.input.onchange = showSchedule; showSchedule();
     edit.append(sg);
 
@@ -1754,6 +1767,55 @@ function showJobs(id) {
             for (const line of map.box?.list.children || []) { const v = line.querySelector('[data-role="f"]').value; const o = el('option', v); o.value = v; upsert.input.append(o); }
             if ([...upsert.input.options].some((o) => o.value === now)) upsert.input.value = now;
           }
+          // Try the call: Ambivo calls the address once from the sandbox and shows what came back.
+          const tryOut = el('div', null, 'try-out');
+          const tryBtn = btn('Try the call', async () => {
+            const c = readUrl();
+            tryOut.replaceChildren(el('p', 'Calling...', 'tip'));
+            tryBtn.disabled = true;
+            try {
+              const r = await api(url('?action=try'), { method: 'POST', body: JSON.stringify({ config: { url: c.url, method: c.method, headers: c.headers, secret_headers: c.secret_headers, records_path: path.input.value.trim() } }) });
+              showTry(r.result);
+            } catch (e) { tryOut.replaceChildren(el('p', e.message, 'bad')); }
+            tryBtn.disabled = false;
+          }, '');
+          const showTry = (r) => {
+            tryOut.replaceChildren();
+            const ok = r.http_status >= 200 && r.http_status < 300;
+            if (!ok || r.reply_error) {
+              tryOut.append(el('p', r.reply_error ? `The address answered ${r.http_status}. ${r.reply_error}` : `The address answered ${r.http_status}.`, 'bad'));
+              if (r.text) tryOut.append(el('pre', r.text));
+              return;
+            }
+            if (r.records_error) tryOut.append(el('p', r.records_error, 'bad'));
+            else tryOut.append(el('p', `The address answered ${r.http_status}. ${r.record_count} ${r.record_count === 1 ? 'record' : 'records'} ${r.records_path ? `at ${r.records_path}` : 'in the answer'}.`, 'ok'));
+            const lists = (r.lists || []).filter((l) => l.path !== r.records_path);
+            if (lists.length) {
+              tryOut.append(el('small', 'Other lists in the answer. Click one to use it.'));
+              const row = el('div', null, 'try-chips');
+              for (const l of lists) row.append(btn(`${l.path || 'The whole answer'} (${l.count})`, () => { path.input.value = l.path; tryBtn.click(); }, 'chip'));
+              tryOut.append(row);
+            }
+            if (r.fields?.length) {
+              tryOut.append(el('small', 'Values in each record. Click one to add it to the fields below.'));
+              const row = el('div', null, 'try-chips');
+              const own = fieldsOf(target).filter((x) => !RESERVED_FIELDS.includes(x));
+              for (const f of r.fields) {
+                const shown = f.example === null ? 'empty' : typeof f.example === 'object' ? JSON.stringify(f.example) : String(f.example);
+                row.append(btn(`${f.path}: ${shown.length > 40 ? shown.slice(0, 40) + '...' : shown}`, () => {
+                  const last = f.path.split('.').pop();
+                  map.box.add({ f: own.includes(last) ? last : undefined, p: f.path });
+                  syncUpsert();
+                }, 'chip'));
+              }
+              tryOut.append(row);
+            }
+            if (r.sample?.length) {
+              const d = el('details'); d.append(el('summary', r.sample.length === 1 ? 'First record' : `First ${r.sample.length} records`), el('pre', JSON.stringify(r.sample, null, 2)));
+              tryOut.append(d);
+            }
+          };
+          g.append(el('p', 'Try the call uses your sandbox. Save the job and enter its keys under Keys the jobs send first.', 'tip'), tryBtn, tryOut);
           objectPart(g, 'Save into', target, (v) => { target = v; drawMap(); });
           g.append(map, upsert);
           drawMap();
@@ -1848,12 +1910,19 @@ function showJobs(id) {
       err.textContent = '';
       const k = kind.input.value;
       let schedule;
-      if (k === 'every') {
-        const m = Math.round(Number(hours.input.value) * 60);
-        if (!(m >= 15 && m <= 10080)) { err.textContent = 'Enter from 0.25 to 168 hours.'; return; }
+      if (k === 'minutes') {
+        const m = Number(minutes.input.value);
+        if (!(Number.isInteger(m) && m >= 15 && m <= 1440)) { err.textContent = 'Enter a whole number of minutes from 15 to 1440.'; return; }
         schedule = { every_minutes: m };
+      } else if (k === 'every') {
+        const h = Number(hours.input.value);
+        if (!(Number.isInteger(h) && h >= 1 && h <= 168)) { err.textContent = 'Enter a whole number of hours from 1 to 168.'; return; }
+        schedule = { every_minutes: h * 60 };
       } else if (k === 'daily') schedule = { daily_at: at.input.value, tz: tz.input.value.trim() || 'UTC' };
-      else {
+      else if (k === 'monthly') {
+        const d = monthDay.input.value;
+        schedule = { monthly: { day: d === 'last' ? 'last' : Number(d), at: at.input.value }, tz: tz.input.value.trim() || 'UTC' };
+      } else {
         const ds = dayBoxes.filter((c) => c.checked).map((c) => c.value);
         if (!ds.length) { err.textContent = 'Pick at least one day.'; return; }
         schedule = { weekly: { days: ds, at: at.input.value }, tz: tz.input.value.trim() || 'UTC' };

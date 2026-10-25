@@ -28,7 +28,7 @@ export class JobsError extends Error {
   constructor(message, status = 400) { super(message); this.status = status; }
 }
 
-/** "Every 12 hours", "Every day at 08:00 (America/Chicago)", "Mon, Thu at 08:00 (UTC)". */
+/** "Every 12 hours", "Every day at 08:00 (America/Chicago)", "Mon, Thu at 08:00 (UTC)", "Day 1 of each month at 08:00 (UTC)". */
 export function scheduleText(job) {
   const s = job?.schedule ?? (job?.every_minutes !== undefined ? { every_minutes: job.every_minutes } : null);
   if (!s || typeof s !== 'object') return 'No schedule';
@@ -41,6 +41,7 @@ export function scheduleText(job) {
   }
   if (s.daily_at !== undefined) return `Every day at ${s.daily_at} (${tz})`;
   if (s.weekly) return `${(s.weekly.days || []).map((d) => DAY_NAMES[d] || d).join(', ')} at ${s.weekly.at} (${tz})`;
+  if (s.monthly) return `${s.monthly.day === 'last' ? 'Last day' : `Day ${s.monthly.day}`} of each month at ${s.monthly.at} (${tz})`;
   return 'No schedule';
 }
 

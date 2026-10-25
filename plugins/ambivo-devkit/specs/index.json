@@ -1,5 +1,5 @@
 {
-  "docs_commit": "3fcc0a0",
+  "docs_commit": "ceace18",
   "built_at": "2026-10-24",
   "specs": [
     {
@@ -72,7 +72,7 @@
       "id": "custom-objects",
       "title": "Custom Objects",
       "file": "ambivo-custom-objects.openapi.yaml",
-      "operations": 68
+      "operations": 69
     },
     {
       "id": "testing-data",
