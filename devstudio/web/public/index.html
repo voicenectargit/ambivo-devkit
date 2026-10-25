@@ -56,11 +56,6 @@
   .new { padding: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 640px; }
   .new label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
   .new small { font-weight: 400; color: var(--muted); }
-  .new fieldset.kind { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
-  .new fieldset.kind legend { font-weight: 500; margin-bottom: 6px; padding: 0; }
-  .new fieldset.kind label { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-weight: 400; }
-  .new fieldset.kind label input { width: auto; }
-  .new fieldset.kind label small { flex-basis: 100%; padding-left: 24px; }
   .new [hidden] { display: none; }
   .signin { padding: 10px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
   .signin code { display: block; margin-top: 6px; padding: 8px; background: var(--surface-2); border-radius: 6px; font: 12px ui-monospace, monospace; word-break: break-all; user-select: all; }
@@ -347,23 +342,19 @@
 
 <template id="newTpl">
   <form class="new">
-    <h2 style="margin:0" id="newTitle">Start a new app</h2>
-    <fieldset class="kind" id="newKind">
-      <legend>What are you making?</legend>
-      <label><input type="radio" name="kind" value="app" checked /> An app <small>Screens people use to do their work, on a phone or a computer.</small></label>
-      <label><input type="radio" name="kind" value="website" /> A website <small>Public pages for a business. Ambivo hosts it, and the client edits it later.</small></label>
-    </fieldset>
-    <label><span id="newNameLabel">App name</span> <input name="name" maxlength="60" required placeholder="Stock Room" /></label>
-    <label><span id="newDescLabel">What should the app do?</span>
-      <small id="newDescHint">Say who uses it and what they do. You will be asked follow-up questions.</small>
+    <h2 style="margin:0">Start a new app</h2>
+    <p style="margin:0"><small>Making a website? Build it in <a href="https://apps.ambivo.com" target="_blank" rel="noopener">App Factory</a>. It hosts the site and gives the client an editor.</small></p>
+    <label>App name <input name="name" maxlength="60" required placeholder="Stock Room" /></label>
+    <label>What should the app do?
+      <small>Say who uses it and what they do. You will be asked follow-up questions.</small>
       <textarea name="description" rows="6" placeholder="Warehouse staff count stock on a phone. A manager checks the counts and approves them."></textarea>
     </label>
     <label>Client brief (optional)
-      <small id="newBriefHint">A PDF, Word (DOCX), Markdown or text file, up to 10 MB. With a brief, the app is built in phases. You approve each phase before the next one starts.</small>
+      <small>A PDF, Word (DOCX), Markdown or text file, up to 10 MB. With a brief, the app is built in phases. You approve each phase before the next one starts.</small>
       <input name="briefFile" type="file" accept=".pdf,.docx,.md,.txt" />
     </label>
     <label>Assistant
-      <small id="newAssistantHint">The coding assistant that builds your app. Each uses your own key.</small>
+      <small>The coding assistant that builds your app. Each uses your own key.</small>
       <select name="assistant" id="newAssistant">
         <option value="claude">Claude Code</option>
         <option value="codex">Codex</option>
@@ -459,7 +450,7 @@ async function loadList() {
     li.className = p.id === current ? 'active' : '';
     li.innerHTML = `<span></span><small></small>`;
     li.firstChild.textContent = p.name;
-    li.lastChild.textContent = p.busy ? 'Working…' : `${p.kind === 'website' ? 'Website · ' : ''}${new Date(p.created).toLocaleString()}`;
+    li.lastChild.textContent = p.busy ? 'Working…' : new Date(p.created).toLocaleString();
     li.onclick = () => open(p.id);
     $('#list').append(li);
   }
@@ -487,31 +478,6 @@ function showNew() {
   if (me?.local) { $('#newAssistant').value = 'claude'; $('#newAssistant').closest('label').hidden = true; }
   $('#newAssistant').onchange = showKey;
   showKey();
-  // An app or a website: the same form, in the words for each.
-  const WORDS = {
-    app: { title: 'Start a new app', name: 'App name', namePh: 'Stock Room', desc: 'What should the app do?',
-      descHint: 'Say who uses it and what they do. You will be asked follow-up questions.',
-      descPh: 'Warehouse staff count stock on a phone. A manager checks the counts and approves them.',
-      brief: 'A PDF, Word (DOCX), Markdown or text file, up to 10 MB. With a brief, the app is built in phases. You approve each phase before the next one starts.',
-      assistant: 'The coding assistant that builds your app. Each uses your own key.' },
-    website: { title: 'Start a new website', name: 'Website name', namePh: 'Rivera Bakery', desc: 'What is the website for?',
-      descHint: 'Say who the business is, who visits the site, and which pages it needs. You will be asked follow-up questions.',
-      descPh: 'A family bakery in Austin. Visitors see the menu, the opening hours and how to order a cake.',
-      brief: 'A PDF, Word (DOCX), Markdown or text file, up to 10 MB: the client\'s notes, texts or page list. The assistant reads it first.',
-      assistant: 'The assistant that writes the pages. Each uses your own key.' },
-  };
-  const showKind = () => {
-    const w = WORDS[$('#newKind input:checked').value];
-    $('#newTitle').textContent = w.title;
-    $('#newNameLabel').textContent = w.name;
-    $('#main form [name=name]').placeholder = w.namePh;
-    $('#newDescLabel').textContent = w.desc;
-    $('#newDescHint').textContent = w.descHint;
-    $('#main form [name=description]').placeholder = w.descPh;
-    $('#newBriefHint').textContent = w.brief;
-    $('#newAssistantHint').textContent = w.assistant;
-  };
-  for (const r of document.querySelectorAll('#newKind input')) r.onchange = showKind;
   showSignIn();
   $('#main form').onsubmit = async (e) => {
     e.preventDefault();
@@ -523,7 +489,7 @@ function showNew() {
       if (file && file.size) {
         if (file.size > BRIEF_MAX) throw new Error('The file is larger than 10 MB. Send a smaller copy, for example without pictures.');
         f.brief = { name: file.name, data: await base64Of(file) };
-      } else if (!f.description.trim()) throw new Error(f.kind === 'website' ? 'Describe what the website is for, or add a client brief.' : 'Describe what the app should do, or add a client brief.');
+      } else if (!f.description.trim()) throw new Error('Describe what the app should do, or add a client brief.');
       const { id } = await api('/api/projects', { method: 'POST', body: JSON.stringify(f) }); await loadList(); open(id);
     }
     catch (err) { $('#newErr').textContent = err.message; }

@@ -5,8 +5,10 @@ description: Build a business website for a client on Ambivo (App Factory CMS) a
 
 # Websites on Ambivo
 
-A website is a CMS site hosted by Ambivo as static pages on a CDN. You build it with the `website_*`
-tools; the client edits it later in Ambivo's site editor. You write the words and pages yourself, with
+A website is a CMS site hosted by Ambivo as static pages on a CDN. Its home is App Factory
+(https://apps.ambivo.com): that is where most people build, import and edit websites. This skill is the
+path for a developer working in Claude Code: you build the same kind of site with the `website_*`
+tools, through App Factory's own API, and the client edits it later in Ambivo's site editor. You write the words and pages yourself, with
 the user's own AI key. Never use App Factory's AI design wizard: it spends Ambivo's keys.
 
 ## Who pays, and when

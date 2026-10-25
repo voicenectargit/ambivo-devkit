@@ -21,7 +21,7 @@ import { dataModelView, OBJECTS_FILE, MODEL_DOC } from './datamodel.mjs';
 import { createAccess, parseNames, names } from './access.mjs';
 import { createPartnerSource } from './partnersource.mjs';
 import { createApply } from './apply.mjs';
-import { parsePhases, PhasesError, newPhases, mergePhases, findPhase, cannotStart, phasesView, openingPrompt, phase0Prompt, websitePrompt,
+import { parsePhases, PhasesError, newPhases, mergePhases, findPhase, cannotStart, phasesView, openingPrompt, phase0Prompt,
   PHASE0, PHASES_FILE, PHASE_DOCS, PHASE_ID, handoffFile } from './phases.mjs';
 import { startSignIn, finishSignIn, signOut as ambivoSignOut, DEFAULT_API as AMBIVO_DEFAULT_API } from './ambivo-signin.mjs';
 import { createDeploy } from './deploy.mjs';
@@ -1665,8 +1665,6 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         }
         if (!name || (!description && !brief)) return json(res, 400, { error: 'Give the app a name and describe what it should do.' });
         const assistant = body.assistant === 'codex' ? 'codex' : 'claude';
-        // A website is an App Factory CMS site, built with the website_* tools; an app is an Angular app.
-        const website = body.kind === 'website';
         if (assistant === 'codex' && driver.kind === 'local') return json(res, 400, { error: 'Codex works in the hosted Dev Studio only. Choose Claude Code.' });
         if (notReady()) return json(res, 409, { error: notReady(), notReady: true });
         const provider = assistant === 'codex' ? 'openai' : 'claude';
@@ -1679,11 +1677,11 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         const newId = randomBytes(6).toString('hex');
         // With a brief file the app is built in phases, and this first conversation is phase 0.
         await store.create({ id: newId, name, created: Date.now(), owner: { id: user.id, login: user.login }, ...(assistant === 'codex' ? { assistant } : {}),
-          ...(website ? { kind: 'website' } : brief ? { phases: newPhases('working') } : {}) });
+          ...(brief ? { phases: newPhases('working') } : {}) });
         // A token typed in for a project is laptop-only. On the server the stored, sandbox-checked
         // session is the only way in, so a page cannot hand the assistant another company's token.
         if (body.ambivoToken && !serverMode) ambivoTokens.set(newId, String(body.ambivoToken));
-        emit(newId, { kind: 'user', text: description || (website ? `Build the website in the brief: ${brief.info.name}` : `Build the app in the brief: ${brief.info.name}`) });
+        emit(newId, { kind: 'user', text: description || `Build the app in the brief: ${brief.info.name}` });
         emit(newId, { kind: 'status', text: 'Setting up the project…' });
         (async () => {
           await driver.create(newId, config.image, { name });
@@ -1696,8 +1694,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
             briefs = [entry];
           }
           const codex = assistant === 'codex';
-          await turn(newId, website ? websitePrompt({ description, briefs, codex })
-            : brief ? phase0Prompt({ description, briefs, codex })
+          await turn(newId, brief ? phase0Prompt({ description, briefs, codex })
             : codex ? codexNewAppPrompt(description)
             : 'Start a new app with the ambivo-new-app skill from the ambivo-devkit plugin. ' +
             'You are talking to a partner through a web page, not a terminal: ask your questions in plain words, ' +

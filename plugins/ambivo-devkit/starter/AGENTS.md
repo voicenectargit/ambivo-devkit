@@ -8,7 +8,7 @@ Without the plugin:
   https://apidocs.ambivo.com/openapi/<spec id> (YAML). Spec ids: https://apidocs.ambivo.com/api/specs
 - Where a step runs `ambivo-check.mjs`, run `npm run ambivo:check`.
 - To look at a screen, run `npm run ambivo:screenshot -- /route` (needs Chrome or Chromium).
-- Specs as of ambivo-api-docs 27eef13.
+- Specs as of ambivo-api-docs 1ca479b.
 
 ---
 
@@ -1531,8 +1531,10 @@ The reader is busy, often on a phone, and may read English as a second language.
 
 ## Websites on Ambivo
 
-A website is a CMS site hosted by Ambivo as static pages on a CDN. You build it with the `website_*`
-tools; the client edits it later in Ambivo's site editor. You write the words and pages yourself, with
+A website is a CMS site hosted by Ambivo as static pages on a CDN. Its home is App Factory
+(https://apps.ambivo.com): that is where most people build, import and edit websites. This skill is the
+path for a developer working in Claude Code: you build the same kind of site with the `website_*`
+tools, through App Factory's own API, and the client edits it later in Ambivo's site editor. You write the words and pages yourself, with
 the user's own AI key. Never use App Factory's AI design wizard: it spends Ambivo's keys.
 
 ### Who pays, and when
