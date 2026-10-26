@@ -13,7 +13,8 @@
 // Contract (crm spec): POST /user/login {email, password, device_id, os, is_mobile, tenant_id?}
 // answers one of: a session (token + user), a code challenge (is_mfa_response + provider_challenge_id
 // + userid), a factor menu (requires_factor_selection + pre_mfa_token + factor_list, then
-// POST /user/mfa/initiate), or requires_mfa_enrollment. POST /user/mfa/verify
+// POST /user/mfa/initiate), requires_mfa_enrollment, or result 3 when the email has an account in more
+// than one company (tenant_list [{tenant_id, name}]: sign in again with tenant_id). POST /user/mfa/verify
 // {provider_challenge_id, userid, challenge_code} answers a session.
 
 export const DEFAULT_API = 'https://ingress.ambivo.com/';
@@ -70,6 +71,8 @@ function refusal(body, status) {
   } else if (['EMAIL_MFA_EXPIRED', 'MFA_CHALLENGE_EXHAUSTED', 'EMAIL_MFA_NOT_PENDING', 'MFA_CHALLENGE_NOT_FOUND',
     'INVALID_PRE_MFA_TOKEN', 'PRE_MFA_TOKEN_ALREADY_USED'].includes(code)) {
     message = 'That code can no longer be used. Sign in again to get a new code.';
+  } else if (code === 'PARTNER_ACCESS_ENDED') {
+    message = 'Your partner access to this company has ended. Ask its admin to give you access again.';
   } else if (status === 403 && !body) {
     message = 'The Ambivo firewall blocked the sign-in (HTTP 403).';
   } else {
@@ -132,6 +135,14 @@ function toSession(res, { apiUrl, email }) {
   };
 }
 
+/** The companies in a result 3 "pick a company" reply, as [{tenantId, name}]. */
+export function companiesOf(res) {
+  const list = [res?.tenant_list, res?.company_list, res?.tenants].find(Array.isArray) ?? [];
+  return list.map((t) => ({ tenantId: textOf(t?.tenant_id) || textOf(t?.id) || '', name: textOf(t?.name) || textOf(t?.company_name) || '' }))
+    .filter((t) => t.tenantId)
+    .map((t) => ({ ...t, name: t.name || t.tenantId }));
+}
+
 function toChallenge(res) {
   return {
     providerChallengeId: res.provider_challenge_id,
@@ -142,7 +153,9 @@ function toChallenge(res) {
 }
 
 /**
- * Step 1. Returns {session} when signed in, or {challenge} when Ambivo emailed (or texted) a code.
+ * Step 1. Returns {session} when signed in, {challenge} when Ambivo emailed (or texted) a code, or
+ * {pickCompany: {companies}} when the email has an account in more than one company. Then call again
+ * with the chosen company's tenantId.
  * The password goes to Ambivo in this one request and nowhere else.
  */
 export async function startSignIn({ apiUrl = DEFAULT_API, email, password, deviceId, os, tenantId, fetchImpl = fetch }) {
@@ -153,6 +166,14 @@ export async function startSignIn({ apiUrl = DEFAULT_API, email, password, devic
     ...(tenantId ? { tenant_id: tenantId } : {}),
   }, { fetchImpl });
 
+  if (res?.result === 3) {
+    const companies = companiesOf(res);
+    if (companies.length && !tenantId) return { pickCompany: { companies } };
+    if (/CONFIRM_TENANT/.test(textOf(res.msg) || textOf(res.message) || '')) {
+      throw new SignInError('Your company is not confirmed yet. Open the confirmation email from Ambivo first.', 'COMPANY_NOT_CONFIRMED');
+    }
+    throw new SignInError('This email is in more than one company. Sign in to Ambivo in a browser to choose one.', 'PICK_COMPANY');
+  }
   if (res?.requires_mfa_enrollment) {
     throw new SignInError(
       'This account needs a sign-in code, and none is set up yet. Sign in to Ambivo in a browser once to set one up. Then sign in here again.',

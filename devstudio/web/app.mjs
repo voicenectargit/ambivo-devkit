@@ -794,8 +794,11 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
     await pendingStore.remove(user.id);
     let step;
     try {
-      step = await startSignIn({ apiUrl: config.ambivoApi, email, password, deviceId: `devstudio-${user.id}`, os: 'web', fetchImpl });
+      const tenantId = /^[A-Za-z0-9_-]{1,64}$/.test(String(body.tenantId ?? '')) ? String(body.tenantId) : undefined;
+      step = await startSignIn({ apiUrl: config.ambivoApi, email, password, tenantId, deviceId: `devstudio-${user.id}`, os: 'web', fetchImpl });
     } catch (err) { return ambivoFailure(user, err); }
+    // The email has an account in more than one company: the dialog lists them and signs in again with one.
+    if (step.pickCompany) return [200, { pickCompany: true, companies: step.pickCompany.companies }];
     if (step.challenge) {
       const exp = Date.now() + AMBIVO_CODE_MS;
       await pendingStore.save(user.id, JSON.stringify({ challenge: step.challenge, email }), { exp });

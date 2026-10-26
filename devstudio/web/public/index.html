@@ -200,6 +200,7 @@
     <div id="ambCreds">
       <label>Sandbox email <input id="ambEmail" type="email" autocomplete="username" maxlength="100" placeholder="name+sandbox@yourcompany.com" /></label>
       <label>Password <input id="ambPassword" type="password" autocomplete="current-password" maxlength="128" /></label>
+      <label id="ambCompanyRow" hidden>Company <select id="ambCompany"></select></label>
     </div>
     <label id="ambCodeRow" hidden>Code <input id="ambCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" /></label>
     <div class="err" id="ambErr" role="alert"></div>
@@ -2045,7 +2046,9 @@ function askForAmbivo() {
     go.textContent = toCode ? 'Finish sign-in' : 'Sign in';
     (toCode ? code : email.value ? pw : email).focus();
   };
+  const companyRow = $('#ambCompanyRow'), company = $('#ambCompany');
   pw.value = ''; code.value = ''; err.textContent = '';
+  companyRow.hidden = true; company.textContent = '';
   dlg.showModal();
   step(false, AMB_INTRO);
   return new Promise((resolve) => {
@@ -2061,7 +2064,17 @@ function askForAmbivo() {
       try {
         const r = codeStep
           ? await api('/api/ambivo/verify', { method: 'POST', body: JSON.stringify({ code: code.value }) })
-          : await api('/api/ambivo/sign-in', { method: 'POST', body: JSON.stringify({ email: email.value.trim(), password: pw.value }) });
+          : await api('/api/ambivo/sign-in', { method: 'POST', body: JSON.stringify({ email: email.value.trim(), password: pw.value,
+            ...(companyRow.hidden ? {} : { tenantId: company.value }) }) });
+        // This email is in more than one company. Show them, and sign in again with the one picked.
+        if (r.pickCompany) {
+          company.textContent = '';
+          for (const c of r.companies || []) company.append(new Option(c.name, c.tenantId));
+          companyRow.hidden = false;
+          $('#ambText').textContent = 'This email is in more than one company. Choose your sandbox company, then click Sign in.';
+          company.focus();
+          return;
+        }
         pw.value = '';
         if (r.needCode) {
           step(true, `Ambivo sent a code to ${r.destination || 'your email'}. Enter it here.`);
