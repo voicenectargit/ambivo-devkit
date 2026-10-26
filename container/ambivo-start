@@ -41,8 +41,14 @@ fi
 plugin_dir() { ls -d "$CONFIG"/plugins/cache/ambivo/ambivo-devkit/"$WANT" 2>/dev/null || true; }
 if [ -z "$(plugin_dir)" ] && have_claude; then
   echo "Installing the Ambivo plugin $WANT..."
-  claude plugin marketplace add "$MARKET" >/dev/null 2>&1 || claude plugin marketplace update ambivo >/dev/null
-  claude plugin install ambivo-devkit@ambivo >/dev/null 2>&1 || claude plugin update ambivo-devkit@ambivo >/dev/null
+  # Each step runs whatever the last one answered. Claude Code says "already installed" with exit 0
+  # for a volume an older image set up, and only `plugin update` records the new version, so the
+  # old `install || update` never updated and every upgrade failed the plugin check.
+  claude plugin marketplace add "$MARKET" >/dev/null 2>&1 || true
+  claude plugin marketplace update ambivo >/dev/null 2>&1 || true
+  claude plugin install ambivo-devkit@ambivo >/dev/null 2>&1 || true
+  [ -n "$(plugin_dir)" ] || claude plugin update ambivo-devkit@ambivo >/dev/null 2>&1 || true
+  [ -n "$(plugin_dir)" ] || echo "Could not install the Ambivo plugin $WANT. Start the container again." >&2
 fi
 MCP="$(plugin_dir)/mcp/ambivo-mcp.mjs"
 
