@@ -15,8 +15,10 @@
 //   applications(githubId)   the Partner Program applications this GitHub account made, newest first
 //   addApplication(data)     adds one application; returns its id
 //
-// A partner's email domains are its website's host and the domains of its people's work emails, less
-// free mail (gmail.com and the like). Read with the list, and kept in the snapshot.
+// A partner's email domains are the domains of its people's work emails, less free mail (gmail.com, and
+// yahoo, hotmail and the like under any country ending), and its website's host when that host is one of
+// those domains or a parent of one. Hosts where anyone can have a page (wixsite.com, github.io, linkedin.com
+// and the like) never count. Read with the list, and kept in the snapshot.
 //
 // A sign-in refusal that trying again cannot fix (expired temporary password, wrong password, blocked,
 // verification on, wrong account), or a refused key, pauses the reads for 60 minutes; a restart tries at once.
@@ -28,6 +30,9 @@
 // A partner's github_org lets its members in while the partner is active. Entries match by GitHub's
 // numeric id (see access.mjs). Each name's id is looked up once and kept in IDS_KEY; the first id seen
 // for a name wins, so a login that is renamed and then taken by someone else does not inherit access.
+// A person made from an approved application (partnerprog_application, result_person_id) instead gets the
+// application's github_id: access follows the account that applied. When the name now resolves to another
+// id, a problem line says so. A failed read of the applications keeps the name lookup and adds a problem.
 //
 // Any failure keeps the last good snapshot (memory, else the stored one). With none, the list is empty
 // and only the floor gets in. The key, the password and the token are never logged.
@@ -61,15 +66,39 @@ export const FREE_MAIL = new Set(['gmail.com', 'googlemail.com', 'outlook.com', 
   'yahoo.com', 'ymail.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com', 'pm.me',
   'gmx.com', 'gmx.net', 'gmx.de', 'web.de', 'mail.com', 'yandex.com', 'yandex.ru', 'mail.ru', 'qq.com', '163.com',
   '126.com', 'zoho.com', 'zohomail.com', 'fastmail.com', 'hey.com', 'tutanota.com', 'rediffmail.com']);
+// Free mail under any country ending too: yahoo.co.in, hotmail.fr, gmx.at, mail.ru. The name just before the
+// ending (yahoo in yahoo.co.in) is matched against this list.
+const FREE_MAIL_NAMES = new Set(['yahoo', 'hotmail', 'outlook', 'live', 'msn', 'gmx', 'proton', 'protonmail', 'yandex', 'mail',
+  'aol', 'icloud', 'zoho', 'rediffmail', 'libero', 'orange', 't-online', 'btinternet', 'comcast', 'naver', 'seznam', 'web', 'qq',
+  '163', '126', 'ymail', 'googlemail', 'gmail']);
+// Second-level endings like co.uk, com.br, ne.jp: the company name is the label before them.
+const SECOND_LEVEL = new Set(['co', 'com', 'net', 'org', 'ac', 'edu', 'gov', 'ne', 'or', 'go', 'gen', 'ltd', 'plc', 'nom', 'biz', 'info', 'mil']);
+// Hosts where anyone can have a page or a subdomain: a partner's website there names no company domain.
+export const PLATFORM_HOSTS = ['linkedin.com', 'facebook.com', 'instagram.com', 'x.com', 'twitter.com', 'github.com', 'github.io',
+  'sites.google.com', 'google.com', 'wixsite.com', 'wix.com', 'squarespace.com', 'vercel.app', 'netlify.app', 'herokuapp.com',
+  'pages.dev', 'webflow.io', 'wordpress.com', 'blogspot.com', 'medium.com', 'notion.site', 'carrd.co', 'shopify.com', 'myshopify.com'];
 
-/** The lowercase domain of an email address, or ''. */
-export const emailDomain = (email) => { const m = String(email ?? '').trim().toLowerCase().match(/^[^\s@]+@([a-z0-9.-]+\.[a-z]{2,})$/); return m ? m[1] : ''; };
+/** The label that names the owner of a domain: yahoo in mail.yahoo.co.in, acme in acme.com. */
+function ownerLabel(domain) {
+  const l = String(domain).split('.');
+  if (l.length >= 3 && SECOND_LEVEL.has(l[l.length - 2])) return l[l.length - 3];
+  return l.length >= 2 ? l[l.length - 2] : '';
+}
 
-/** The host of a website address, less "www.", or ''. */
+/** True for a domain anyone can get an address at (gmail.com, yahoo.co.in, hotmail.fr). */
+export const isFreeMail = (domain) => { const d = String(domain ?? '').toLowerCase(); return FREE_MAIL.has(d) || FREE_MAIL_NAMES.has(ownerLabel(d)); };
+
+/** True for a platform host or a subdomain of one (acme.wixsite.com). */
+export const isPlatformHost = (domain) => { const d = String(domain ?? '').toLowerCase(); return PLATFORM_HOSTS.some((h) => d === h || d.endsWith(`.${h}`)); };
+
+/** The lowercase domain of an email address, or ''. One trailing dot is dropped. */
+export const emailDomain = (email) => { const m = String(email ?? '').trim().toLowerCase().replace(/\.$/, '').match(/^[^\s@]+@([a-z0-9.-]+\.[a-z]{2,})$/); return m ? m[1] : ''; };
+
+/** The host of a website address, less "www." and one trailing dot, or ''. */
 export function websiteDomain(site) {
   const t = String(site ?? '').trim();
   if (!t) return '';
-  try { return new URL(/^[a-z]+:\/\//i.test(t) ? t : `https://${t}`).hostname.toLowerCase().replace(/^www\./, ''); } catch { return ''; }
+  try { return new URL(/^[a-z]+:\/\//i.test(t) ? t : `https://${t}`).hostname.toLowerCase().replace(/\.$/, '').replace(/^www\./, ''); } catch { return ''; }
 }
 
 const lower = (s) => String(s ?? '').trim().toLowerCase().replace(/^@/, '');
@@ -183,15 +212,16 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
     }
   }
 
-  async function readAll(collection, problems) {
+  async function readAll(collection, problems, filter = null) {
     const out = [];
+    const f = filter ? `&match_filter_dict=${encodeURIComponent(JSON.stringify(filter))}` : '';
     for (let page = 1; ; page++) {
       if (page > maxPages) {
         // A partial list could leave out a paused person, who would then get in through their org.
         // So this read fails and the last good list stays in use.
         throw new Error(`${collection} has more than ${maxPages * pageSize} records, more than Dev Studio reads. Ask an engineer to raise the limit.`);
       }
-      const j = await get(`custom/object/data?collection_id=${encodeURIComponent(collection)}&page_size=${pageSize}&page_num=${page}`);
+      const j = await get(`custom/object/data?collection_id=${encodeURIComponent(collection)}${f}&page_size=${pageSize}&page_num=${page}`);
       const list = Array.isArray(j.data_list) ? j.data_list : [];
       out.push(...list);
       if (list.length < pageSize) break;
@@ -254,6 +284,21 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
     const partners = await readAll(pp.partnerCollection, problems);
     const people = await readAll(pp.personCollection, problems);
     const byId = new Map(partners.map((p) => [String(p.id), p]));
+    // A person made from an approved application gets the GitHub id of the account that applied, whatever
+    // the name points to now. Without the applications, access goes by name as before.
+    const applied = new Map();   // person id -> { github_id, github_login }
+    if (pp.applicationCollection) {
+      try {
+        for (const a of await readAll(pp.applicationCollection, problems, { status: 'approved' })) {
+          const pid = String(a.result_person_id ?? '');
+          const gid = String(a.github_id ?? '');
+          if (pid && /^\d+$/.test(gid) && !applied.has(pid)) applied.set(pid, { github_id: gid, github_login: lower(a.github_login) });
+        }
+      } catch (err) {
+        problems.push(`Dev Studio could not read the approved applications (${err.message}). People are matched by GitHub name only.`);
+        applied.clear();
+      }
+    }
 
     const cands = [];
     for (const p of partners) {
@@ -272,20 +317,33 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
       if (!NAME.test(g)) { problems.push(`${who || 'A person'} has a GitHub user name that is not valid: ${g}.`); continue; }
       const ok = x.dev_studio_access === 'active' && partner?.status === 'active';
       const email = String(x.work_email || '').trim();
-      cands.push({ id: `pp-person-${x.id}`, kind: 'user', github: g, status: ok ? 'active' : 'paused', partner: company, note: who, source: SOURCE, label: who || g, name: who, email });
+      const app = applied.get(String(x.id));
+      cands.push({ id: `pp-person-${x.id}`, kind: 'user', github: g, status: ok ? 'active' : 'paused', partner: company, note: who, source: SOURCE, label: who || g, name: who, email, ...(app ? { appliedId: app.github_id } : {}) });
     }
 
     // Email domain -> active partner. A domain two active partners share names neither.
+    // A person's work email claims its domain unless it is free mail. The partner's website claims its host
+    // only when that host is one of those email domains or a parent of one. Platform hosts never count.
     const domains = {};
     const shared = new Set();
     const claim = (d, p) => {
-      if (!d || FREE_MAIL.has(d) || p?.status !== 'active') return;
+      if (!d || isFreeMail(d) || isPlatformHost(d) || p?.status !== 'active') return false;
       const v = { partner_id: String(p.id), company: String(p.company_name || '').trim() };
       if (domains[d] && domains[d].partner_id !== v.partner_id) shared.add(d);
       else domains[d] = v;
+      return true;
     };
-    for (const p of partners) claim(websiteDomain(p.website), p);
-    for (const x of people) claim(emailDomain(x.work_email), byId.get(String(x.partner_id ?? '')));
+    const mailDomains = new Map();   // partner id -> the email domains its people claimed
+    for (const x of people) {
+      const p = byId.get(String(x.partner_id ?? ''));
+      const d = emailDomain(x.work_email);
+      if (claim(d, p)) mailDomains.set(String(p.id), (mailDomains.get(String(p.id)) || new Set()).add(d));
+    }
+    for (const p of partners) {
+      const site = websiteDomain(p.website);
+      const mine = [...(mailDomains.get(String(p.id)) || [])];
+      if (site && mine.some((d) => d === site || d.endsWith(`.${site}`))) claim(site, p);
+    }
     for (const d of shared) { delete domains[d]; problems.push(`More than one active partner uses the email domain ${d}. Dev Studio matches it to none of them.`); }
 
     // One entry per GitHub account and kind. An active record wins: one active record is enough.
@@ -302,6 +360,15 @@ export function createPartnerSource({ config, fetchImpl = fetch, objects, lookup
     const entries = [];
     for (const c of seen.values()) {
       const r = ids[c.github];
+      if (c.appliedId) {
+        // The account that applied, whatever the name resolves to now.
+        if (r?.id && String(r.id) !== c.appliedId) {
+          problems.push(`${c.github} (${c.label}) now points to another GitHub account. Dev Studio lets in the account that applied.`);
+        }
+        const { label, appliedId, ...e } = c;
+        entries.push({ ...e, github_id: appliedId });
+        continue;
+      }
       const want = c.kind === 'org' ? 'Organization' : 'User';
       if (r?.missing) { problems.push(`GitHub has no account named ${c.github} (${c.label}).`); continue; }
       if (!r?.id) { problems.push(`GitHub did not answer for ${c.github} (${c.label}). Dev Studio tries again in 5 minutes.`); continue; }
