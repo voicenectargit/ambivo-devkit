@@ -24,6 +24,12 @@
   ul.objects li small { color: var(--muted); }
   label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; margin-top: 12px; }
   .host { font-weight: 400; color: var(--muted); font-size: 13px; }
+  fieldset { border: 0; padding: 0; margin: 12px 0 0; }
+  fieldset label { flex-direction: row; align-items: center; gap: 10px; font-weight: 400; margin-top: 6px; min-height: 40px; }
+  fieldset input { width: auto; }
+  ul.clients { list-style: none; margin: 8px 0 0; padding: 0; }
+  ul.clients li { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--line); }
+  select { font: 16px Roboto, sans-serif; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; width: 100%; background: #fff; }
   input { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; width: 100%; background: #fff; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
   button { font: inherit; font-weight: 500; border: 0; border-radius: 20px; padding: 10px 18px; cursor: pointer; background: var(--primary); color: var(--on-primary); }
@@ -54,12 +60,26 @@
 
   <form class="card" id="signIn" hidden>
     <h2>Sign in to Ambivo</h2>
-    <p class="muted">Sign in as an admin of the company to install the app in. Only Dev Studio sees your password, to sign you in. The partner never sees it.</p>
+    <fieldset>
+      <legend>Who are you?</legend>
+      <label><input type="radio" name="who" value="admin" checked /> An admin of the company to install the app in</label>
+      <label><input type="radio" name="who" value="partner" /> A development partner with partner access to that company</label>
+    </fieldset>
+    <p class="muted" id="whoHint"></p>
     <label>Email <input name="email" type="email" autocomplete="username" required /></label>
     <label>Password <input name="password" type="password" autocomplete="current-password" required /></label>
+    <label id="companyRow" hidden>Company <select name="company"></select></label>
     <p class="error" id="signInErr" role="alert"></p>
     <div class="row"><button id="signInBtn">Sign in</button></div>
   </form>
+
+  <div class="card" id="clients" hidden>
+    <h2>Choose the company</h2>
+    <p class="muted" id="clientsHint"></p>
+    <ul class="clients" id="clientList"></ul>
+    <p class="error" id="clientsErr" role="alert"></p>
+    <div class="row"><button type="button" class="text" id="clientsBack">Sign in again</button></div>
+  </div>
 
   <form class="card" id="code" hidden>
     <h2>Enter your code</h2>
@@ -83,6 +103,7 @@
 
   <div class="card" id="done" hidden>
     <p class="ok" id="doneText"></p>
+    <p id="doneNotes"></p>
     <p class="muted">You are signed out of this page. You can close it.</p>
   </div>
 </main>
@@ -92,11 +113,22 @@
   const $ = (s) => document.querySelector(s);
   const show = (...ids) => { for (const c of document.querySelectorAll('.card')) c.hidden = !ids.includes(c.id); };
   let info = null;
+  const ADMIN_HINT = 'Only Dev Studio sees your password, to sign you in. The partner never sees it.';
+  const PARTNER_HINT = 'Sign in to your own company. Then choose the client company that gave you partner access.';
+  const asPartner = () => $('#signIn').who.value === 'partner';
+  for (const r of document.querySelectorAll('input[name=who]')) r.onchange = () => {
+    $('#whoHint').textContent = asPartner() ? PARTNER_HINT : ADMIN_HINT;
+    $('#companyRow').hidden = true;
+  };
+  $('#whoHint').textContent = ADMIN_HINT;
 
   async function call(path, body) {
     const r = await fetch(base + path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const out = await r.json().catch(() => ({}));
-    if (!r.ok) { const e = new Error(out.error || 'Something went wrong. Try again.'); e.restart = !!out.restart; e.status = r.status; throw e; }
+    if (!r.ok) {
+      const e = new Error(out.error || 'Something went wrong. Try again.');
+      e.restart = !!out.restart; e.chooseAgain = !!out.chooseAgain; e.status = r.status; throw e;
+    }
     return out;
   }
 
@@ -137,11 +169,58 @@
   }
 
   function ready(r) {
-    const withJobs = (info.jobs || []).length ? ' and the scheduled jobs' : '';
-    $('#readyText').textContent = `Signed in as ${r.email}, an admin of ${r.company}. Install adds the custom objects${withJobs} above to ${r.company}.`;
+    const hasJobs = (info.jobs || []).length > 0;
+    const withJobs = hasJobs ? ' and the scheduled jobs' : '';
+    if (r.asPartner) {
+      const jobsNote = hasJobs || (info.secrets || []).length
+        ? ` Partner access cannot add the scheduled jobs or their keys. An admin of ${r.company} adds them later.` : '';
+      $('#readyText').textContent = `Signed in as ${r.email}, with partner access to ${r.company}. Install adds the custom objects above to ${r.company}.${jobsNote}`;
+      $('#secretsBox').hidden = true;
+    } else {
+      $('#readyText').textContent = `Signed in as ${r.email}, an admin of ${r.company}. Install adds the custom objects${withJobs} above to ${r.company}.`;
+      $('#secretsBox').hidden = !(info.secrets || []).length;
+    }
     $('#installErr').textContent = '';
     show('about', 'ready');
   }
+
+  function askCode(r) {
+    const where = r.destination ? `We sent a code to ${r.destination}.` : 'We sent a code to your email.';
+    $('#codeHint').textContent = r.partnerSwitch ? `${where} Enter it to open ${r.company}.` : where;
+    $('#codeErr').textContent = ''; show('about', 'code'); $('#code').code.focus();
+  }
+
+  function clients(r) {
+    $('#clientsHint').textContent = `Signed in as ${r.email}. These companies gave you partner access.`;
+    $('#clientsErr').textContent = '';
+    const ul = $('#clientList'); ul.textContent = '';
+    for (const c of r.clients) {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      const access = c.role === 'admin' ? 'Admin' : 'View only';
+      name.textContent = `${c.name} (${access}${c.status === 'invited' ? ', not accepted yet' : ''})`;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = c.status === 'invited' ? 'Accept and open' : 'Open';
+      b.onclick = async () => {
+        $('#clientsErr').textContent = ''; b.disabled = true;
+        try {
+          const out = await call('/client', { grantId: c.grantId });
+          if (out.needCode) askCode(out); else ready(out);
+        } catch (err) {
+          if (err.restart) { $('#signInErr').textContent = err.message; show('about', 'signIn'); }
+          else $('#clientsErr').textContent = err.message;
+        } finally { b.disabled = false; }
+      };
+      li.append(name, b);
+      ul.append(li);
+    }
+    show('about', 'clients');
+  }
+  $('#clientsBack').onclick = async () => {
+    try { await call('/cancel', {}); } catch { /* signed out either way */ }
+    $('#signInErr').textContent = ''; show('about', 'signIn');
+  };
 
   async function start() {
     try {
@@ -157,12 +236,21 @@
     e.preventDefault();
     const f = e.target; $('#signInErr').textContent = ''; $('#signInBtn').disabled = true;
     try {
-      const r = await call('/sign-in', { email: f.email.value, password: f.password.value });
-      f.password.value = '';
-      if (r.needCode) {
-        $('#codeHint').textContent = r.destination ? `We sent a code to ${r.destination}.` : 'We sent a code to your email.';
-        $('#codeErr').textContent = ''; show('about', 'code'); $('#code').code.focus();
-      } else ready(r);
+      const company = $('#companyRow').hidden ? undefined : f.company.value;
+      const r = await call('/sign-in', { email: f.email.value, password: f.password.value, asPartner: asPartner(),
+        ...(company ? { tenantId: company } : {}) });
+      // This email is in more than one company. Show them; Sign in again sends the one picked.
+      if (r.pickCompany) {
+        f.company.textContent = '';
+        for (const c of r.companies || []) f.company.append(new Option(c.name, c.tenantId));
+        $('#companyRow').hidden = false;
+        $('#signInErr').textContent = 'This email is in more than one company. Choose one, then click Sign in.';
+        return;
+      }
+      f.password.value = ''; $('#companyRow').hidden = true;
+      if (r.needCode) askCode(r);
+      else if (r.pickClient) clients(r);
+      else ready(r);
     } catch (err) { $('#signInErr').textContent = err.message; }
     finally { $('#signInBtn').disabled = false; }
   };
@@ -170,9 +258,13 @@
   $('#code').onsubmit = async (e) => {
     e.preventDefault();
     const f = e.target; $('#codeErr').textContent = ''; $('#codeBtn').disabled = true;
-    try { ready(await call('/verify', { code: f.code.value })); f.code.value = ''; }
-    catch (err) {
+    try {
+      const r = await call('/verify', { code: f.code.value });
+      f.code.value = '';
+      if (r.pickClient) clients(r); else ready(r);
+    } catch (err) {
       if (err.restart) { $('#signInErr').textContent = err.message; show('about', 'signIn'); }
+      else if (err.chooseAgain) { $('#clientsErr').textContent = err.message; show('about', 'clients'); }
       else $('#codeErr').textContent = err.message;
     }
     finally { $('#codeBtn').disabled = false; }
@@ -192,6 +284,7 @@
       for (const i of document.querySelectorAll('#secrets input')) i.value = '';
       const v = r.appVersion ? ` version ${r.appVersion}` : '';
       $('#doneText').textContent = `${info.appName}${v} is installed in ${r.company}.`;
+      $('#doneNotes').textContent = (r.notes || []).join(' ');
       show('about', 'done');
     } catch (err) {
       if (err.restart) { $('#signInErr').textContent = err.message; show('about', 'signIn'); }

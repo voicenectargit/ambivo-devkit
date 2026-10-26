@@ -1449,7 +1449,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
       update, emit, publicUrl: publicOrigin,
     },
   }) : null;
-  const DEPLOY_ROUTE = /^\/deploy\/([A-Za-z0-9_-]{43})(?:\/(info|sign-in|verify|install|cancel))?$/;
+  const DEPLOY_ROUTE = /^\/deploy\/([A-Za-z0-9_-]{43})(?:\/(info|sign-in|verify|client|install|cancel))?$/;
 
   // ---- requests -----------------------------------------------------------------------------
   const ROUTE = new RegExp(`^/api/projects(?:/(${ID}))?(?:/(events|messages|download|keys|preview|push|share|brief|phases|datamodel|settings|guide|teardown|deploy|jobs|review))?(?:/([a-z][a-z0-9-]{0,39})/(start|approve|reopen|screens))?$`);
@@ -1518,6 +1518,7 @@ export function createApp({ config, driver, keys, github = null, ambivoSessions 
         if (act === 'info' && req.method === 'GET') out = await deploy.info(secret);
         else if (act === 'sign-in' && req.method === 'POST') out = await deploy.signIn(secret, await readBody(req));
         else if (act === 'verify' && req.method === 'POST') out = await deploy.verify(secret, await readBody(req));
+        else if (act === 'client' && req.method === 'POST') out = await deploy.chooseClient(secret, await readBody(req));
         else if (act === 'install' && req.method === 'POST') out = await deploy.install(secret, await readBody(req));
         else if (act === 'cancel' && req.method === 'POST') out = await deploy.cancel(secret);
         else out = [405, { error: 'Not allowed' }];

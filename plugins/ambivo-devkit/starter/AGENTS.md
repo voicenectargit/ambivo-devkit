@@ -891,7 +891,10 @@ removed, and a job that stays keeps its on/off state.
 
 ```js
 const jobsUrl = new URL('./app-jobs.json', import.meta.url);
-if (existsSync(jobsUrl)) {
+if (existsSync(jobsUrl) && process.env.AMBIVO_PARTNER_SESSION === '1') {
+  // A partner installs with partner access: Ambivo refuses /app_job/* there.
+  console.log('jobs: skipped. Partner access cannot add jobs. An admin of the company must install them.');
+} else if (existsSync(jobsUrl)) {
   const jobsCfg = JSON.parse(await readFile(jobsUrl, 'utf8'));
   // Older Ambivo servers read every_minutes on the job itself.
   const jobs = jobsCfg.jobs.map((j) => ({ ...j, ...(j.schedule?.every_minutes ? { every_minutes: j.schedule.every_minutes } : {}) }));
@@ -905,6 +908,10 @@ if (existsSync(jobsUrl)) {
 }
 ```
 
+- `AMBIVO_PARTNER_SESSION=1`: Dev Studio's Deploy sets it when a development partner installs with
+  partner access to the client. Ambivo lets that session change custom objects only, and refuses
+  `/app_job/*` with `PARTNER_ROUTE_NOT_ALLOWED`. So install.mjs installs the objects and skips the jobs.
+  The client's admin installs the jobs and their secrets from a deploy link.
 - `api()` is the install step's own helper (Bearer `AMBIVO_TOKEN`, `AMBIVO_API_URL`). On an error, print
   Ambivo's `error.message` and `error_code`, and stop with exit code 1.
 - `APP_JOB_REQUIRES_PRO`: the company is not on Pro. Print it plainly. The objects are installed already.
